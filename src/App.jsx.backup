@@ -1,0 +1,446 @@
+import { useState, useEffect } from 'react'
+import { supabase } from './supabase'
+import Auth from './components/Auth'
+import Sidebar from './components/Sidebar'
+import Header from './components/Header'
+import Overview from './components/Overview'
+import Kingdom from './components/Kingdom'
+import Battle from './components/Battle'
+import Barracks from './components/Barracks'
+import Reports from './components/Reports'
+import AdminPanel from './components/AdminPanel'
+import GoldMine from './components/GoldMine'
+import Vault from './components/Vault'
+import Profile from './components/Profile'
+import Mail from './components/Mail'
+import ChatBubbles from './components/ChatBubbles'
+import Library from './components/Library'
+import Armoury from './components/Armoury'
+import { KINGDOM_LEVELS, GAME_RATES } from './gameConfig'
+
+// Placeholder for pages not yet implemented
+const PagePlaceholder = ({ title }) => (
+    <div className="flex flex-col items-center justify-center h-full text-[#8b4513]/60">
+        <div className="text-6xl mb-4 opacity-50">🚧</div>
+        <h2 className="text-2xl font-bold mb-2">{title}</h2>
+        <p>This area of the kingdom is still under construction.</p>
+    </div>
+)
+
+export default function App() {
+    const [session, setSession] = useState(null)
+    const [stats, setStats] = useState({
+        gold: 0,
+        experience: 0,
+        turns: 0,
+        vault: 0,
+        rank: 1,
+        citizens: 0,
+        kingdom_level: 0,
+        attack: 0,
+        defense: 0,
+        spy: 0,
+        sentry: 0,
+        attack_soldiers: 0,
+        defense_soldiers: 0,
+        spies: 0,
+        sentries: 0,
+        miners: 0,
+        gold_mine_level: 0,
+        vault_level: 0,
+        library_level: 1,
+        research_turns_per_min: 0,
+        research_weapons: 0,
+        use_vault_gold: false
+    })
+    const [currentPage, setCurrentPage] = useState('Overview')
+    const [serverTime, setServerTime] = useState(new Date())
+    const [lastProcessedTime, setLastProcessedTime] = useState(Date.now())
+    const [isAdmin, setIsAdmin] = useState(false)
+    const [showAdmin, setShowAdmin] = useState(false)
+    const [viewingUserId, setViewingUserId] = useState(null) // For viewing other players' profiles
+
+    useEffect(() => {
+        console.log('[Session Init] Starting session check...');
+        supabase.auth.getSession().then(async ({ data: { session } }) => {
+            console.log('[Session Init] Got session:', session ? 'Valid session' : 'No session');
+            setSession(session)
+            if (session) {
+                console.log('[Session Init] Calling fetchStats for user:', session.user.id);
+                await fetchStats(session.user.id)
+                console.log('[Session Init] Calling generateResources...');
+                generateResources()
+            } else {
+                console.log('[Session Init] No session found, user needs to log in');
+            }
+        }).catch(error => {
+            console.error('[Session Init] Error getting session:', error);
+        })
+
+        const {
+            data: { subscription },
+        } = supabase.auth.onAuthStateChange(async (_event, session) => {
+            console.log('[Auth State Change] Event:', _event, 'Session:', session ? 'Valid' : 'None');
+            setSession(session)
+            if (session) {
+                console.log('[Auth State Change] Calling fetchStats for user:', session.user.id);
+                await fetchStats(session.user.id)
+                console.log('[Auth State Change] Calling generateResources...');
+                generateResources()
+            }
+        })
+
+        return () => subscription.unsubscribe()
+    }, [])
+
+    // Game Loop for Resource Generation
+    useEffect(() => {
+        if (!session) return
+
+        const timer = setInterval(() => {
+            const now = Date.now()
+            const currentDate = new Date(now)
+            setServerTime(currentDate)
+
+            // Check if enough time has passed (60 seconds)
+            const timeSinceLastUpdate = now - lastProcessedTime
+
+            if (timeSinceLastUpdate >= 60000) {
+                const minutesPassed = Math.floor(timeSinceLastUpdate / 60000)
+                generateResources(minutesPassed)
+                // Advance lastProcessedTime by the exact amount of minutes processed
+                // This keeps it aligned to the original start time but prevents drift
+                setLastProcessedTime(prev => prev + (minutesPassed * 60000))
+            }
+        }, 1000)
+
+            .from('user_stats')
+            .select('*')
+            .eq('id', userId)
+            .single()
+
+        if (statsError && statsError.code === 'PGRST116') {
+            console.log('[fetchStats] User stats not found, creating new record...');
+            // User doesn't exist, create them
+            const { data: newData, error: insertError } = await supabase
+                .from('user_stats')
+                .insert([{
+                    id: userId,
+                    citizens: 2,
+                    experience: 1000
+                }])
+                .select()
+                .single()
+
+            if (insertError) {
+                console.error('[fetchStats] Insert error:', insertError);
+                throw insertError;
+            }
+            userStats = newData
+            console.log('[fetchStats] Created new user stats:', userStats);
+        } else if (statsError) {
+            console.error('[fetchStats] Stats fetch error:', statsError);
+            throw statsError;
+        } else {
+            console.log('[fetchStats] User stats loaded:', userStats);
+        }
+
+        // Fetch ranks from leaderboard (View)
+        console.log('[fetchStats] Fetching leaderboard ranks...');
+        const { data: rankData, error: rankError } = await supabase
+            .from('leaderboard')
+            .select('rank_attack, rank_defense, rank_spy, rank_sentry, overall_rank')
+            .eq('id', userId)
+            .single()
+
+        if (rankError) {
+            console.warn('[fetchStats] Leaderboard fetch error (non-critical):', rankError);
+        } else {
+            console.log('[fetchStats] Rank data:', rankData);
+        }
+
+        if (userStats) {
+            // Stats are now pre-calculated server-side, just merge with rank data
+            const finalStats = {
+                ...userStats,
+                ...(rankData || {}) // Add ranks if available
+            }
+
+            console.log('[fetchStats] Final stats to set:', finalStats);
+            setStats(finalStats)
+            // Sync local time tracker with DB time to handle page reloads/cross-device
+            const dbTime = finalStats.updated_at ? new Date(finalStats.updated_at).getTime() : Date.now()
+            setLastProcessedTime(dbTime)
+            console.log('[fetchStats] Stats successfully loaded');
+        } else {
+            console.error('[fetchStats] userStats is null/undefined after fetch');
+        }
+    } catch (error) {
+        console.error('[fetchStats] Critical error:', error)
+        alert('Failed to load game data. Please refresh the page. Error: ' + error.message);
+    }
+}
+
+const generateResources = async (multiplier = 1) => {
+    try {
+        // Call server-side resource generation function
+        const { data, error } = await supabase.rpc('generate_resources');
+
+        if (error) {
+            console.error('Error generating resources:', error);
+            return;
+        }
+
+        // Update local state with server-calculated values
+        if (data) {
+            setStats(prev => ({ ...prev, ...data }));
+        }
+    } catch (err) {
+        console.error('Resource generation failed:', err);
+    }
+}
+
+const handleKingdomAction = async () => {
+    try {
+        const { data, error } = await supabase.rpc('upgrade_kingdom');
+
+        if (error) throw error;
+
+        if (data) {
+            setStats(prev => ({ ...prev, ...data }));
+        }
+    } catch (error) {
+        console.error('Error upgrading kingdom:', error);
+        alert('Failed to upgrade kingdom: ' + error.message);
+    }
+};
+
+const handleBuildKingdom = handleKingdomAction;
+const handleUpgradeKingdom = handleKingdomAction;
+
+const handleViewProfile = (userId) => {
+    setViewingUserId(userId);
+    // Don't change page, just open modal
+};
+
+const handleLogout = async () => {
+    await supabase.auth.signOut()
+    setStats({
+        gold: 0,
+        experience: 0,
+        turns: 0,
+        vault: 0,
+        rank: 1,
+        citizens: 0,
+        kingdom_level: 0,
+        attack: 0,
+        defense: 0,
+        spy: 0,
+        sentry: 0,
+        attack_soldiers: 0,
+        defense_soldiers: 0,
+        spies: 0,
+        sentries: 0,
+        miners: 0,
+        gold_mine_level: 0,
+        library_level: 1,
+        research_turns_per_min: 0
+    })
+    setIsAdmin(false)
+    setShowAdmin(false)
+    setViewingUserId(null)
+}
+
+if (!session) {
+    return (
+        <div className="min-h-screen bg-[#fdfbf7] flex items-center justify-center relative overflow-hidden">
+            {/* Background Pattern */}
+            <div className="absolute inset-0 opacity-5 pointer-events-none">
+                <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/wood-pattern.png')]"></div>
+            </div>
+            <Auth onLogin={(user) => {
+                setSession({ user })
+                fetchStats(user.id)
+            }} />
+        </div>
+    )
+}
+
+return (
+    <div className="min-h-screen bg-[#fdfbf7] text-[#5c4033] font-serif flex flex-col relative">
+        {/* Background Texture */}
+        <div className="fixed inset-0 opacity-5 pointer-events-none z-0">
+            <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/wood-pattern.png')]"></div>
+        </div>
+
+        <Header
+            currentPage={currentPage}
+            onNavigate={(page) => {
+                setCurrentPage(page);
+                if (page === 'Profile') {
+                    setViewingUserId(null); // Reset to own profile
+                }
+            }}
+            onLogout={handleLogout}
+            serverTime={serverTime}
+            user={session.user}
+            isAdmin={isAdmin}
+            onOpenAdmin={() => setShowAdmin(true)}
+        />
+
+        <div className="flex flex-1 relative z-10 overflow-hidden">
+            <Sidebar {...stats} />
+
+            <main className="flex-1 overflow-y-auto p-8">
+                <div className="max-w-5xl mx-auto">
+                    {currentPage === 'Overview' && <Overview stats={stats} />}
+                    {currentPage === 'Kingdom' && (
+                        <Kingdom
+                            kingdomLevel={stats.kingdom_level}
+                            citizens={stats.citizens}
+                            experience={stats.experience}
+                            onBuild={handleBuildKingdom}
+                            onUpgrade={handleUpgradeKingdom}
+                            userStats={stats}
+                            onNavigate={setCurrentPage}
+                            onUpdate={(newStats) => {
+                                setStats(prev => ({ ...prev, ...newStats }))
+                                fetchStats(session.user.id) // Sync with DB
+                            }}
+                        />
+                    )}
+                    {currentPage === 'Battle' && (
+                        <Battle
+                            userStats={stats}
+                            onNavigate={setCurrentPage}
+                            onAction={() => fetchStats(session.user.id)}
+                            onViewProfile={handleViewProfile}
+                        />
+                    )}
+                    {currentPage === 'Barracks' && (
+                        <Barracks
+                            userStats={stats}
+                            onUpdate={(newStats) => {
+                                setStats(prev => ({ ...prev, ...newStats }))
+                                fetchStats(session.user.id) // Sync with DB
+                            }}
+                        />
+                    )}
+                    {currentPage === 'GoldMine' && (
+                        <GoldMine
+                            userStats={stats}
+                            onUpdate={(newStats) => {
+                                setStats(prev => ({ ...prev, ...newStats }))
+                                fetchStats(session.user.id) // Sync with DB
+                            }}
+                        />
+                    )}
+                    {currentPage === 'Army' && <div className="p-10 text-center text-[#8b4513]/40 text-xl">Army Management Coming Soon...</div>}
+                    {currentPage === 'Map' && <div className="p-10 text-center text-[#8b4513]/40 text-xl">World Map Coming Soon...</div>}
+                    {currentPage === 'Reports' && <Reports />}
+                    {currentPage === 'Mail' && <Mail session={session} />}
+                    {currentPage === 'Alliance' && <PagePlaceholder title="Alliance" />}
+                    {currentPage === 'Profile' && (
+                        <Profile
+                            userId={session.user.id} // Always show own profile on main page
+                            isOwnProfile={true}
+                            session={session}
+                            onNavigate={setCurrentPage}
+                            onAction={() => fetchStats(session.user.id)}
+                        />
+                    )}
+                    {currentPage === 'Vault' && (
+                        <Vault
+                            user={stats}
+                            onUpdate={(newStats) => {
+                                setStats(prev => ({ ...prev, ...newStats }))
+                                fetchStats(session.user.id) // Sync with DB
+                            }}
+                        />
+                    )}
+                    {currentPage === 'Armoury' && (
+                        <Armoury
+                            userStats={stats}
+                            onUpdate={(newStats) => {
+                                setStats(prev => ({ ...prev, ...newStats }))
+                                fetchStats(session.user.id)
+                            }}
+                        />
+                    )}
+                    {currentPage === 'Library' && (
+                        <Library
+                            userStats={stats}
+                            onUpdate={(newStats) => {
+                                setStats(prev => ({ ...prev, ...newStats }))
+                                fetchStats(session.user.id) // Sync with DB
+                            }}
+                        />
+                    )}
+                </div>
+            </main>
+        </div>
+
+        {showAdmin && <AdminPanel
+            onClose={() => setShowAdmin(false)}
+            onUserUpdate={() => fetchStats(session.user.id)}
+            onWorldReset={() => {
+                // Reset local state immediately to prevent race condition
+                setStats({
+                    gold: 0,
+                    experience: 1000,
+                    turns: 0,
+                    vault: 0,
+                    rank: 1,
+                    citizens: 2,
+                    kingdom_level: 0,
+                    attack: 0,
+                    defense: 0,
+                    spy: 0,
+                    sentry: 0,
+                    attack_soldiers: 0,
+                    defense_soldiers: 0,
+                    spies: 0,
+                    sentries: 0,
+                    miners: 0,
+                    gold_mine_level: 0,
+                    library_level: 1,
+                    research_turns_per_min: 0,
+                    research_weapons: 0,
+                    vault_level: 0,
+                    use_vault_gold: false
+                });
+                fetchStats(session.user.id);
+            }}
+        />
+        }
+
+        {/* Profile Modal */}
+        {viewingUserId && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fade-in">
+                <div className="bg-[#fdfbf7] w-full max-w-5xl h-[85vh] rounded-xl shadow-2xl flex flex-col overflow-hidden border border-[#8b4513]/20 relative">
+                    <button
+                        onClick={() => setViewingUserId(null)}
+                        className="absolute top-4 right-4 z-10 p-2 bg-[#fdfbf7]/80 rounded-full hover:bg-[#8b4513]/10 transition-colors text-[#8b4513]"
+                    >
+                        ✕
+                    </button>
+                    <div className="flex-1 overflow-y-auto p-6">
+                        <Profile
+                            userId={viewingUserId}
+                            isOwnProfile={false}
+                            session={session}
+                            onNavigate={(page) => {
+                                setViewingUserId(null);
+                                setCurrentPage(page);
+                            }}
+                            onAction={() => fetchStats(session.user.id)}
+                        />
+                    </div>
+                </div>
+            </div>
+        )}
+
+        <ChatBubbles session={session} />
+    </div >
+)
+}
