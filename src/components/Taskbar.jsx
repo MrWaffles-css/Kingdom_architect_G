@@ -83,7 +83,7 @@ const Taskbar = ({ openWindows, activeWindowId, onWindowClick, onStartClick, sta
 
 
     return (
-        <div className="fixed bottom-0 left-0 right-0 h-10 bg-[#c0c0c0] border-t-2 border-white flex items-center px-1 z-50 select-none">
+        <div className="fixed bottom-0 left-0 right-0 h-[calc(2.5rem+env(safe-area-inset-bottom))] pb-[env(safe-area-inset-bottom)] bg-[#c0c0c0] border-t-2 border-white flex items-center px-1 z-50 select-none">
             <button
                 className="flex items-center gap-1 font-bold px-2 py-1 mr-2 bg-[#c0c0c0] border-2 border-white border-r-black border-b-black active:border-black active:border-r-white active:border-b-white active:bg-gray-300 shadow active:shadow-none transition-none"
                 onClick={onStartClick}
