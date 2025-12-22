@@ -360,6 +360,7 @@ const Desktop = ({
                             badge={feature.id === 'mail' ? unreadMailCount : 0}
                             style={{ left: position.x, top: position.y }}
                             onMouseDown={(e) => handleIconDragStart(e, feature.id)}
+                            className="absolute"
                         />
 
                     </React.Fragment>

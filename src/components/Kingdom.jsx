@@ -24,7 +24,7 @@ export default function Kingdom({ kingdomLevel, citizens, experience, onBuild, o
             </div>
 
             {/* Core Stats */}
-            <div className="grid grid-cols-2 gap-4 mb-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 <fieldset className="border-2 border-white border-l-gray-500 border-t-gray-500 p-2 text-center bg-gray-100">
                     <legend className="px-1 text-xs">Citizens</legend>
                     <div className="text-2xl font-bold">{formatNumber(citizens)}</div>

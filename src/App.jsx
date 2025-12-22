@@ -138,14 +138,14 @@ export default function App() {
     // Loading State
     if (loading) {
         return (
-            <div className="min-h-screen bg-[#008080] flex items-center justify-center">
-                <div className="window" style={{ width: 300 }}>
+            <div className="min-h-screen bg-[#008080] flex items-center justify-center p-4">
+                <div className="window w-full max-w-[300px]">
                     <div className="title-bar">
                         <div className="title-bar-text">Loading...</div>
                         <div className="title-bar-controls"></div>
                     </div>
                     <div className="window-body text-center p-4">
-                        <p>Starting Windows 98...</p>
+                        <p>Loading Kingdom Architect...</p>
                         <div className="h-4 w-full bg-white border border-gray-600 mt-2 relative">
                             <div className="absolute top-0 left-0 h-full bg-[#000080] animate-[shimmer_2s_infinite]"></div>
                             {/* Simple loading bars */}
@@ -169,10 +169,10 @@ export default function App() {
 
     if (isMaintenanceMode && !isAdmin) {
         return (
-            <div className="min-h-screen bg-[#008080] flex items-center justify-center font-sans">
+            <div className="min-h-screen bg-[#008080] flex items-center justify-center font-sans p-2">
 
                 {/* Wizard Window */}
-                <div className="w-[500px] bg-[#c0c0c0] border-2 border-white border-r-gray-800 border-b-gray-800 shadow-xl flex flex-col p-[2px]">
+                <div className="w-full max-w-[500px] bg-[#c0c0c0] border-2 border-white border-r-gray-800 border-b-gray-800 shadow-xl flex flex-col p-[2px]">
 
                     {/* Title Bar */}
                     <div className="bg-[#000080] h-5 flex items-center justify-between px-1 mb-1">
@@ -266,8 +266,8 @@ export default function App() {
     // Error State
     if (error) {
         return (
-            <div className="min-h-screen bg-[#008080] flex items-center justify-center">
-                <div className="window" style={{ width: 350 }}>
+            <div className="min-h-screen bg-[#008080] flex items-center justify-center p-4">
+                <div className="window w-full max-w-[350px]">
                     <div className="title-bar">
                         <div className="title-bar-text">Error</div>
                         <div className="title-bar-controls">

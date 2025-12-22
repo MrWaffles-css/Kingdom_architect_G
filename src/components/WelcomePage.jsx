@@ -86,22 +86,33 @@ export default function WelcomePage({ onLogin }) {
             className="w-full h-screen bg-[#008080] overflow-hidden relative font-sans text-sm select-none flex flex-col"
             onClick={() => setStartMenuOpen(false)}
         >
-            {/* Desktop Icons */}
-            {desktopIcons.map((item, index) => (
-                <DesktopIcon
-                    key={item.id}
-                    label={item.label}
-                    icon={item.icon}
-                    onClick={(e) => { e.stopPropagation(); item.action(); }}
-                    style={{ top: 20 + (index * 100), left: 20 }}
-                />
-            ))}
+            {/* Desktop Icons - Mobile Friendly Flow */}
+            <div className="absolute top-0 left-0 bottom-10 right-0 p-4 flex flex-col flex-wrap gap-4 content-start pointer-events-none z-10 md:block md:p-0">
+                {desktopIcons.map((item, index) => (
+                    <div
+                        key={item.id}
+                        className="pointer-events-auto md:absolute"
+                        style={{
+                            // Applied when position is absolute (on desktop via md:absolute)
+                            top: 20 + (index * 100),
+                            left: 20
+                        }}
+                    >
+                        <DesktopIcon
+                            label={item.label}
+                            icon={item.icon}
+                            onClick={(e) => { e.stopPropagation(); item.action(); }}
+                        // DesktopIcon is static inside the positioned wrapper on desktop
+                        />
+                    </div>
+                ))}
+            </div>
 
             {/* Desktop Content */}
-            <div className="flex-1 flex items-center justify-center p-8">
-                <div className="text-center">
-                    <div className="mb-8">
-                        <img src={logo} alt="Kingdom Architect" className="w-96 h-auto mb-4 pixelated mx-auto drop-shadow-2xl" />
+            <div className="flex-1 flex items-center justify-center p-4 md:p-8 z-0">
+                <div className="text-center w-full max-w-md md:max-w-xl">
+                    <div className="mb-4 md:mb-8">
+                        <img src={logo} alt="Kingdom Architect" className="w-64 md:w-96 h-auto mb-4 pixelated mx-auto drop-shadow-2xl" />
 
                         {timeLeftToStart ? (
                             <div className="w-64 mx-auto bg-[#c0c0c0] border-2 border-white border-r-black border-b-black p-[2px] shadow-xl text-left relative">

@@ -60,7 +60,7 @@ export default function Barracks({ userStats, onUpdate }) {
     return (
         <div className="space-y-4 font-sans text-black">
             {/* Header Info */}
-            <div className="flex justify-between items-end border-b-2 border-gray-400 pb-2 mb-4">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-end border-b-2 border-gray-400 pb-2 mb-4 gap-2">
                 <div>
                     <h1 className="text-xl font-bold">Barracks</h1>
                     <p className="text-sm">Train your citizens into powerful units.</p>

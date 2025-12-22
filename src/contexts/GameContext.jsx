@@ -69,8 +69,8 @@ export function GameProvider({ children }) {
         try {
             setError(null)
 
-            // Parallel Fetching: Get all data at once with timeout
-            console.log('[refreshUserData] Fetching profiles, user_stats, and leaderboard...')
+            // Parallel Fetching: Get Core Data First
+            console.log('[refreshUserData] Fetching Core Data (Profile + Stats)...')
 
             // Create a timeout promise
             const timeoutPromise = new Promise((_, reject) =>
@@ -78,20 +78,15 @@ export function GameProvider({ children }) {
             )
 
             // Race between actual fetch and timeout
-            const [profileResponse, statsResponse, rankResponse] = await Promise.race([
+            const [profileResponse, statsResponse] = await Promise.race([
                 Promise.all([
                     supabase.from('profiles').select('is_admin, desktop_layout').eq('id', userId).single(),
-                    supabase.from('user_stats').select('*').eq('id', userId).single(),
-                    supabase.from('leaderboard').select('rank_attack, rank_defense, rank_spy, rank_sentry, overall_rank').eq('id', userId).maybeSingle()
+                    supabase.from('user_stats').select('*').eq('id', userId).single()
                 ]),
                 timeoutPromise
             ])
 
-            console.log('[refreshUserData] Fetch complete:', {
-                profile: profileResponse.data ? 'OK' : profileResponse.error,
-                stats: statsResponse.data ? 'OK' : statsResponse.error,
-                rank: rankResponse.data ? 'OK' : 'No data'
-            })
+            console.log('[refreshUserData] Core fetch complete')
 
             // 1. Process Admin Status
             if (profileResponse.data) {
@@ -122,24 +117,32 @@ export function GameProvider({ children }) {
                 throw statsError
             }
 
-            // 3. Process Leaderboard & Season
-            const rankData = rankResponse.data || {}
-
-
-
-            // 4. Merge and Update State
+            // 3. Update State with Core Data IMMEDIATELY
             if (userStats) {
-                const finalStats = { ...defaultStats, ...userStats, ...rankData }
-                setStats(finalStats)
-                console.log('[refreshUserData] Stats updated successfully')
+                const initialStats = { ...defaultStats, ...userStats }
+                setStats(prev => ({ ...prev, ...initialStats })) // Merge to keep existing data if any
+                console.log('[refreshUserData] Core stats updated')
 
                 // Sync time
-                const dbTime = finalStats.updated_at ? new Date(finalStats.updated_at).getTime() : Date.now()
+                const dbTime = initialStats.updated_at ? new Date(initialStats.updated_at).getTime() : Date.now()
                 setLastProcessedTime(dbTime)
             } else {
-                console.error('[refreshUserData] No user stats available after processing')
                 throw new Error('No user stats available')
             }
+
+            // 4. Fetch Leaderboard in background (Passive Update)
+            supabase.from('leaderboard')
+                .select('rank_attack, rank_defense, rank_spy, rank_sentry, overall_rank')
+                .eq('id', userId)
+                .maybeSingle()
+                .then(({ data: rankData, error: rankError }) => {
+                    if (rankData) {
+                        console.log('[refreshUserData] Rank data loaded:', rankData)
+                        setStats(prev => ({ ...prev, ...rankData }))
+                    } else if (rankError) {
+                        console.error('[refreshUserData] Rank fetch error:', rankError)
+                    }
+                })
 
         } catch (err) {
             console.error('[refreshUserData] Data fetch error:', err)
@@ -180,18 +183,21 @@ export function GameProvider({ children }) {
 
         const init = async () => {
             try {
-                // Check Maintenance Mode First
-                const { data: maintenanceData, error: maintenanceError } = await supabase.rpc('get_maintenance_mode');
+                // Parallelize initial critical checks
+                const [
+                    { data: maintenanceData, error: maintenanceError },
+                    { data: { session: initialSession }, error: sessionError }
+                ] = await Promise.all([
+                    supabase.rpc('get_maintenance_mode'),
+                    supabase.auth.getSession()
+                ]);
+
                 if (!maintenanceError) {
                     setIsMaintenanceMode(maintenanceData);
                 }
 
-                // Get initial session
-                const { data: { session: initialSession }, error: sessionError } = await supabase.auth.getSession()
-
                 if (sessionError) {
                     console.error('Session error:', sessionError)
-                    // If we get a session error, clear the stale session
                     await supabase.auth.signOut()
                     throw sessionError
                 }

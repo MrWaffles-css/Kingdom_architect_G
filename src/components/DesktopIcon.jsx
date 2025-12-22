@@ -3,7 +3,7 @@ import React from 'react';
 const DesktopIcon = ({ label, icon, badge, ...props }) => {
     return (
         <div
-            className="flex flex-col items-center justify-start p-2 cursor-pointer hover:bg-white/20 border border-transparent hover:border-white/20 rounded w-20 h-24 text-center group absolute select-none"
+            className={`flex flex-col items-center justify-start p-2 cursor-pointer hover:bg-white/20 border border-transparent hover:border-white/20 rounded w-20 h-24 text-center group select-none ${props.className || ''}`}
             {...props}
         >
             <div className="w-8 h-8 mb-1 flex items-center justify-center filter drop-shadow-md pointer-events-none relative">

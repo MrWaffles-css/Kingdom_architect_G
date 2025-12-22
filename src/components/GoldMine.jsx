@@ -90,7 +90,7 @@ export default function GoldMine({ userStats, onUpdate }) {
                 </div>
             </div>
 
-            <div className="flex gap-4">
+            <div className="flex flex-col md:flex-row gap-4">
                 {/* Upgrade Section */}
                 <fieldset className="flex-1 border-2 border-white border-l-gray-500 border-t-gray-500 p-4 relative">
                     <legend className="px-1 text-sm font-bold">Infrastructure</legend>
@@ -99,7 +99,7 @@ export default function GoldMine({ userStats, onUpdate }) {
                         <>
                             <div className="mb-4">
                                 <div className="text-xs font-bold text-gray-600 uppercase mb-1">Upgrade Benefits</div>
-                                <div className="bg-gray-100 border border-gray-400 p-2 text-sm grid grid-cols-2 gap-2">
+                                <div className="bg-gray-100 border border-gray-400 p-2 text-sm grid grid-cols-1 sm:grid-cols-2 gap-2">
                                     <div>
                                         <div className="text-xs text-gray-500">Gold / Miner</div>
                                         <div className="font-bold">{currentStats.production_rate} → {nextStats.production_rate}</div>

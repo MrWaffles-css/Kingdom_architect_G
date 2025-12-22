@@ -25,41 +25,28 @@ const Window = ({ title, isOpen, onClose, onMinimize, isActive, onFocus, childre
             setIsMobile(mobile);
 
             if (mobile) {
-                // On mobile, constrain the window to fit the screen
-                const screenWidth = window.innerWidth;
-                const screenHeight = window.innerHeight;
-                const safeMaxWidth = screenWidth - 20; // 10px padding on each side
-                const safeMaxHeight = screenHeight - 60; // Account for taskbar
+                // On mobile, force the window to take up most of the screen
+                // We leave a small margin for aesthetics and potential touch targets behind (though minimal)
+                const margin = 10;
+                const availableWidth = window.innerWidth - (margin * 2);
 
-                // 1. Determine the target width for mobile
-                // If current width is auto, fall back to default width prop, but cap at safeMaxWidth
-                const currentW = (size.width && size.width !== 'auto') ? size.width : width;
-                const correctedWidth = Math.min(currentW, safeMaxWidth);
+                // Account for taskbar height (approx 40px) plus header
+                const availableHeight = window.innerHeight - 50;
 
-                setSize(prev => ({
-                    width: correctedWidth,
-                    height: prev.height === 'auto' ? 'auto' : Math.min(prev.height, safeMaxHeight)
-                }));
-
-                // 2. Correct position ensures: 10 <= x <= screenWidth - width - 10
-                setPosition(prev => {
-                    const maxSafeX = screenWidth - correctedWidth - 10;
-                    // Clamp X
-                    const newX = Math.min(Math.max(10, prev.x), maxSafeX);
-
-                    // Clamp Y (ensure top is visible, usually enough)
-                    // We assume height might expand, but title bar must be accessible.
-                    const newY = Math.max(10, Math.min(prev.y, safeMaxHeight - 100));
-
-                    return { x: newX, y: newY };
+                setSize({
+                    width: availableWidth,
+                    height: 'auto' // Allow content to dictate height, but max-height is controlled by CSS
                 });
+
+                // Force position to top-left with margin
+                setPosition({ x: margin, y: margin });
             }
         };
 
         checkMobile();
         window.addEventListener('resize', checkMobile);
         return () => window.removeEventListener('resize', checkMobile);
-    }, [width, size.width]); // Re-run if width changes to ensure bounds are kept
+    }, [width]); // Re-run if width prop changes, but primarily on resize
 
     if (!isOpen) return null;
 
@@ -135,6 +122,7 @@ const Window = ({ title, isOpen, onClose, onMinimize, isActive, onFocus, childre
 
         const handleMouseMove = (e) => handleMove(e.clientX, e.clientY);
         const handleTouchMove = (e) => {
+            if (isMobile) return; // Disable touch drag on mobile
             if (isDragging || isResizing) {
                 // Prevent scrolling while dragging window
                 e.preventDefault();
