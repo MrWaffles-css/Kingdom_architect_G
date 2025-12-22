@@ -482,8 +482,7 @@ const Desktop = ({
 
             {/* Start Menu */}
             {startMenuOpen && (
-
-                <div className="absolute bottom-10 left-0 w-48 bg-[#c0c0c0] border-2 border-white border-r-gray-800 border-b-gray-800 shadow-md flex flex-col z-50 animate-fade-in origin-bottom-left">
+                <div className="absolute bottom-[calc(2.5rem+env(safe-area-inset-bottom))] left-0 w-48 bg-[#c0c0c0] border-2 border-white border-r-gray-800 border-b-gray-800 shadow-md flex flex-col z-50 animate-fade-in origin-bottom-left">
                     {/* Side Bar */}
                     <div className="absolute left-0 top-0 bottom-0 w-6 bg-gradient-to-b from-[#000080] to-[#1084d0] flex items-end justify-center pb-2">
                         <span className="text-white font-bold text-lg -rotate-90 whitespace-nowrap mb-6 origin-center">Kingdom</span>
