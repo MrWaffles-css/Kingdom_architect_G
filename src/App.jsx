@@ -135,27 +135,8 @@ export default function App() {
         setViewingUserId(null)
     }
 
-    // Loading State
-    if (loading) {
-        return (
-            <div className="min-h-screen bg-[#008080] flex items-center justify-center p-4">
-                <div className="window w-full max-w-[300px]">
-                    <div className="title-bar">
-                        <div className="title-bar-text">Loading...</div>
-                        <div className="title-bar-controls"></div>
-                    </div>
-                    <div className="window-body text-center p-4">
-                        <p>Loading Kingdom Architect...</p>
-                        <div className="h-4 w-full bg-white border border-gray-600 mt-2 relative">
-                            <div className="absolute top-0 left-0 h-full bg-[#000080] animate-[shimmer_2s_infinite]"></div>
-                            {/* Simple loading bars */}
-                            <div className="h-full bg-blue-800 w-1/2 animate-pulse"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        )
-    }
+    // Loading State - Removed per user request
+    // if (loading) { ... }
 
     // Auth State
     if (!session) {
