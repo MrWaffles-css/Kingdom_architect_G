@@ -143,7 +143,7 @@ const Window = ({ title, isOpen, onClose, onMinimize, isActive, onFocus, childre
         left: 0,
         top: isMobile ? '40px' : 0,
         width: '100vw',
-        height: isMobile ? 'calc(100dvh - 86px - env(safe-area-inset-bottom))' : 'calc(100vh - 40px)', // Increased offset to 86px and used dvh
+        height: isMobile ? 'calc(100dvh - 80px - env(safe-area-inset-bottom))' : 'calc(100vh - 40px)', // Exact calculation: 40px Top + 40px Bottom
         zIndex: isActive ? 10 : 1
     } : {
         position: 'absolute',
