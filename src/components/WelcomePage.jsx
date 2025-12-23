@@ -264,7 +264,7 @@ function WindowWrapper({ title, onClose, children }) {
     return (
         <div className="absolute inset-0 flex items-center justify-center z-50 bg-black bg-opacity-30">
             <div
-                className="bg-[#c0c0c0] shadow-xl border-2 border-white border-r-gray-600 border-b-gray-600 w-full h-[calc(100vh-2.5rem-env(safe-area-inset-bottom))] md:w-auto md:h-auto md:max-w-[90vw] md:max-h-[90vh] flex flex-col"
+                className="bg-[#c0c0c0] shadow-xl border-2 border-white border-r-gray-600 border-b-gray-600 w-full h-[calc(100dvh-2.5rem-env(safe-area-inset-bottom))] md:w-auto md:h-auto md:max-w-[90vw] md:max-h-[90vh] flex flex-col"
                 onClick={(e) => e.stopPropagation()}
             >
                 {/* Title Bar */}
