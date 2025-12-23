@@ -7,7 +7,6 @@ export default function Battle({ userStats, onNavigate, onAction, onViewProfile 
     const [page, setPage] = useState(0);
     const [totalPlayers, setTotalPlayers] = useState(0);
     const [errorMsg, setErrorMsg] = useState(null);
-    const [spyReport, setSpyReport] = useState(null);
     const [attackResult, setAttackResult] = useState(null);
     const [actionLoading, setActionLoading] = useState(null);
     const ITEMS_PER_PAGE = 10;
@@ -88,9 +87,13 @@ export default function Battle({ userStats, onNavigate, onAction, onViewProfile 
             if (error) throw error;
 
             if (data.success) {
-                setSpyReport({ name: targetName, ...data.data });
                 // Refresh global stats (turns if spy cost turns, though currently 0)
                 if (onAction) onAction();
+
+                // Open new Spy Report Window
+                if (onNavigate) {
+                    onNavigate('SpyReport', { spyReport: { name: targetName, ...data.data } });
+                }
             } else {
                 alert(`SPY FAILED! \n\n${data.message}`);
             }
@@ -166,65 +169,7 @@ export default function Battle({ userStats, onNavigate, onAction, onViewProfile 
                 </div>
             )}
 
-            {/* Spy Report Modal Window */}
-            {spyReport && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-                    <div className="bg-[#c0c0c0] border-2 border-white border-r-gray-800 border-b-gray-800 p-1 shadow-xl max-w-md w-full">
-                        <div className="bg-[#000080] px-2 py-1 text-white font-bold flex justify-between items-center">
-                            <span>Spy Report: {spyReport.name}</span>
-                            <button onClick={() => {
-                                if (spyReport.name === 'Clippy') window.location.reload();
-                                else setSpyReport(null);
-                            }} className="bg-[#c0c0c0] text-black w-5 h-4 text-xs flex items-center justify-center border border-white border-r-black border-b-black font-bold">✕</button>
-                        </div>
-                        <div className="p-4 space-y-4">
-                            <div className="grid grid-cols-2 gap-4">
-                                <fieldset className="border border-white border-l-gray-600 border-t-gray-600 p-2 bg-white">
-                                    <legend className="text-[10px] uppercase font-bold px-1">Gold</legend>
-                                    <div className="font-bold">{formatNumber(spyReport.gold)}</div>
-                                </fieldset>
-                                <fieldset className="border border-white border-l-gray-600 border-t-gray-600 p-2 bg-white">
-                                    <legend className="text-[10px] uppercase font-bold px-1">Citizens</legend>
-                                    <div className="font-bold">{formatNumber(spyReport.citizens)}</div>
-                                </fieldset>
-                            </div>
 
-                            <fieldset className="border-2 border-white border-l-gray-500 border-t-gray-500 p-2">
-                                <legend className="px-1 text-xs font-bold">Combat Stats</legend>
-                                <div className="grid grid-cols-2 gap-2 text-sm">
-                                    <div className="flex justify-between"><span>Attack:</span> <span className="font-bold">{formatNumber(spyReport.attack)}</span></div>
-                                    <div className="flex justify-between"><span>Defense:</span> <span className="font-bold">{formatNumber(spyReport.defense)}</span></div>
-                                    <div className="flex justify-between"><span>Spy:</span> <span className="font-bold">{formatNumber(spyReport.spy)}</span></div>
-                                    <div className="flex justify-between"><span>Sentry:</span> <span className="font-bold">{formatNumber(spyReport.sentry)}</span></div>
-                                </div>
-                            </fieldset>
-
-                            <fieldset className="border-2 border-white border-l-gray-500 border-t-gray-500 p-2">
-                                <legend className="px-1 text-xs font-bold">Army Units</legend>
-                                <div className="grid grid-cols-2 gap-2 text-sm">
-                                    <div className="flex justify-between"><span>Att. Soldiers:</span> <span className="font-bold">{formatNumber(spyReport.attack_soldiers)}</span></div>
-                                    <div className="flex justify-between"><span>Def. Soldiers:</span> <span className="font-bold">{formatNumber(spyReport.defense_soldiers)}</span></div>
-                                    <div className="flex justify-between"><span>Spies:</span> <span className="font-bold">{formatNumber(spyReport.spies)}</span></div>
-                                    <div className="flex justify-between"><span>Sentries:</span> <span className="font-bold">{formatNumber(spyReport.sentries)}</span></div>
-                                </div>
-                            </fieldset>
-
-                            <button
-                                onClick={() => {
-                                    if (spyReport.name === 'Clippy') {
-                                        window.location.reload();
-                                    } else {
-                                        setSpyReport(null);
-                                    }
-                                }}
-                                className="w-full py-1 bg-[#c0c0c0] border-2 border-white border-r-gray-800 border-b-gray-800 active:border-gray-800 active:border-r-white active:border-b-white font-bold text-black text-sm"
-                            >
-                                Close Report
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
 
             {/* Header Banner */}
             <div className="bg-white p-4 border-2 border-gray-400 border-r-white border-b-white shadow-[inset_1px_1px_0px_0px_#000] flex justify-between items-center mb-4">

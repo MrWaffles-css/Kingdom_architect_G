@@ -17,7 +17,8 @@ import Profile from './Profile';
 import Overview from './Overview';
 import AdminPanel from './AdminPanel';
 import ChatBubbles from './ChatBubbles';
-import Stats from './Stats';
+import SpyReport from './SpyReport';
+
 import kingdomIcon from '../assets/kingdom.png';
 import barracksIcon from '../assets/barracks.png';
 import goldmineIcon from '../assets/goldmine.png';
@@ -30,6 +31,7 @@ import Help from './Help';
 import RecycleBin from './RecycleBin';
 import Clippy from './Clippy';
 import GuideArrow from './GuideArrow';
+import MobileTopBar from './MobileTopBar';
 
 const Desktop = ({
     stats,
@@ -52,6 +54,11 @@ const Desktop = ({
     const [startMenuOpen, setStartMenuOpen] = useState(false);
     const [activeSubmenu, setActiveSubmenu] = useState(null);
     const [unreadMailCount, setUnreadMailCount] = useState(0);
+    const [viewingUserName, setViewingUserName] = useState(null);
+
+    const updateWindowTitle = (id, newTitle) => {
+        setOpenWindows(prev => prev.map(w => w.id === id ? { ...w, title: newTitle } : w));
+    };
 
     // Load saved window states from localStorage on mount
     const [savedWindowStates, setSavedWindowStates] = useState(() => {
@@ -120,11 +127,28 @@ const Desktop = ({
         };
     }, [session?.user?.id]);
 
+    // Mobile detection
+    const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+
+    useEffect(() => {
+        const handleResize = () => {
+            setIsMobile(window.innerWidth < 768);
+        };
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
+
     const getDefaultPosition = (index) => {
         // Column-major grid: 6 items per column
         const col = Math.floor(index / 6);
         const row = index % 6;
-        return { x: 20 + col * 100, y: 20 + row * 110 };
+
+        // On mobile, shift everything down by 50px (40px bar + 10px margin)
+        // Also maybe adjust grid to be tighter or different on mobile? 
+        // For now, just shifting Y is enough to clear the bar.
+        const startY = isMobile ? 60 : 20;
+
+        return { x: 20 + col * 100, y: startY + row * 110 };
     };
 
     const handleIconDragStart = (e, id) => {
@@ -152,11 +176,18 @@ const Desktop = ({
                 dragMoved.current = true;
             }
 
+            // Constrain Y to not go under the top bar on mobile
+            let newY = dragState.initialY + dy;
+            if (isMobile) {
+                newY = Math.max(newY, 50);
+            }
+            newY = Math.max(newY, 0); // General constraint
+
             setLocalLayout(prev => ({
                 ...prev,
                 [dragState.id]: {
                     x: dragState.initialX + dx,
-                    y: dragState.initialY + dy
+                    y: newY
                 }
             }));
         }
@@ -183,7 +214,8 @@ const Desktop = ({
         { id: 'reports', title: 'Reports', icon: '📜', isImage: false, component: Reports, defaultWidth: 600 },
         { id: 'mail', title: 'Mail', icon: '📧', isImage: false, component: Mail, defaultWidth: 550 },
         { id: 'profile', title: 'Profile', icon: '👤', isImage: false, component: Profile, defaultWidth: 700 },
-        { id: 'stats', title: 'Stats', icon: '📊', isImage: false, component: Stats, defaultWidth: 400 },
+        { id: 'spy_report', title: 'Spy Report', icon: '🕵️', isImage: false, component: SpyReport, defaultWidth: 500, hidden: true },
+
         // { id: 'games', title: 'Games', icon: '🎮', isImage: false, component: GamesWindow, defaultWidth: 600 },
         { id: 'news', title: 'News', icon: '📰', isImage: false, component: News, defaultWidth: 500 },
         { id: 'patch', title: 'Patch Notes', icon: '📋', isImage: false, component: PatchNotes, defaultWidth: 400 },
@@ -208,7 +240,9 @@ const Desktop = ({
 
         // Check for saved state
         const savedState = savedWindowStates[featureId];
-        const initialPos = savedState?.position || { x: 50 + (openWindows.length * 30), y: 50 + (openWindows.length * 30) };
+        // Ensure default window position also respects mobile bar
+        const defaultStartY = isMobile ? 60 : 50;
+        const initialPos = savedState?.position || { x: 50 + (openWindows.length * 30), y: defaultStartY + (openWindows.length * 30) };
         const initialSize = savedState?.size || null;
 
         const newWindow = {
@@ -219,8 +253,7 @@ const Desktop = ({
             position: initialPos,
             size: initialSize,
             isMinimized: false,
-            size: initialSize,
-            isMinimized: false,
+            // duplicate keys removed
             defaultWidth: feature.defaultWidth || 400,
             extraProps: extraProps
         };
@@ -297,9 +330,10 @@ const Desktop = ({
         customLayout.forEach(item => {
             // Check if feature exists (in case it was removed like 'games')
             if (features.some(f => f.id === item.id)) {
+                const startY = isMobile ? 60 : 20;
                 newLayout[item.id] = {
                     x: 20 + item.col * 100,
-                    y: 20 + item.row * 110
+                    y: startY + item.row * 110
                 };
             }
         });
@@ -309,9 +343,10 @@ const Desktop = ({
         let fallbackRow = 0;
         features.forEach(feature => {
             if (!newLayout[feature.id]) {
+                const startY = isMobile ? 60 : 20;
                 newLayout[feature.id] = {
                     x: 20 + fallbackCol * 100,
-                    y: 20 + fallbackRow * 110
+                    y: startY + fallbackRow * 110
                 };
                 fallbackRow++;
                 if (fallbackRow > 6) {
@@ -344,9 +379,16 @@ const Desktop = ({
             onMouseLeave={handleMouseUp}
             onContextMenu={handleContextMenu}
         >
+            <MobileTopBar stats={stats} />
+
             {/* Desktop Icons */}
             {features.map((feature, index) => {
                 const position = localLayout[feature.id] || getDefaultPosition(index);
+                // Dynamically ensure Y is at least 60 (approx 50px safe) if on mobile
+                const displayY = isMobile ? Math.max(position.y, 60) : position.y;
+
+                if (feature.hidden) return null;
+
                 return (
                     <React.Fragment key={feature.id}>
                         <DesktopIcon
@@ -358,7 +400,7 @@ const Desktop = ({
                                 }
                             }}
                             badge={feature.id === 'mail' ? unreadMailCount : 0}
-                            style={{ left: position.x, top: position.y }}
+                            style={{ left: position.x, top: displayY }}
                             onMouseDown={(e) => handleIconDragStart(e, feature.id)}
                             className="absolute"
                         />
@@ -387,7 +429,7 @@ const Desktop = ({
                         setStats(prev => ({ ...prev, ...newStats }));
                         refreshUserData(session.user.id);
                     },
-                    onNavigate: (page) => {
+                    onNavigate: (page, data) => {
                         // Map old navigation strings to window IDs if possible
                         const mapping = {
                             'Overview': 'overview',
@@ -399,16 +441,20 @@ const Desktop = ({
                             'Library': 'library',
                             'Reports': 'reports',
                             'Mail': 'mail',
-                            'Profile': 'profile'
+                            'Profile': 'profile',
+                            'SpyReport': 'spy_report'
                         };
                         const targetId = mapping[page];
-                        if (targetId) openWindow(targetId);
+                        if (targetId) openWindow(targetId, data);
                     },
                     onAction: () => refreshUserData(session.user.id),
                     userId: session.user.id,
                     isOwnProfile: true,
                     isOwnProfile: true,
+                    isOwnProfile: true,
                     onViewProfile: handleViewProfile,
+                    onTitleChange: (newTitle) => updateWindowTitle(win.id, newTitle),
+                    onClose: () => closeWindow(win.id),
                     ...win.extraProps
                 };
 
@@ -455,9 +501,9 @@ const Desktop = ({
 
             {viewingUserId && (
                 <Window
-                    title="User Profile"
+                    title={viewingUserName || 'User Profile'}
                     isOpen={true}
-                    onClose={() => setViewingUserId(null)}
+                    onClose={() => { setViewingUserId(null); setViewingUserName(null); }}
                     onMinimize={() => { }}
                     isActive={true}
                     onFocus={() => { }}
@@ -472,9 +518,11 @@ const Desktop = ({
                         session={session}
                         onNavigate={(page) => {
                             setViewingUserId(null);
+                            setViewingUserName(null);
                             // ...
                         }}
                         onAction={() => refreshUserData(session.user.id)}
+                        onTitleChange={(name) => setViewingUserName(name)}
                     />
                 </Window>
             )}
@@ -505,7 +553,7 @@ const Desktop = ({
                         {/* Stats */}
                         <div className="relative">
                             <button
-                                onClick={() => { openWindow('stats'); setStartMenuOpen(false); }}
+                                onClick={() => { openWindow('profile', { initialTab: 'stats' }); setStartMenuOpen(false); }}
                                 className="w-full text-left px-2 py-1 hover:bg-[#000080] hover:text-white flex items-center gap-2 group"
                             >
                                 <div className="w-6 h-6 flex items-center justify-center text-xl">📊</div>

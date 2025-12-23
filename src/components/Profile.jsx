@@ -1,7 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
 
-export default function Profile({ userId, isOwnProfile, session, onNavigate, onAction }) {
+// Helper component for Spy Level Visibility
+const SpyCheck = ({ level, required, children, fallback = '???' }) => {
+    if (level >= required) return children;
+    return <span className="text-gray-500 font-mono tracking-widest text-[#000080]" title={`Requires Spy Level ${required}`}>{fallback}</span>;
+};
+
+export default function Profile({ userId, isOwnProfile, session, onNavigate, onAction, stats: liveStats, initialTab = 'empire', onTitleChange }) {
     const [profileData, setProfileData] = useState(null);
     const [currentUserStats, setCurrentUserStats] = useState(null);
     const [spyReport, setSpyReport] = useState(null);
@@ -11,26 +17,53 @@ export default function Profile({ userId, isOwnProfile, session, onNavigate, onA
     const [battleHistory, setBattleHistory] = useState([]);
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState(false);
-    const [activeTab, setActiveTab] = useState('general');
+    const [activeTab, setActiveTab] = useState(initialTab);
 
     const targetUserId = userId || session?.user?.id;
     const viewingOwnProfile = !userId || userId === session?.user?.id;
 
+    // Determine the data source for stats
+    // Own Profile: liveStats directly
+    // Other Profile: spyReport (snapshot)
+    const statsSource = viewingOwnProfile ? liveStats : (spyReport || {});
+
+    // Determine Viewer's Spy Level
+    // Own Profile: Level 5 (Max)
+    // Other Profile: currentUserStats.research_spy_report (or 0)
+    // IMPORTANT: If NO successful spy report exists, effectively Level -1 (can't see anything private) unless we want to show ???
+    // But the user said "If they successfully spy, they can see ...". So we check if spyReport exists.
+    const hasReport = viewingOwnProfile || !!spyReport;
+    const viewerSpyLevel = viewingOwnProfile
+        ? 5
+        : (hasReport ? (currentUserStats?.research_spy_report || 0) : -1);
+
+    useEffect(() => {
+        setActiveTab(initialTab);
+    }, [initialTab]);
+
     useEffect(() => {
         if (targetUserId) {
-            fetchProfileData();
-            fetchAchievements();
-            if (!viewingOwnProfile) {
-                fetchCurrentUserStats();
-                fetchSpyReport();
-                fetchBattleHistory();
-            }
+            fetchData();
         }
     }, [targetUserId]);
 
+    const fetchData = async () => {
+        setLoading(true);
+        try {
+            await Promise.all([
+                fetchProfileData(),
+                fetchAchievements(),
+                !viewingOwnProfile && fetchCurrentUserStats(),
+                !viewingOwnProfile && fetchSpyReport(),
+                !viewingOwnProfile && fetchBattleHistory()
+            ].filter(Boolean));
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const fetchProfileData = async () => {
         try {
-            setLoading(true);
             const { data: stats } = await supabase.from('user_stats').select('*').eq('id', targetUserId).single();
             const { data: rankData } = await supabase.from('leaderboard').select('*').eq('id', targetUserId).single();
             const { data: profile } = await supabase.from('profiles').select('username, created_at').eq('id', targetUserId).single();
@@ -41,16 +74,19 @@ export default function Profile({ userId, isOwnProfile, session, onNavigate, onA
                 username: profile?.username || 'Unknown Player',
                 created_at: profile?.created_at
             });
+
+            if (onTitleChange && profile?.username) {
+                onTitleChange(profile.username);
+            }
         } catch (error) {
             console.error('Error fetching profile:', error);
-        } finally {
-            setLoading(false);
         }
     };
 
     const fetchCurrentUserStats = async () => {
         try {
-            const { data } = await supabase.from('user_stats').select('spy').eq('id', session.user.id).single();
+            // Need spy research level to determine visibility
+            const { data } = await supabase.from('user_stats').select('spy, research_spy_report').eq('id', session.user.id).single();
             setCurrentUserStats(data);
         } catch (error) { console.error(error); }
     };
@@ -83,12 +119,12 @@ export default function Profile({ userId, isOwnProfile, session, onNavigate, onA
             const { data, error } = await supabase.rpc('spy_player', { target_id: targetUserId });
             if (error) throw error;
             if (data.success) {
+                await fetchCurrentUserStats(); // Refresh my own stats (to update energy/display correctly?) and get latest research level if changed
                 await fetchSpyReport();
                 if (onAction) onAction();
-                setActiveTab('stats');
+                // Don't force change tab, stay on current to see result
             } else {
                 setSpyFailure(data.message);
-                setActiveTab('stats');
             }
         } catch (err) {
             setSpyFailure('Spy failed: ' + err.message);
@@ -110,7 +146,7 @@ export default function Profile({ userId, isOwnProfile, session, onNavigate, onA
                 opponent: profileData?.username
             });
             await fetchBattleHistory();
-            await fetchProfileData();
+            await fetchProfileData(); // update rank/stats
             if (onAction) onAction();
         } catch (err) {
             alert('Attack failed: ' + err.message);
@@ -121,23 +157,235 @@ export default function Profile({ userId, isOwnProfile, session, onNavigate, onA
 
     const formatNumber = (num) => new Intl.NumberFormat('en-US').format(num || 0);
 
-    const canSeeTreasury = () => {
-        if (viewingOwnProfile) return true;
-        if (!currentUserStats || !profileData) return false;
-        const mySpy = currentUserStats.spy || 0;
-        const theirSentry = profileData.sentry || 0;
-        return mySpy > theirSentry;
-    };
-
-    if (loading) return <div className="p-4 text-center">Loading user data...</div>;
-
     const accountAge = profileData?.created_at
         ? Math.floor((Date.now() - new Date(profileData.created_at).getTime()) / (1000 * 60 * 60 * 24))
         : 0;
 
+    // -------------- RENDERERS --------------
+
+    // 1. EMPIRE TAB (Economy & Infrastructure)
+    const renderEmpireTab = () => {
+        const s = statsSource;
+        const lvl = viewerSpyLevel;
+
+        const netGold = (() => {
+            const citizensVal = s.citizens || 0;
+            const miners = s.miners || 0;
+            const kingdomLevel = s.kingdom_level || 0;
+            const goldMineLevel = s.gold_mine_level || 1;
+
+            // Just estimating for display (using Logic from Profile/Stats)
+            const untrainedGold = citizensVal; // 1 per citizen
+            const trainedCount = (s.attack_soldiers || 0) + (s.defense_soldiers || 0) + (s.spies || 0) + (s.sentries || 0); // These are lvl 1 protected so might be 0 if hidden
+            const trainedGold = Math.floor(trainedCount * 0.5);
+            const minerRate = 2 + Math.max(0, goldMineLevel - 1);
+            const minerGold = miners * minerRate;
+            return untrainedGold + trainedGold + minerGold;
+        })();
+
+        return (
+            <div className="space-y-4">
+                {/* Economy Overview */}
+                <fieldset className="border-2 border-white border-l-gray-500 border-t-gray-500 p-2">
+                    <legend className="px-1 text-sm font-bold">Economy</legend>
+                    <div className="grid grid-cols-3 gap-4 text-sm">
+                        <div className="bg-white p-2 border border-gray-400">
+                            <div className="text-xs text-gray-500 uppercase font-bold">Treasury</div>
+                            <div className="text-lg font-bold flex items-center gap-2">
+                                <span>💰</span>
+                                <SpyCheck level={lvl} required={0}>{formatNumber(s.gold)}</SpyCheck>
+                            </div>
+                        </div>
+                        <div className="bg-white p-2 border border-gray-400">
+                            <div className="text-xs text-gray-500 uppercase font-bold">Gold / Min</div>
+                            <div className="text-lg font-bold flex items-center gap-2">
+                                <span>📈</span>
+                                <SpyCheck level={lvl} required={2} fallback="?">+{formatNumber(netGold)}/m</SpyCheck>
+                            </div>
+                        </div>
+
+                        <div className="bg-white p-2 border border-gray-400">
+                            <div className="text-xs text-gray-500 uppercase font-bold">Citizens</div>
+                            <div className="text-lg font-bold flex items-center gap-2">
+                                <span>👥</span>
+                                <SpyCheck level={lvl} required={1}>{formatNumber(s.citizens)}</SpyCheck>
+                            </div>
+                        </div>
+                    </div>
+                </fieldset>
+
+                {/* Infrastructure */}
+                <fieldset className="border-2 border-white border-l-gray-500 border-t-gray-500 p-2">
+                    <legend className="px-1 text-sm font-bold">Infrastructure</legend>
+                    <div className="space-y-1">
+                        {[
+                            { name: 'Kingdom', level: s.kingdom_level, req: 2, icon: '🏰', nav: 'Kingdom' },
+                            { name: 'Gold Mine', level: s.gold_mine_level, req: 2, icon: '⛏️', nav: 'GoldMine' },
+                            { name: 'Barracks', level: s.barracks_level, req: 2, icon: '⚔️', nav: 'Barracks' }, // Lvl 2 implied for military base
+                            { name: 'Library', level: s.library_level, req: 4, icon: '📚', nav: 'Library' },
+                            { name: 'Vault', level: s.vault_level, req: 5, icon: '🏦', nav: 'Vault' },
+                        ].map((b, i) => (
+                            <div key={i} className="flex items-center justify-between bg-white px-2 py-1 border border-gray-300">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-lg">{b.icon}</span>
+                                    <span className={`font-bold text-sm ${viewingOwnProfile ? 'cursor-pointer hover:underline' : ''}`} onClick={() => viewingOwnProfile && onNavigate(b.nav)}>
+                                        {b.name}
+                                    </span>
+                                </div>
+                                <div className="font-mono font-bold">
+                                    <SpyCheck level={lvl} required={b.req}>Lvl {b.level || 0}</SpyCheck>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </fieldset>
+            </div>
+        );
+    };
+
+    // 2. MILITARY TAB
+    const renderMilitaryTab = () => {
+        const s = statsSource;
+        const lvl = viewerSpyLevel;
+
+        const units = [
+            { label: 'Attack Soldiers', val: s.attack_soldiers, icon: '⚔️', req: 1 },
+            { label: 'Defense Soldiers', val: s.defense_soldiers, icon: '🛡️', req: 1 },
+            { label: 'Spies', val: s.spies, icon: '🕵️', req: 1 },
+            { label: 'Sentries', val: s.sentries, icon: '👁️', req: 1 },
+            { label: 'Miners', val: s.miners, icon: '⛏️', req: 2 },
+            { label: 'Hostages', val: s.hostages, icon: '⛓️', req: 2 },
+            { label: 'Hidden Units', val: 0, icon: '👻', req: 5, comment: '(Feature Coming Soon)' }
+        ];
+
+        return (
+            <div className="space-y-4">
+                {/* Combat Power */}
+                <fieldset className="border-2 border-white border-l-gray-500 border-t-gray-500 p-2">
+                    <legend className="px-1 text-sm font-bold">Combat Strength</legend>
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                        {[
+                            { label: 'Attack', val: s.attack, icon: '⚔️', rank: s.rank_attack },
+                            { label: 'Defense', val: s.defense, icon: '🛡️', rank: s.rank_defense },
+                            { label: 'Spy Network', val: s.spy, icon: '🕵️', rank: s.rank_spy },
+                            { label: 'Sentry Guard', val: s.sentry, icon: '👁️', rank: s.rank_sentry },
+                        ].map((stat, i) => (
+                            <div key={i} className="bg-white p-2 border border-gray-400 flex justify-between items-center">
+                                <div>
+                                    <div className="text-xs text-gray-500 uppercase font-bold">{stat.label}</div>
+                                    <div className="font-bold flex items-center gap-1">
+                                        <span>{stat.icon}</span>
+                                        <SpyCheck level={lvl} required={0}>{formatNumber(stat.val)}</SpyCheck>
+                                    </div>
+                                </div>
+                                <div className="text-right">
+                                    <div className="text-[10px] text-gray-400 uppercase">Rank</div>
+                                    <div className="text-xs font-bold text-gray-600">
+                                        <SpyCheck level={lvl} required={0}>#{stat.rank || '-'}</SpyCheck>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </fieldset>
+
+                {/* Unit Breakdown */}
+                <fieldset className="border-2 border-white border-l-gray-500 border-t-gray-500 p-2">
+                    <legend className="px-1 text-sm font-bold">Unit Composition</legend>
+                    <table className="w-full text-sm text-left bg-white border border-gray-400">
+                        <thead className="bg-gray-200">
+                            <tr>
+                                <th className="p-1">Unit Type</th>
+                                <th className="p-1 text-right">Count</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {units.filter(u => !u.hidden).map((u, i) => (
+                                <tr key={i} className="border-t border-gray-200">
+                                    <td className="p-1 flex items-center gap-2">
+                                        <span>{u.icon}</span>
+                                        <span>{u.label}</span>
+                                    </td>
+                                    <td className="p-1 text-right font-mono font-bold">
+                                        <SpyCheck level={lvl} required={u.req}>{formatNumber(u.val)}</SpyCheck>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </fieldset>
+
+                {/* Armoury / Weapons */}
+                {lvl >= 3 || viewingOwnProfile ? (
+                    <fieldset className="border-2 border-white border-l-gray-500 border-t-gray-500 p-2">
+                        <legend className="px-1 text-sm font-bold">Armoury</legend>
+                        <div className="p-2 bg-white border border-gray-400 text-sm">
+                            <div className="flex justify-between">
+                                <span>Weapons Research Tier:</span>
+                                <span className="font-bold"><SpyCheck level={lvl} required={3}>{s.research_weapons || 0}</SpyCheck></span>
+                            </div>
+                            <div className="text-center italic text-gray-500 mt-2 text-xs">
+                                Detailed weapon counts requires Armoury check (Simulated)
+                            </div>
+                        </div>
+                    </fieldset>
+                ) : (
+                    <div className="text-center text-gray-500 text-xs mt-2 italic">
+                        Requires Spy Level 3 to see Armoury Details
+                    </div>
+                )}
+            </div>
+        );
+    };
+
+    // 3. TECHNOLOGY TAB
+    const renderTechTab = () => {
+        const s = statsSource;
+        const lvl = viewerSpyLevel;
+
+        const researches = [
+            { name: 'Weapons Tech', val: s.research_weapons },
+            { name: 'Attack Tech', val: s.research_attack },
+            { name: 'Defense Tech', val: s.research_defense },
+            { name: 'Spy Tech', val: s.research_spy },
+            { name: 'Sentry Tech', val: s.research_sentry },
+            { name: 'Economy Tech', val: s.research_turns_per_min },
+            { name: 'Hostage Convert', val: s.research_hostage_convert }
+
+        ];
+
+        return (
+            <div className="space-y-2">
+                <div className="bg-white p-2 border border-gray-400 mb-2">
+                    <h3 className="font-bold border-b border-gray-300 mb-2">Research Progress</h3>
+                    {lvl >= 4 ? (
+                        <div className="grid grid-cols-1 gap-1">
+                            {researches.map((r, i) => (
+                                <div key={i} className="flex justify-between text-sm p-1 hover:bg-gray-50">
+                                    <span>{r.name}</span>
+                                    <span className="font-mono font-bold flex items-center gap-2">
+                                        Level {r.val || 0}
+                                        <div className="w-16 h-2 bg-gray-200 border border-gray-400">
+                                            <div className="h-full bg-blue-800" style={{ width: `${Math.min(100, ((r.val || 0) / 10) * 100)}%` }}></div>
+                                        </div>
+                                    </span>
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="text-center py-8 text-gray-500 italic">
+                            Research Data Classified.<br />Requires Spy Level 4.
+                        </div>
+                    )}
+                </div>
+            </div>
+        );
+    };
+
+    // 4. MAIN RENDER
     return (
-        <div className="p-2 font-sans bg-[#c0c0c0] h-full flex flex-col">
-            {/* Attack Result Modal (Dialog) */}
+        <div className="p-2 font-sans bg-[#c0c0c0] h-full flex flex-col select-user mr-1">
+            {/* Battle Modal */}
             {attackResult && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50">
                     <div className="w-[300px] bg-[#c0c0c0] border-2 border-white border-r-gray-800 border-b-gray-800 p-1 shadow-xl">
@@ -165,16 +413,24 @@ export default function Profile({ userId, isOwnProfile, session, onNavigate, onA
 
             {/* Profile Header */}
             <div className="flex gap-4 p-4 border-2 border-white border-r-gray-600 border-b-gray-600 mb-4 bg-gray-200">
-                <div className="w-16 h-16 bg-[#008080] border-2 border-gray-600 border-r-white border-b-white flex items-center justify-center">
-                    <span className="text-3xl text-white font-bold">{profileData?.username?.charAt(0).toUpperCase()}</span>
+                <div className="w-16 h-16 bg-[#008080] border-2 border-gray-600 border-r-white border-b-white flex items-center justify-center shadow-inner relative overflow-hidden group">
+                    {/* Placeholder Avatar */}
+                    <span className="text-3xl text-white font-bold relative z-10">{profileData?.username?.charAt(0).toUpperCase()}</span>
+                    <div className="absolute inset-0 bg-gradient-to-tr from-transparent to-white/20"></div>
                 </div>
-                <div>
-                    <h1 className="text-xl font-bold">{profileData?.username}</h1>
-                    <div className="text-sm text-gray-700">Rank: #{profileData?.overall_rank || 'N/A'}</div>
-                    <div className="text-sm text-gray-700">Alliance: {profileData?.alliance || 'None'}</div>
+                <div className="flex-1 min-w-0">
+                    <h1 className="text-xl font-bold truncate">{profileData?.username}</h1>
+                    <div className="flex flex-wrap gap-x-4 text-sm text-gray-700">
+                        <span className="flex items-center gap-1">
+                            <span className="font-bold">Rank:</span> #{profileData?.overall_rank || 'N/A'}
+                        </span>
+                        <span className="flex items-center gap-1">
+                            <span className="font-bold">Alliance:</span> {profileData?.alliance || 'None'}
+                        </span>
+                    </div>
                 </div>
                 {!viewingOwnProfile && (
-                    <div className="ml-auto flex flex-col gap-1 justify-center">
+                    <div className="flex flex-col gap-1 justify-center min-w-[80px]">
                         <button
                             onClick={() => window.openChatWith && window.openChatWith(targetUserId, profileData?.username)}
                             className="px-3 py-1 bg-[#c0c0c0] border-2 border-white border-r-black border-b-black active:border-black active:border-r-white active:border-b-white text-xs"
@@ -199,20 +455,41 @@ export default function Profile({ userId, isOwnProfile, session, onNavigate, onA
                 )}
             </div>
 
-            {/* Tabs */}
+            {/* View Source Info Banner (Spy Report Status) */}
+            {!viewingOwnProfile && (
+                <div className={`mb-2 px-2 py-1 text-xs border ${hasReport ? 'bg-yellow-50 border-yellow-400 text-yellow-900' : 'bg-gray-200 border-gray-400 text-gray-600'}`}>
+                    {hasReport ? (
+                        <div className="flex justify-between items-center">
+                            <span>
+                                <strong>INTELLIGENCE REPORT</strong> ({spyReport.hours_old < 1 ? 'Fresh' : `${Math.floor(spyReport.hours_old)}h old`})
+                            </span>
+                            <span className="font-mono">Spy Level: {currentUserStats?.research_spy_report || 0}</span>
+                        </div>
+                    ) : (
+                        <div className="flex justify-between">
+                            <span>No Intelligence Data Available</span>
+                            <span className="italic">Use Spy action to reveal restricted info</span>
+                        </div>
+                    )}
+                    {spyFailure && <div className="mt-1 text-red-600 font-bold">Latest Spy Attempt Failed: {spyFailure}</div>}
+                </div>
+            )}
+
+            {/* Navigation Tabs */}
             <div className="flex gap-1 border-b border-white pr-2 pl-2">
                 {[
-                    { id: 'general', label: 'General' },
-                    { id: 'stats', label: 'Statistics' },
+                    { id: 'empire', label: 'Empire' },
+                    { id: 'military', label: 'Military' },
+                    { id: 'tech', label: 'Technology' },
                     { id: 'achievements', label: 'Achievements' },
                     ...(viewingOwnProfile ? [] : [{ id: 'history', label: 'History' }])
                 ].map(tab => (
                     <button
                         key={tab.id}
                         onClick={() => setActiveTab(tab.id)}
-                        className={`px-3 py-1 text-xs font-bold border-t-2 border-l-2 border-r-2 rounded-t transition-colors ${activeTab === tab.id
-                            ? 'bg-[#c0c0c0] border-white border-r-black border-b-0 -mb-[1px] z-10'
-                            : 'bg-gray-300 border-white border-r-gray-600 text-gray-600 mb-[1px]'
+                        className={`px-3 py-1 text-xs font-bold border-t-2 border-l-2 border-r-2 rounded-t transition-all ${activeTab === tab.id
+                            ? 'bg-[#c0c0c0] border-white border-r-black border-b-0 -mb-[1px] z-10 pb-2'
+                            : 'bg-gray-300 border-white border-r-gray-600 text-gray-600 mb-[1px] hover:bg-gray-200'
                             }`}
                     >
                         {tab.label}
@@ -220,94 +497,24 @@ export default function Profile({ userId, isOwnProfile, session, onNavigate, onA
                 ))}
             </div>
 
-            <div className="p-4 border-2 border-white border-l-gray-600 border-t-gray-600 bg-[#c0c0c0] min-h-[300px]">
-                {activeTab === 'general' && (
-                    <div className="grid grid-cols-2 gap-4 text-sm">
-                        <fieldset className="border border-gray-400 p-2">
-                            <legend className="ml-1 px-1">Identity</legend>
-                            <div className="grid grid-cols-[80px_1fr] gap-1">
-                                <div className="text-right text-gray-600">Username:</div>
-                                <div className="font-bold">{profileData?.username}</div>
-                                <div className="text-right text-gray-600">ID:</div>
-                                <div className="font-mono text-xs overflow-hidden text-ellipsis">{targetUserId}</div>
-                                <div className="text-right text-gray-600">Joined:</div>
-                                <div>{accountAge} days ago</div>
-                            </div>
-                        </fieldset>
-                        <fieldset className="border border-gray-400 p-2">
-                            <legend className="ml-1 px-1">Status</legend>
-                            <div className="grid grid-cols-[80px_1fr] gap-1">
-                                <div className="text-right text-gray-600">Gold:</div>
-                                <div className="font-bold">{canSeeTreasury() ? formatNumber(profileData?.gold) : '???'}</div>
-                                <div className="text-right text-gray-600">Turns:</div>
-                                <div>{viewingOwnProfile ? formatNumber(profileData?.turns) : '???'}</div>
-                                <div className="text-right text-gray-600">Land:</div>
-                                <div>{formatNumber(profileData?.land || 100)} acres</div>
-                            </div>
-                        </fieldset>
-                    </div>
-                )}
-
-                {activeTab === 'stats' && (
-                    <div>
-                        {!viewingOwnProfile && spyFailure && (
-                            <div className="mb-2 p-2 bg-red-100 border border-red-500 text-red-800 text-xs">
-                                <strong>Spy Failed:</strong> {spyFailure}
-                            </div>
-                        )}
-                        {!viewingOwnProfile && spyReport && (
-                            <div className="mb-2 text-xs text-gray-600">
-                                Report Age: {spyReport.hours_old < 1 ? 'Fresh' : `${Math.floor(spyReport.hours_old)} hours`}
-                            </div>
-                        )}
-
-                        <div className="bg-white border-2 border-gray-600 border-r-white border-b-white p-1">
-                            <table className="w-full text-xs text-left">
-                                <thead className="bg-[#c0c0c0] font-normal">
-                                    <tr>
-                                        <th className="p-1 border border-gray-400">Attribute</th>
-                                        <th className="p-1 border border-gray-400 text-right">Value</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {[
-                                        { label: 'Attack Power', key: 'attack' },
-                                        { label: 'Defense Power', key: 'defense' },
-                                        { label: 'Spy Network', key: 'spy' },
-                                        { label: 'Sentry Guard', key: 'sentry' },
-                                        { label: 'Citizens', key: 'citizens' },
-                                        { label: 'Attack Units', key: 'attack_soldiers' },
-                                        { label: 'Defense Units', key: 'defense_soldiers' },
-                                        { label: 'Spies', key: 'spies' },
-                                        { label: 'Sentries', key: 'sentries' },
-                                    ].map((stat, i) => {
-                                        const value = viewingOwnProfile ? profileData?.[stat.key] : spyReport?.[stat.key];
-                                        const visible = viewingOwnProfile || (spyReport && value !== null && value !== undefined);
-                                        return (
-                                            <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-100'}>
-                                                <td className="p-1 border-r border-gray-200">{stat.label}</td>
-                                                <td className="p-1 text-right font-mono">{visible ? formatNumber(value) : '???'}</td>
-                                            </tr>
-                                        );
-                                    })}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                )}
+            {/* Tab Content Container */}
+            <div className="p-4 border-2 border-white border-l-gray-600 border-t-gray-600 bg-[#c0c0c0] min-h-[350px] overflow-y-auto">
+                {activeTab === 'empire' && renderEmpireTab()}
+                {activeTab === 'military' && renderMilitaryTab()}
+                {activeTab === 'tech' && renderTechTab()}
 
                 {activeTab === 'achievements' && (
-                    <div className="bg-white border-2 border-gray-600 border-r-white border-b-white h-64 overflow-y-auto p-1">
+                    <div className="bg-white border-2 border-gray-600 border-r-white border-b-white h-full min-h-[200px] overflow-y-auto p-1">
                         {achievements.length === 0 ? (
                             <div className="text-center text-gray-500 mt-10">No achievements earned yet.</div>
                         ) : (
                             <div className="grid grid-cols-1 gap-1">
                                 {achievements.map((ach, i) => (
-                                    <div key={i} className="flex items-center gap-2 p-1 border-b border-gray-200">
-                                        <div className="text-xl">{ach.icon}</div>
+                                    <div key={i} className="flex items-center gap-2 p-1 border-b border-gray-200 hover:bg-yellow-50">
+                                        <div className="text-2xl">{ach.icon}</div>
                                         <div>
                                             <div className="font-bold text-xs">{ach.achievement_name}</div>
-                                            <div className="text-[10px] text-gray-500">{ach.rarity}</div>
+                                            <div className="text-[10px] text-gray-500 uppercase">{ach.rarity}</div>
                                         </div>
                                     </div>
                                 ))}
@@ -317,7 +524,7 @@ export default function Profile({ userId, isOwnProfile, session, onNavigate, onA
                 )}
 
                 {activeTab === 'history' && !viewingOwnProfile && (
-                    <div className="bg-white border-2 border-gray-600 border-r-white border-b-white h-64 overflow-y-auto p-1">
+                    <div className="bg-white border-2 border-gray-600 border-r-white border-b-white h-full min-h-[200px] overflow-y-auto p-1">
                         {battleHistory.length === 0 ? (
                             <div className="text-center text-gray-500 mt-10">No recent battles reported by spies.</div>
                         ) : (
@@ -326,11 +533,16 @@ export default function Profile({ userId, isOwnProfile, session, onNavigate, onA
                                     const isAttacker = battle.attacker_id === session.user.id;
                                     const won = isAttacker ? battle.success : !battle.success;
                                     return (
-                                        <div key={i} className={`p-1 border ${won ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'} text-xs`}>
-                                            <div className="font-bold">
-                                                {isAttacker ? 'You attacked' : 'Attacked by'} {isAttacker ? battle.defender_name : battle.attacker_name}
+                                        <div key={i} className={`p-2 border ${won ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'} text-xs flex justify-between items-center`}>
+                                            <div>
+                                                <div className="font-bold">
+                                                    {isAttacker ? 'You attacked' : 'Attacked by'} {isAttacker ? battle.defender_name : battle.attacker_name}
+                                                </div>
+                                                <div className="text-[10px] text-gray-500">{new Date(battle.created_at).toLocaleString()}</div>
                                             </div>
-                                            <div>{won ? 'VICTORY' : 'DEFEAT'} - {new Date(battle.created_at).toLocaleDateString()}</div>
+                                            <div className={`font-bold px-2 py-0.5 rounded ${won ? 'bg-green-200 text-green-800' : 'bg-red-200 text-red-800'}`}>
+                                                {won ? 'VICTORY' : 'DEFEAT'}
+                                            </div>
                                         </div>
                                     );
                                 })}

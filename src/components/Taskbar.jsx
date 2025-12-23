@@ -121,8 +121,8 @@ const Taskbar = ({ openWindows, activeWindowId, onWindowClick, onStartClick, sta
 
                 {/* Season Countdown */}
                 {timeLeft && (
-                    <div className={`flex items-center gap-1 px-2 border-r border-gray-400 mr-1 ${isUrgent ? 'text-red-800' : 'text-black'} font-bold`} title="Time until end of era">
-                        <span>⏳ Era Ends:</span>
+                    <div className={`flex items-center gap-1 px-2 border-r border-gray-400 mr-1 ${isUrgent ? 'text-red-800' : 'text-black'} font-bold`} title="Era Ends">
+                        <span>⏳</span>
                         <span className="font-mono">{timeLeft}</span>
                     </div>
                 )}
@@ -131,7 +131,7 @@ const Taskbar = ({ openWindows, activeWindowId, onWindowClick, onStartClick, sta
                 {/* Stats Toggle Button */}
                 <button
                     onClick={() => setShowStats(!showStats)}
-                    className="w-4 h-4 flex items-center justify-center text-[10px] hover:font-bold"
+                    className="w-4 h-4 hidden md:flex items-center justify-center text-[10px] hover:font-bold"
                     aria-label="Toggle Stats"
                 >
                     {showStats ? '▶' : '◀'}

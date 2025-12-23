@@ -39,7 +39,7 @@ const Window = ({ title, isOpen, onClose, onMinimize, isActive, onFocus, childre
                 });
 
                 // Force position to top-left with margin
-                setPosition({ x: margin, y: margin });
+                setPosition({ x: margin, y: 50 }); // 50px to account for mobile top bar (40px) + margin
             }
         };
 
@@ -97,14 +97,15 @@ const Window = ({ title, isOpen, onClose, onMinimize, isActive, onFocus, childre
 
                 // Strict bounds
                 const maxX = Math.max(0, window.innerWidth - currentWidth);
-                const maxY = Math.max(0, window.innerHeight - 40 - currentHeight); // 40 is taskbar approx
+                const minY = isMobile ? 40 : 0; // Top constraint for mobile
+                const maxY = Math.max(minY, window.innerHeight - 40 - currentHeight); // 40 is taskbar approx
 
                 let newX = clientX - dragOffset.x;
                 let newY = clientY - dragOffset.y;
 
                 // Clamp
                 newX = Math.max(0, Math.min(newX, maxX));
-                newY = Math.max(0, Math.min(newY, maxY));
+                newY = Math.max(minY, Math.min(newY, maxY));
 
                 setPosition({ x: newX, y: newY });
             } else if (isResizing) {
@@ -149,14 +150,14 @@ const Window = ({ title, isOpen, onClose, onMinimize, isActive, onFocus, childre
             document.removeEventListener('touchmove', handleTouchMove);
             document.removeEventListener('touchend', handleUp);
         };
-    }, [isDragging, isResizing, dragOffset, resizeStart]);
+    }, [isDragging, isResizing, dragOffset, resizeStart, isMobile]);
 
     const windowStyle = isMaximized ? {
         position: 'absolute',
         left: 0,
-        top: 0,
+        top: isMobile ? '40px' : 0,
         width: '100vw',
-        height: 'calc(100vh - 40px)',
+        height: isMobile ? 'calc(100vh - 80px)' : 'calc(100vh - 40px)', // adjust for top bar on mobile
         zIndex: isActive ? 10 : 1
     } : {
         position: 'absolute',

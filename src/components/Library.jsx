@@ -198,6 +198,8 @@ export default function Library({ userStats, onUpdate }) {
                 rpcName = 'upgrade_research_sentry';
             } else if (researchName === 'Spy Technology') {
                 rpcName = 'upgrade_research_spy';
+            } else if (researchName === 'Unlock Better Spy Reports') {
+                rpcName = 'upgrade_research_spy_report';
             } else {
                 return;
             }
@@ -364,7 +366,16 @@ export default function Library({ userStats, onUpdate }) {
             },
         ],
         espionage: [
-            { name: 'Unlock Better Spy Reports', level: 0, maxLevel: 5, description: 'Reveal more enemy intel', cost: '5,000 XP', disabled: true },
+            {
+                name: 'Unlock Better Spy Reports',
+                level: userStats.research_spy_report || 0,
+                maxLevel: 5,
+                description: 'Reveal more enemy intel',
+                cost: (userStats.research_spy_report || 0) >= 5 ? 'Max Level' : `${(5000 * ((userStats.research_spy_report || 0) + 1)).toLocaleString()} XP`,
+                costNum: 5000 * ((userStats.research_spy_report || 0) + 1),
+                currency: 'xp',
+                disabled: false
+            },
             {
                 name: 'Spy Technology',
                 level: userStats.research_spy || 0,
