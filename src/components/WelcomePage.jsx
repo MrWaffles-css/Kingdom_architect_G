@@ -264,12 +264,11 @@ function WindowWrapper({ title, onClose, children }) {
     return (
         <div className="absolute inset-0 flex items-center justify-center z-50 bg-black bg-opacity-30">
             <div
-                className="bg-[#c0c0c0] shadow-xl border-2 border-white border-r-gray-600 border-b-gray-600"
-                style={{ width: 'auto', maxWidth: '90vw', maxHeight: '90vh' }}
+                className="bg-[#c0c0c0] shadow-xl border-2 border-white border-r-gray-600 border-b-gray-600 w-full h-full md:w-auto md:h-auto md:max-w-[90vw] md:max-h-[90vh] flex flex-col"
                 onClick={(e) => e.stopPropagation()}
             >
                 {/* Title Bar */}
-                <div className="bg-gradient-to-r from-[#000080] to-[#1084d0] p-1 flex justify-between items-center">
+                <div className="bg-gradient-to-r from-[#000080] to-[#1084d0] p-1 flex justify-between items-center shrink-0">
                     <div className="text-white font-bold flex items-center gap-1 pl-1">
                         {title}
                     </div>
@@ -281,7 +280,7 @@ function WindowWrapper({ title, onClose, children }) {
                     </button>
                 </div>
                 {/* Content */}
-                <div className="overflow-auto" style={{ maxHeight: 'calc(90vh - 30px)' }}>
+                <div className="overflow-auto flex-1 md:max-h-[calc(90vh-30px)]">
                     {children}
                 </div>
             </div>

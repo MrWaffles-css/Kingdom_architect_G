@@ -94,9 +94,10 @@ const Taskbar = ({ openWindows, activeWindowId, onWindowClick, onStartClick, sta
             </button>
 
             {/* Separator */}
-            <div className="w-[2px] h-6 bg-gray-500 border-r border-white mx-1"></div>
+            {/* Separator */}
+            <div className="w-[2px] h-6 bg-gray-500 border-r border-white mx-1 hidden md:block"></div>
 
-            <div className="flex-1 flex items-center gap-1 overflow-x-auto h-full py-1">
+            <div className="hidden md:flex flex-1 items-center gap-1 overflow-x-auto h-full py-1">
                 {openWindows.map(win => {
                     const isActive = activeWindowId === win.id && !win.isMinimized;
                     return (
@@ -115,6 +116,9 @@ const Taskbar = ({ openWindows, activeWindowId, onWindowClick, onStartClick, sta
                     )
                 })}
             </div>
+
+            {/* Spacer for mobile to push tray to right */}
+            <div className="flex-1 md:hidden"></div>
 
             {/* Tray Area */}
             <div className="flex items-center gap-1 pl-1 border border-gray-500 border-r-white border-b-white bg-[#c0c0c0] ml-2 font-sans text-xs shadow-[inset_1px_1px_0px_#000] h-[26px]">

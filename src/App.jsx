@@ -172,7 +172,7 @@ export default function App() {
             <div className="min-h-screen bg-[#008080] flex items-center justify-center font-sans p-2">
 
                 {/* Wizard Window */}
-                <div className="w-full max-w-[500px] bg-[#c0c0c0] border-2 border-white border-r-gray-800 border-b-gray-800 shadow-xl flex flex-col p-[2px]">
+                <div className="w-full h-full md:h-auto md:max-w-[500px] bg-[#c0c0c0] border-2 border-white border-r-gray-800 border-b-gray-800 shadow-xl flex flex-col p-[2px]">
 
                     {/* Title Bar */}
                     <div className="bg-[#000080] h-5 flex items-center justify-between px-1 mb-1">

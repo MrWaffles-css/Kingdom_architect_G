@@ -25,21 +25,7 @@ const Window = ({ title, isOpen, onClose, onMinimize, isActive, onFocus, childre
             setIsMobile(mobile);
 
             if (mobile) {
-                // On mobile, force the window to take up most of the screen
-                // We leave a small margin for aesthetics and potential touch targets behind (though minimal)
-                const margin = 10;
-                const availableWidth = window.innerWidth - (margin * 2);
-
-                // Account for taskbar height (approx 40px) plus header
-                const availableHeight = window.innerHeight - 50;
-
-                setSize({
-                    width: availableWidth,
-                    height: 'auto' // Allow content to dictate height, but max-height is controlled by CSS
-                });
-
-                // Force position to top-left with margin
-                setPosition({ x: margin, y: 50 }); // 50px to account for mobile top bar (40px) + margin
+                setIsMaximized(true);
             }
         };
 
@@ -191,20 +177,24 @@ const Window = ({ title, isOpen, onClose, onMinimize, isActive, onFocus, childre
                     {title}
                 </div>
                 <div className="flex gap-[1px] items-center shrink-0">
-                    <button
-                        onClick={(e) => { e.stopPropagation(); onMinimize(); }}
-                        className="w-[14px] h-[14px] bg-[#c0c0c0] flex items-end justify-center border border-white border-r-black border-b-black active:border-black active:border-r-white active:border-b-white box-border"
-                        aria-label="Minimize"
-                    >
-                        <div className="w-[6px] h-[2px] bg-black mb-[2px]"></div>
-                    </button>
-                    <button
-                        onClick={(e) => { e.stopPropagation(); setIsMaximized(!isMaximized); }}
-                        className="w-[14px] h-[14px] bg-[#c0c0c0] flex items-center justify-center border border-white border-r-black border-b-black active:border-black active:border-r-white active:border-b-white box-border"
-                        aria-label="Maximize"
-                    >
-                        <div className="w-[6px] h-[6px] border border-black"></div>
-                    </button>
+                    {!isMobile && (
+                        <>
+                            <button
+                                onClick={(e) => { e.stopPropagation(); onMinimize(); }}
+                                className="w-[14px] h-[14px] bg-[#c0c0c0] flex items-end justify-center border border-white border-r-black border-b-black active:border-black active:border-r-white active:border-b-white box-border"
+                                aria-label="Minimize"
+                            >
+                                <div className="w-[6px] h-[2px] bg-black mb-[2px]"></div>
+                            </button>
+                            <button
+                                onClick={(e) => { e.stopPropagation(); setIsMaximized(!isMaximized); }}
+                                className="w-[14px] h-[14px] bg-[#c0c0c0] flex items-center justify-center border border-white border-r-black border-b-black active:border-black active:border-r-white active:border-b-white box-border"
+                                aria-label="Maximize"
+                            >
+                                <div className="w-[6px] h-[6px] border border-black"></div>
+                            </button>
+                        </>
+                    )}
                     <button
                         onClick={(e) => { e.stopPropagation(); onClose(); }}
                         className="w-[14px] h-[14px] bg-[#c0c0c0] flex items-center justify-center border border-white border-r-black border-b-black active:border-black active:border-r-white active:border-b-white box-border"
