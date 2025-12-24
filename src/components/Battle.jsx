@@ -259,11 +259,7 @@ export default function Battle({ userStats, onNavigate, onAction, onViewProfile 
                                                 ) : (
                                                     <span>{player.username || 'Unknown Lord'}</span>
                                                 )}
-                                                {isCurrentUser && (
-                                                    <span className="text-[10px] bg-blue-800 text-white px-1 rounded uppercase">
-                                                        You
-                                                    </span>
-                                                )}
+
                                             </div>
                                         </td>
                                         <td className="p-2 text-right border-r border-gray-200 border-b font-mono">
