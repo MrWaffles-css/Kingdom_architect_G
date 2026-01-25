@@ -16,10 +16,11 @@ DECLARE
 BEGIN
     v_user_id := auth.uid();
     
-    -- Get caller's tutorial step, default to 0 if not found
-    SELECT tutorial_step INTO v_tutorial_step
-    FROM public.user_stats
-    WHERE id = v_user_id;
+    -- Get caller's tutorial step. 
+    -- Qualification is needed because 'id' is also an output parameter name.
+    SELECT us.tutorial_step INTO v_tutorial_step
+    FROM public.user_stats us
+    WHERE us.id = v_user_id;
 
     RETURN QUERY
     SELECT 
