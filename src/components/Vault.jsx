@@ -128,16 +128,25 @@ export default function Vault({ userStats, onUpdate }) {
     return (
         <div className="space-y-4 font-sans text-black">
             {/* Header */}
-            <div className="bg-white p-4 border-2 border-gray-400 border-r-white border-b-white shadow-[inset_1px_1px_0px_0px_#000] flex justify-between items-center mb-4">
-                <div>
-                    <h1 className="text-xl font-bold mb-1">The Royal Vault</h1>
-                    <p className="text-sm">Secure storage and treasury management.</p>
-                </div>
-                <div className="text-right">
-                    <div className="text-xs text-gray-600">Vault Balance</div>
-                    <div className="text-2xl font-bold font-mono">{formatNumber(vaultGold)}</div>
-                    <div className="text-xs text-gray-500 mt-1">
-                        Capacity: {formatNumber(currentStats.capacity)}
+            {/* Header */}
+            <div className="bg-white border-2 border-gray-400 border-r-white border-b-white shadow-[inset_1px_1px_0px_0px_#000] mb-4">
+                <img
+                    src="/images/vault-banner.png"
+                    alt="The Royal Vault"
+                    className="w-full h-48 object-cover object-center border-b-2 border-gray-400"
+                    style={{ imageRendering: 'pixelated' }}
+                />
+                <div className="p-4 flex justify-between items-center">
+                    <div>
+                        <h1 className="text-xl font-bold mb-1">The Royal Vault</h1>
+                        <p className="text-sm">Secure storage and treasury management.</p>
+                    </div>
+                    <div className="text-right">
+                        <div className="text-xs text-gray-600">Vault Balance</div>
+                        <div className="text-2xl font-bold font-mono">{formatNumber(vaultGold)}</div>
+                        <div className="text-xs text-gray-500 mt-1">
+                            Capacity: {formatNumber(currentStats.capacity)}
+                        </div>
                     </div>
                 </div>
             </div>

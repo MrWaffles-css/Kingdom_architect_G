@@ -21,6 +21,7 @@ export default function App() {
 
     const [showAdmin, setShowAdmin] = useState(false)
     const [viewingUserId, setViewingUserId] = useState(null)
+    const [profileUpdateTrigger, setProfileUpdateTrigger] = useState(0)
 
     // Setup Wizard State (Lifted to top level to avoid conditional hook error)
     const [progress, setProgress] = useState(0);
@@ -138,6 +139,7 @@ export default function App() {
 
     const handleViewProfile = (userId) => {
         setViewingUserId(userId);
+        setProfileUpdateTrigger(prev => prev + 1);
     };
 
     const handleLogout = async () => {
@@ -298,6 +300,7 @@ export default function App() {
                 refreshUserData={refreshUserData}
                 viewingUserId={viewingUserId}
                 setViewingUserId={setViewingUserId}
+                profileUpdateTrigger={profileUpdateTrigger}
                 showAdmin={showAdmin}
                 setShowAdmin={setShowAdmin}
                 isAdmin={isAdmin}

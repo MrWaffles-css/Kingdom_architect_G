@@ -45,7 +45,12 @@ export default function Battle({ userStats, onNavigate, onAction, onViewProfile 
                 });
 
             if (error) throw error;
-            setPlayers(data || []);
+
+            if (error) throw error;
+            // Filter out Clippy from display and count
+            const filteredData = (data || []).filter(p => p.username !== 'Clippy');
+            setPlayers(filteredData);
+            setTotalPlayers(filteredData.length);
         } catch (error) {
             console.error('Error fetching players:', error);
             setErrorMsg(error.message);
@@ -194,19 +199,23 @@ export default function Battle({ userStats, onNavigate, onAction, onViewProfile 
 
 
             {/* Header Banner */}
-            <div className="bg-white p-4 border-2 border-gray-400 border-r-white border-b-white shadow-[inset_1px_1px_0px_0px_#000] flex justify-between items-center mb-4">
-                <div>
-                    <h1 className="text-xl font-bold mb-1">Battlefield</h1>
-                    <p className="text-sm">Command your forces and conquer your enemies.</p>
-                </div>
+            {/* Header Banner */}
+            <div className="mb-4 border-2 border-white border-b-gray-500 border-r-gray-500 shadow-inner relative">
+                <img
+                    src="/battle_banner.png"
+                    alt="Battlefield Banner"
+                    className="w-full h-56 object-cover object-center pixelated"
+                />
                 <button
                     onClick={fetchPlayers}
                     disabled={loading}
-                    className="px-3 py-1 bg-[#c0c0c0] border-2 border-white border-r-gray-800 border-b-gray-800 active:border-gray-800 active:border-r-white active:border-b-white text-black font-bold text-xs"
+                    className="absolute bottom-2 right-2 px-3 py-1 bg-[#c0c0c0] border-2 border-white border-r-gray-800 border-b-gray-800 active:border-gray-800 active:border-r-white active:border-b-white text-black font-bold text-[0.75em]"
                 >
                     {loading ? '...' : 'Refresh'}
                 </button>
             </div>
+
+
 
             {/* Error Message */}
             {errorMsg && (
@@ -264,16 +273,20 @@ export default function Battle({ userStats, onNavigate, onAction, onViewProfile 
                                 return (
                                     <tr
                                         key={player.id}
-                                        className={`text-sm ${isCurrentUser ? 'bg-blue-50' : 'hover:bg-blue-600 hover:text-white group'}`}
+                                        className={`text-[0.8em] ${isCurrentUser ? 'bg-blue-50' : 'hover:bg-blue-600 hover:text-white group'}`}
                                     >
-                                        <td className="p-2 border-r border-gray-200 border-b font-mono">
+                                        <td className="p-2 border-r border-gray-200 border-b font-mono text-[0.9em]">
                                             {player.alliance || '-'}
                                         </td>
                                         <td className="p-2 border-r border-gray-200 border-b">
-                                            <div className="font-bold flex items-center gap-2">
+                                            <div className="flex items-center gap-2">
                                                 {!isCurrentUser ? (
                                                     <button
-                                                        onClick={() => onViewProfile && onViewProfile(player.id)}
+                                                        onClick={() => {
+                                                            console.log('Clicking profile for:', player.id, 'Handler present:', !!onViewProfile);
+                                                            if (onViewProfile) onViewProfile(player.id);
+                                                            else console.error('onViewProfile prop is missing!');
+                                                        }}
                                                         className="hover:underline text-left group-hover:text-white"
                                                     >
                                                         {player.username || 'Unknown Lord'}
@@ -286,12 +299,12 @@ export default function Battle({ userStats, onNavigate, onAction, onViewProfile 
                                         </td>
                                         <td className="p-2 text-right border-r border-gray-200 border-b font-mono">
                                             {player.gold !== null && player.gold !== undefined ? (
-                                                <span className="font-bold">{formatNumber(player.gold)} G</span>
+                                                <span>{formatNumber(player.gold)} G</span>
                                             ) : (
                                                 <span className="opacity-40">???</span>
                                             )}
                                         </td>
-                                        <td className="p-2 text-right border-r border-gray-200 border-b font-mono font-bold">
+                                        <td className="p-2 text-right border-r border-gray-200 border-b font-mono">
                                             #{formatNumber(player.overall_rank)}
                                         </td>
                                         <td className="p-2 text-center border-b border-gray-200">
@@ -300,7 +313,7 @@ export default function Battle({ userStats, onNavigate, onAction, onViewProfile 
                                                     <button
                                                         onClick={() => handleAttack(player.id, player.username)}
                                                         disabled={actionLoading === player.id}
-                                                        className="px-2 py-0.5 bg-[#c0c0c0] border-2 border-white border-r-gray-800 border-b-gray-800 active:border-gray-800 active:border-r-white active:border-b-white text-black text-xs group-hover:text-black"
+                                                        className="px-1 py-0 bg-[#c0c0c0] border border-white border-r-gray-800 border-b-gray-800 active:border-gray-800 active:border-r-white active:border-b-white text-black text-[0.85em] font-bold group-hover:text-black min-w-[50px]"
                                                         title="Attack (100 Turns)"
                                                     >
                                                         Attack
@@ -308,7 +321,7 @@ export default function Battle({ userStats, onNavigate, onAction, onViewProfile 
                                                     <button
                                                         onClick={() => handleSpy(player.id, player.username)}
                                                         disabled={actionLoading === player.id}
-                                                        className="px-2 py-0.5 bg-[#c0c0c0] border-2 border-white border-r-gray-800 border-b-gray-800 active:border-gray-800 active:border-r-white active:border-b-white text-black text-xs group-hover:text-black"
+                                                        className="px-1 py-0 bg-[#c0c0c0] border border-white border-r-gray-800 border-b-gray-800 active:border-gray-800 active:border-r-white active:border-b-white text-black text-[0.85em] font-bold group-hover:text-black min-w-[40px]"
                                                         title="Spy (Free)"
                                                     >
                                                         Spy

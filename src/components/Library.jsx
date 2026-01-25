@@ -8,6 +8,8 @@ export default function Library({ userStats, onUpdate }) {
     const [successMsg, setSuccessMsg] = useState(null);
     const [activeTab, setActiveTab] = useState('economy');
 
+    if (!userStats) return <div className="p-4">Loading Library...</div>;
+
     const currentLevel = userStats.library_level || 1;
 
     // Upgrade Cost Logic
@@ -360,14 +362,23 @@ export default function Library({ userStats, onUpdate }) {
     return (
         <div className="space-y-4 font-sans text-black">
             {/* Header Banner */}
-            <div className="bg-white p-4 border-2 border-gray-400 border-r-white border-b-white shadow-[inset_1px_1px_0px_0px_#000] flex justify-between items-center mb-4">
-                <div>
-                    <h1 className="text-xl font-bold mb-1">Royal Library</h1>
-                    <p className="text-sm">Research technologies to advance your kingdom.</p>
-                </div>
-                <div className="text-right">
-                    <div className="text-xs text-gray-600 uppercase font-bold">Level</div>
-                    <div className="text-2xl font-bold">{currentLevel} <span className="text-sm text-gray-500">/ 10</span></div>
+            {/* Header Banner */}
+            <div className="bg-white border-2 border-gray-400 border-r-white border-b-white shadow-[inset_1px_1px_0px_0px_#000] mb-4">
+                <img
+                    src="/images/library-banner.png"
+                    alt="Royal Library"
+                    className="w-full h-48 object-cover object-center border-b-2 border-gray-400"
+                    style={{ imageRendering: 'pixelated' }}
+                />
+                <div className="p-4 flex justify-between items-center">
+                    <div>
+                        <h1 className="text-xl font-bold mb-1">Royal Library</h1>
+                        <p className="text-sm">Research technologies to advance your kingdom.</p>
+                    </div>
+                    <div className="text-right">
+                        <div className="text-xs text-gray-600 uppercase font-bold">Level</div>
+                        <div className="text-2xl font-bold">{currentLevel} <span className="text-sm text-gray-500">/ 10</span></div>
+                    </div>
                 </div>
             </div>
 

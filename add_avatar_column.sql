@@ -1,0 +1,1 @@
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS avatar_id VARCHAR(50) DEFAULT 'default';

@@ -7,10 +7,10 @@ export default function Barracks({ userStats, onUpdate }) {
     const [error, setError] = useState(null);
     const [successMsg, setSuccessMsg] = useState(null);
     const [quantities, setQuantities] = useState({
-        attack: '',
-        defense: '',
-        spy: '',
-        sentry: ''
+        attack: '1',
+        defense: '1',
+        spy: '1',
+        sentry: '1'
     });
 
     if (!userStats) return <div className="p-4 text-center">Loading barracks...</div>;
@@ -41,7 +41,7 @@ export default function Barracks({ userStats, onUpdate }) {
 
             onUpdate(data); // Update parent state with new stats
             setSuccessMsg(`Successfully trained ${qty} ${UNIT_TYPES.find(u => u.id === type).name}(s)!`);
-            setQuantities(prev => ({ ...prev, [type]: '' }));
+            setQuantities(prev => ({ ...prev, [type]: '1' }));
         } catch (err) {
             console.error('Training error:', err);
             setError(err.message || 'Failed to train units');
@@ -60,17 +60,19 @@ export default function Barracks({ userStats, onUpdate }) {
     );
 
     return (
-        <div className="space-y-4 font-sans text-black">
+        <div className="space-y-4 font-sans text-black pb-6 text-[1em]">
+            {/* Banner */}
+            <div className="mb-4 border-2 border-white border-b-gray-500 border-r-gray-500 shadow-inner">
+                <img
+                    src="/barracks_banner.png"
+                    alt="Barracks Banner"
+                    className="w-full h-56 object-cover object-center pixelated"
+                />
+            </div>
+
             {/* Header Info */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-end border-b-2 border-gray-400 pb-2 mb-4 gap-2">
-                <div>
-                    <h1 className="text-xl font-bold">Barracks</h1>
-                    <p className="text-sm">Train your citizens into powerful units.</p>
-                </div>
-                <div className="text-right">
-                    <div className="text-xs uppercase font-bold text-gray-600">Available Recruits</div>
-                    <div className="text-xl font-bold">{userStats.citizens?.toLocaleString()}</div>
-                </div>
+            <div className="border-b-2 border-gray-400 pb-2 mb-4 text-center">
+                <h1 className="text-[1.25em] font-bold">Barracks</h1>
             </div>
 
             {/* Status Messages */}
@@ -95,17 +97,22 @@ export default function Barracks({ userStats, onUpdate }) {
                         <div key={unit.id} className="bg-gray-200 border-2 border-white border-r-gray-500 border-b-gray-500 p-3 flex flex-col">
                             <div className="flex items-start justify-between mb-4">
                                 <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 border border-gray-500 bg-white flex items-center justify-center text-2xl shadow-[inset_1px_1px_2px_rgba(0,0,0,0.2)]">
+                                    <div className="w-10 h-10 border border-gray-500 bg-white flex items-center justify-center text-[1.5em] shadow-[inset_1px_1px_2px_rgba(0,0,0,0.2)]">
                                         {unit.icon}
                                     </div>
                                     <div>
-                                        <h3 className="font-bold text-lg">{unit.name}</h3>
-                                        <p className="text-xs text-gray-600">{unit.description}</p>
+                                        <h3 className="font-bold text-[1.125em] flex items-center gap-2">
+                                            {unit.name}
+                                            <span className="text-[0.75em] font-normal text-gray-600">
+                                                (+{UNIT_STATS.BASE_STRENGTH} {unit.stat})
+                                            </span>
+                                        </h3>
+                                        <p className="text-[0.75em] text-gray-600">{unit.description}</p>
                                     </div>
                                 </div>
                                 <div className="text-right">
-                                    <div className="text-xs text-gray-600 uppercase font-bold">Current</div>
-                                    <div className="font-mono font-bold">
+                                    <div className="text-[0.75em] text-gray-600 uppercase font-bold">Current</div>
+                                    <div className="font-mono font-bold text-[1em]">
                                         {/* Map unit type to state key */}
                                         {(userStats[`${unit.id === 'spy' ? 'spies' : unit.id === 'sentry' ? 'sentries' : unit.id + '_soldiers'}`] || 0).toLocaleString()}
                                     </div>
@@ -113,10 +120,7 @@ export default function Barracks({ userStats, onUpdate }) {
                             </div>
 
                             <div className="mt-auto space-y-3">
-                                <div className="flex justify-between text-xs font-medium">
-                                    <span>Cost: {GAME_COSTS.TRAIN_SOLDIER.toLocaleString()} Gold</span>
-                                    <span>+{UNIT_STATS.BASE_STRENGTH} {unit.stat}</span>
-                                </div>
+
 
                                 <div className="flex gap-2">
                                     <input
@@ -131,23 +135,18 @@ export default function Barracks({ userStats, onUpdate }) {
                                     <button
                                         onClick={() => setQuantities(prev => ({ ...prev, [unit.id]: maxTrainable.toString() }))}
                                         disabled={maxTrainable === 0}
-                                        className="px-3 py-1 bg-[#c0c0c0] border-2 border-white border-r-gray-800 border-b-gray-800 active:border-gray-800 active:border-r-white active:border-b-white focus:outline-dotted text-xs font-bold"
+                                        className="px-3 py-1 bg-[#c0c0c0] border-2 border-white border-r-gray-800 border-b-gray-800 active:border-gray-800 active:border-r-white active:border-b-white focus:outline-dotted text-[0.75em] font-bold"
                                     >
-                                        Max
+                                        Max ({maxTrainable})
                                     </button>
                                     <button
                                         onClick={() => handleTrain(unit.id)}
                                         disabled={loading || !quantities[unit.id] || parseInt(quantities[unit.id]) > maxTrainable || parseInt(quantities[unit.id]) <= 0}
-                                        className="flex-1 bg-[#c0c0c0] border-2 border-white border-r-gray-800 border-b-gray-800 active:border-gray-800 active:border-r-white active:border-b-white text-black font-bold py-1 px-4 disabled:text-gray-500"
+                                        className="flex-1 bg-[#c0c0c0] border-2 border-white border-r-gray-800 border-b-gray-800 active:border-gray-800 active:border-r-white active:border-b-white text-black font-bold py-1 px-4 disabled:text-gray-500 text-[0.75em] min-w-[120px]"
                                     >
-                                        {loading ? '...' : 'Train'}
+                                        {loading ? '...' : `Train (${(parseInt(quantities[unit.id] || 0) * GAME_COSTS.TRAIN_SOLDIER).toLocaleString()} Gold)`}
                                     </button>
                                 </div>
-                                {quantities[unit.id] > 0 && (
-                                    <div className="text-xs text-center text-gray-600">
-                                        Total: {(quantities[unit.id] * GAME_COSTS.TRAIN_SOLDIER).toLocaleString()} Gold
-                                    </div>
-                                )}
                             </div>
                         </div>
                     ))}
@@ -159,13 +158,13 @@ export default function Barracks({ userStats, onUpdate }) {
                 <legend className="px-1 font-bold">Hostages</legend>
                 <div className="flex flex-col md:flex-row justify-between items-center gap-4">
                     <div className="flex-1 text-center md:text-left">
-                        <div className="text-xl font-bold">{userStats.hostages?.toLocaleString() || 0}</div>
-                        <p className="text-xs text-gray-600">Captured Enemy Soldiers</p>
+                        <div className="text-[1.25em] font-bold">{userStats.hostages?.toLocaleString() || 0}</div>
+                        <p className="text-[0.75em] text-gray-600">Captured Enemy Soldiers</p>
                     </div>
 
                     <div className="flex-1 flex flex-col items-center gap-2">
-                        <p className="text-sm font-bold text-gray-800">Convert to Citizens</p>
-                        <p className="text-xs text-gray-600 mb-2">Cost: 2,000 Gold per hostage</p>
+                        <p className="text-[0.875em] font-bold text-gray-800">Convert to Citizens</p>
+                        <p className="text-[0.75em] text-gray-600 mb-2">Cost: 2,000 Gold per hostage</p>
                         <div className="flex gap-2 w-full justify-center">
                             <button
                                 onClick={async () => {
@@ -184,7 +183,7 @@ export default function Barracks({ userStats, onUpdate }) {
                                     }
                                 }}
                                 disabled={loading || !userStats.hostages || userStats.hostages < 1 || availableGold < 2000}
-                                className="px-4 py-1 bg-[#c0c0c0] border-2 border-white border-r-gray-800 border-b-gray-800 active:border-gray-800 active:border-r-white active:border-b-white text-xs font-bold disabled:text-gray-500"
+                                className="px-4 py-1 bg-[#c0c0c0] border-2 border-white border-r-gray-800 border-b-gray-800 active:border-gray-800 active:border-r-white active:border-b-white text-[0.75em] font-bold disabled:text-gray-500"
                             >
                                 Convert 1
                             </button>
@@ -212,7 +211,7 @@ export default function Barracks({ userStats, onUpdate }) {
                                     }
                                 }}
                                 disabled={loading || !userStats.hostages || userStats.hostages < 1 || availableGold < 2000}
-                                className="px-4 py-1 bg-[#c0c0c0] border-2 border-white border-r-gray-800 border-b-gray-800 active:border-gray-800 active:border-r-white active:border-b-white text-xs font-bold disabled:text-gray-500"
+                                className="px-4 py-1 bg-[#c0c0c0] border-2 border-white border-r-gray-800 border-b-gray-800 active:border-gray-800 active:border-r-white active:border-b-white text-[0.75em] font-bold disabled:text-gray-500"
                             >
                                 Convert All
                             </button>

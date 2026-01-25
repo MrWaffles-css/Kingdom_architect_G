@@ -11,16 +11,25 @@ export default function Kingdom({ kingdomLevel, citizens, experience, onBuild, o
     return (
         <div className="w-full font-sans text-black p-2 animate-fade-in">
             {/* Header Banner */}
-            <div className="bg-white p-4 border-2 border-gray-400 border-r-white border-b-white shadow-[inset_1px_1px_0px_0px_#000] mb-4 text-center">
-                <h2 className="text-2xl font-bold mb-1">
-                    {kingdomLevel === 0 ? 'Unclaimed Land' : `Kingdom Level ${kingdomLevel}`}
-                </h2>
-                <div className="w-full h-px bg-gray-400 my-2"></div>
-                <p className="text-sm">
-                    {kingdomLevel === 0
-                        ? "Establish your kingdom to begin gathering citizens."
-                        : `Managing the ${kingdomLevel === 0 ? 'Land' : 'Kingdom'} of ${userStats?.username || 'Architect'}`}
-                </p>
+            {/* Header Banner */}
+            <div className="bg-white border-2 border-gray-400 border-r-white border-b-white shadow-[inset_1px_1px_0px_0px_#000] mb-4 text-center">
+                <img
+                    src="/images/kingdom-banner.png"
+                    alt="Kingdom"
+                    className="w-full h-48 object-cover object-center border-b-2 border-gray-400"
+                    style={{ imageRendering: 'pixelated' }}
+                />
+                <div className="p-4">
+                    <h2 className="text-2xl font-bold mb-1">
+                        {kingdomLevel === 0 ? 'Unclaimed Land' : `Kingdom Level ${kingdomLevel}`}
+                    </h2>
+                    <div className="w-full h-px bg-gray-400 my-2"></div>
+                    <p className="text-sm">
+                        {kingdomLevel === 0
+                            ? "Establish your kingdom to begin gathering citizens."
+                            : `Managing the ${kingdomLevel === 0 ? 'Land' : 'Kingdom'} of ${userStats?.username || 'Architect'}`}
+                    </p>
+                </div>
             </div>
 
             {/* Core Stats */}

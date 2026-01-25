@@ -77,17 +77,20 @@ export default function GoldMine({ userStats, onUpdate }) {
     };
 
     return (
-        <div className="space-y-4 font-sans text-black">
+        <div className="space-y-4 font-sans text-black pb-6 text-[1em]">
+            {/* Banner */}
+            <div className="mb-4 border-2 border-white border-b-gray-500 border-r-gray-500 shadow-inner">
+                <img
+                    src="/goldmine_banner.png"
+                    alt="Gold Mine Banner"
+                    className="w-full h-56 object-cover object-center pixelated"
+                />
+            </div>
+
             {/* Header */}
-            <div className="bg-white p-4 border-2 border-gray-400 border-r-white border-b-white shadow-[inset_1px_1px_0px_0px_#000] flex justify-between items-center mb-4">
-                <div>
-                    <h1 className="text-xl font-bold mb-1">Royal Gold Mine</h1>
-                    <p className="text-sm">Manage your gold production and workforce.</p>
-                </div>
-                <div className="text-right">
-                    <div className="text-xs text-gray-600">Level</div>
-                    <div className="text-2xl font-bold font-mono">{mineLevel} <span className="text-sm text-gray-400">/ 25</span></div>
-                </div>
+            <div className="border-b-2 border-gray-400 pb-2 mb-4 text-center">
+                <h1 className="text-[1.25em] font-bold">Royal Gold Mine</h1>
+                <div className="text-[0.75em] text-gray-600 mt-1">Level {mineLevel} / 25</div>
             </div>
 
             <div className="flex flex-col md:flex-row gap-4">

@@ -33,7 +33,8 @@ const Desktop = ({
     setViewingUserId,
     showAdmin,
     setShowAdmin,
-    isAdmin
+    isAdmin,
+    profileUpdateTrigger // Added prop
 }) => {
     const [openWindows, setOpenWindows] = useState([]);
     const [activeWindowId, setActiveWindowId] = useState(null);
@@ -356,7 +357,7 @@ const Desktop = ({
                     <React.Fragment key={feature.id}>
                         <DesktopIcon
                             label={feature.title}
-                            icon={feature.isImage ? <img src={feature.icon} alt={feature.title} className="w-8 h-8 pixelated" /> : feature.icon}
+                            icon={feature.isImage ? <img src={feature.icon} alt={feature.title} className={`${feature.iconClassName || 'w-8 h-8'} pixelated`} /> : feature.icon}
                             onClick={() => {
                                 if (!dragMoved.current) {
                                     openWindow(feature.id);
@@ -413,7 +414,7 @@ const Desktop = ({
                     onAction: () => refreshUserData(session.user.id),
                     userId: session.user.id,
                     isOwnProfile: true,
-                    onViewProfile: handleViewProfile,
+                    onViewProfile: (targetId) => openWindow('profile', { userId: targetId, isOwnProfile: false, updateTrigger: Date.now() }),
                     onTitleChange: (newTitle) => updateWindowTitle(win.id, newTitle),
                     onClose: () => closeWindow(win.id),
                     ...win.extraProps
@@ -484,6 +485,7 @@ const Desktop = ({
                         }}
                         onAction={() => refreshUserData(session.user.id)}
                         onTitleChange={(name) => setViewingUserName(name)}
+                        updateTrigger={profileUpdateTrigger}
                     />
                 </Window>
             )}
@@ -520,7 +522,7 @@ const Desktop = ({
                                 onClick={() => { openWindow('kingdom'); setStartMenuOpen(false); }}
                                 className="w-full text-left px-2 py-1 hover:bg-[#000080] hover:text-white flex items-center gap-2"
                             >
-                                <img src="https://win98icons.alexmeub.com/icons/png/world-3.png" alt="" className="w-6 h-6" />
+                                <img src="/kingdom_icon.png" alt="" className="w-6 h-6" />
                                 <span className="text-sm">Kingdom</span>
                             </button>
                             {stats?.tutorial_step === 3 && <GuideArrow className="right-[-40px] top-2" />}
@@ -532,7 +534,7 @@ const Desktop = ({
                                 onClick={() => { openWindow('goldmine'); setStartMenuOpen(false); }}
                                 className="w-full text-left px-2 py-1 hover:bg-[#000080] hover:text-white flex items-center gap-2"
                             >
-                                <div className="w-6 h-6 flex items-center justify-center text-xl">⛏️</div>
+                                <img src="/goldmine_icon.png" alt="" className="w-6 h-6" />
                                 <span className="text-sm">Gold Mine</span>
                             </button>
                             {(stats?.tutorial_step === 4 || stats?.tutorial_step === 5) && <GuideArrow className="right-[-40px] top-2" />}
@@ -544,7 +546,7 @@ const Desktop = ({
                                 onClick={() => { openWindow('library'); setStartMenuOpen(false); }}
                                 className="w-full text-left px-2 py-1 hover:bg-[#000080] hover:text-white flex items-center gap-2"
                             >
-                                <div className="w-6 h-6 flex items-center justify-center text-xl">📚</div>
+                                <img src="/library_icon.png" alt="" className="w-6 h-6" />
                                 <span className="text-sm">Library</span>
                             </button>
                             {stats?.tutorial_step === 6 && <GuideArrow className="right-[-40px] top-2" />}
@@ -556,7 +558,7 @@ const Desktop = ({
                                 onClick={() => { openWindow('barracks'); setStartMenuOpen(false); }}
                                 className="w-full text-left px-2 py-1 hover:bg-[#000080] hover:text-white flex items-center gap-2"
                             >
-                                <div className="w-6 h-6 flex items-center justify-center text-xl">⚔️</div>
+                                <img src="/barracks_icon.png" alt="" className="w-6 h-6" />
                                 <span className="text-sm">Barracks</span>
                             </button>
                             {(stats?.tutorial_step === 8 || stats?.tutorial_step === 10) && <GuideArrow className="right-[-40px] top-2" />}
@@ -568,7 +570,7 @@ const Desktop = ({
                                 onClick={() => { openWindow('battle'); setStartMenuOpen(false); }}
                                 className="w-full text-left px-2 py-1 hover:bg-[#000080] hover:text-white flex items-center gap-2"
                             >
-                                <div className="w-6 h-6 flex items-center justify-center text-xl">🗺️</div>
+                                <img src="/battlefield_icon.png" alt="" className="w-6 h-6" />
                                 <span className="text-sm">Battlefield</span>
                             </button>
                             {(stats?.tutorial_step === 9 || stats?.tutorial_step === 12) && <GuideArrow className="right-[-40px] top-2" />}
@@ -580,7 +582,7 @@ const Desktop = ({
                                 onClick={() => { openWindow('vault'); setStartMenuOpen(false); }}
                                 className="w-full text-left px-2 py-1 hover:bg-[#000080] hover:text-white flex items-center gap-2"
                             >
-                                <div className="w-6 h-6 flex items-center justify-center text-xl">🏦</div>
+                                <img src="/vault_icon.png" alt="" className="w-6 h-6" />
                                 <span className="text-sm">Vault</span>
                             </button>
                             {stats?.tutorial_step === 14 && <GuideArrow className="right-[-40px] top-2" />}
@@ -592,7 +594,7 @@ const Desktop = ({
                                 onClick={() => { openWindow('armoury'); setStartMenuOpen(false); }}
                                 className="w-full text-left px-2 py-1 hover:bg-[#000080] hover:text-white flex items-center gap-2"
                             >
-                                <div className="w-6 h-6 flex items-center justify-center text-xl">⚔️</div>
+                                <img src="/armoury_icon.png" alt="" className="w-6 h-6" />
                                 <span className="text-sm">Armoury</span>
                             </button>
                             {stats?.tutorial_step === 11 && <GuideArrow className="right-[-40px] top-2" />}

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
+import { avatars, getAvatarPath } from '../config/avatars';
 
 // Helper component for Spy Level Visibility
 const SpyCheck = ({ level, required, children, fallback = '???' }) => {
@@ -7,7 +8,7 @@ const SpyCheck = ({ level, required, children, fallback = '???' }) => {
     return <span className="text-gray-500 font-mono tracking-widest text-[#000080]" title={`Requires Spy Level ${required}`}>{fallback}</span>;
 };
 
-export default function Profile({ userId, isOwnProfile, session, onNavigate, onAction, stats: liveStats, initialTab = 'empire', onTitleChange }) {
+export default function Profile({ userId, isOwnProfile, session, onNavigate, onAction, stats: liveStats, initialTab = 'empire', onTitleChange, updateTrigger }) {
     const [profileData, setProfileData] = useState(null);
     const [currentUserStats, setCurrentUserStats] = useState(null);
     const [spyReport, setSpyReport] = useState(null);
@@ -18,6 +19,16 @@ export default function Profile({ userId, isOwnProfile, session, onNavigate, onA
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState(false);
     const [activeTab, setActiveTab] = useState(initialTab);
+    const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
+
+    // Reset state when target changes to prevent stale data
+    useEffect(() => {
+        setProfileData(null);
+        setSpyReport(null);
+        setSpyFailure(null);
+        setBattleHistory([]);
+        setAchievements([]);
+    }, [userId]);
 
     const targetUserId = userId || session?.user?.id;
     const viewingOwnProfile = !userId || userId === session?.user?.id;
@@ -45,9 +56,19 @@ export default function Profile({ userId, isOwnProfile, session, onNavigate, onA
         if (targetUserId) {
             fetchData();
         }
-    }, [targetUserId]);
+    }, [targetUserId, updateTrigger]);
 
-    const fetchData = async () => {
+    const [notification, setNotification] = useState(null);
+
+    // Auto-clear notification
+    useEffect(() => {
+        if (notification) {
+            const timer = setTimeout(() => setNotification(null), 3000);
+            return () => clearTimeout(timer);
+        }
+    }, [notification]);
+
+    const fetchData = async (isManualRefresh = false) => {
         setLoading(true);
         try {
             await Promise.all([
@@ -57,6 +78,10 @@ export default function Profile({ userId, isOwnProfile, session, onNavigate, onA
                 !viewingOwnProfile && fetchSpyReport(),
                 !viewingOwnProfile && fetchBattleHistory()
             ].filter(Boolean));
+
+            if (isManualRefresh) {
+                setNotification({ type: 'info', message: 'Profile data reloaded.' });
+            }
         } finally {
             setLoading(false);
         }
@@ -66,13 +91,23 @@ export default function Profile({ userId, isOwnProfile, session, onNavigate, onA
         try {
             const { data: stats } = await supabase.from('user_stats').select('*').eq('id', targetUserId).single();
             const { data: rankData } = await supabase.from('leaderboard').select('*').eq('id', targetUserId).single();
-            const { data: profile } = await supabase.from('profiles').select('username, created_at').eq('id', targetUserId).single();
+
+            // Attempt to fetch with avatar_id
+            let { data: profile, error } = await supabase.from('profiles').select('username, created_at, avatar_id').eq('id', targetUserId).single();
+
+            // If that fails (likely due to missing column), fetch without it
+            if (error || !profile) {
+                console.warn('Fetching profile with avatar_id failed, retrying without it.', error);
+                const { data: fallbackProfile } = await supabase.from('profiles').select('username, created_at').eq('id', targetUserId).single();
+                profile = fallbackProfile;
+            }
 
             setProfileData({
                 ...stats,
                 ...rankData,
                 username: profile?.username || 'Unknown Player',
-                created_at: profile?.created_at
+                created_at: profile?.created_at,
+                avatar_id: profile?.avatar_id
             });
 
             if (onTitleChange && profile?.username) {
@@ -83,9 +118,28 @@ export default function Profile({ userId, isOwnProfile, session, onNavigate, onA
         }
     };
 
+    const handleAvatarUpdate = async (avatarId) => {
+        try {
+            const { error } = await supabase
+                .from('profiles')
+                .update({ avatar_id: avatarId })
+                .eq('id', session.user.id);
+
+            if (error) throw error;
+
+            // Optimistic update
+            setProfileData(prev => ({ ...prev, avatar_id: avatarId }));
+            setNotification({ type: 'success', message: 'Avatar updated!' });
+            setIsAvatarModalOpen(false);
+            if (onAction) onAction(); // Trigger refresh elsewhere if needed
+        } catch (error) {
+            console.error('Error updating avatar:', error);
+            setNotification({ type: 'error', message: 'Failed to update avatar' });
+        }
+    };
+
     const fetchCurrentUserStats = async () => {
         try {
-            // Need spy research level to determine visibility
             const { data } = await supabase.from('user_stats').select('spy, research_spy_report').eq('id', session.user.id).single();
             setCurrentUserStats(data);
         } catch (error) { console.error(error); }
@@ -93,15 +147,85 @@ export default function Profile({ userId, isOwnProfile, session, onNavigate, onA
 
     const fetchSpyReport = async () => {
         try {
-            const { data } = await supabase.rpc('get_latest_spy_report', { target_id: targetUserId });
-            if (data && data.length > 0) setSpyReport(data[0]);
+            // 1. Try to get an official Spy Report
+            const { data: reports, error } = await supabase
+                .from('spy_reports')
+                .select('*')
+                .eq('attacker_id', session.user.id)
+                .eq('defender_id', targetUserId)
+                .order('created_at', { ascending: false })
+                .limit(1);
+
+            let report = null;
+            if (reports && reports.length > 0) {
+                report = reports[0];
+                const created = new Date(report.created_at);
+                report.hours_old = (new Date() - created) / (1000 * 60 * 60);
+            }
+
+            // 2. Also check "Passive" Intel (Battlefield logic)
+            // If my spies are strong enough, I see gold even without a report.
+            const { data: passiveData } = await supabase.rpc('get_passive_intel', { target_id: targetUserId });
+
+            if (passiveData && passiveData.success) {
+                // If passive check succeeds, we know Gold/Citizens/etc.
+                // We can construct a "Virtual" report or augment the existing one.
+                // Passive intel usually only gives Gold, maybe Citizens?
+                // Let's assume it gives what Battle list gives: Gold.
+
+                if (!report) {
+                    report = {
+                        hours_old: 0, // It's live
+                        gold: passiveData.gold,
+                        // inferred fields
+                        is_passive: true
+                    };
+                } else {
+                    // Update gold in report if passive is newer/live? 
+                    // Report is a snapshot. Passive is live. Passive is better for Gold.
+                    // But Report has more details (buildings etc).
+                    report.gold = passiveData.gold;
+                    report.is_passive_augmented = true;
+                }
+            }
+
+            if (report) {
+                setSpyReport(report);
+            } else {
+                setSpyReport(null);
+            }
+
         } catch (error) { console.error(error); }
     };
 
     const fetchBattleHistory = async () => {
         try {
-            const { data } = await supabase.rpc('get_battle_history', { target_id: targetUserId, limit_count: 10 });
-            setBattleHistory(data || []);
+            const { data: battles } = await supabase.rpc('get_battle_history', { target_id: targetUserId, limit_count: 10 });
+
+            let spyLogs = [];
+            if (!viewingOwnProfile) {
+                const { data: spies } = await supabase
+                    .from('spy_reports')
+                    .select('*')
+                    .eq('attacker_id', session.user.id)
+                    .eq('defender_id', targetUserId)
+                    .order('created_at', { ascending: false })
+                    .limit(5);
+
+                if (spies) {
+                    spyLogs = spies.map(s => ({
+                        id: s.id,
+                        created_at: s.created_at,
+                        attacker_name: 'You',
+                        defender_name: profileData?.username || 'Target',
+                        success: true,
+                        is_spy: true,
+                        attacker_id: session.user.id
+                    }));
+                }
+            }
+            const combined = [...(battles || []), ...spyLogs].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+            setBattleHistory(combined);
         } catch (error) { console.error(error); }
     };
 
@@ -119,12 +243,13 @@ export default function Profile({ userId, isOwnProfile, session, onNavigate, onA
             const { data, error } = await supabase.rpc('spy_player', { target_id: targetUserId });
             if (error) throw error;
             if (data.success) {
-                await fetchCurrentUserStats(); // Refresh my own stats (to update energy/display correctly?) and get latest research level if changed
+                await fetchCurrentUserStats();
                 await fetchSpyReport();
                 if (onAction) onAction();
-                // Don't force change tab, stay on current to see result
+                setNotification({ type: 'success', message: 'Spy Successful! Data updated.' });
             } else {
                 setSpyFailure(data.message);
+                setNotification({ type: 'error', message: 'Spy Failed!' });
             }
         } catch (err) {
             setSpyFailure('Spy failed: ' + err.message);
@@ -146,8 +271,9 @@ export default function Profile({ userId, isOwnProfile, session, onNavigate, onA
                 opponent: profileData?.username
             });
             await fetchBattleHistory();
-            await fetchProfileData(); // update rank/stats
+            await fetchProfileData();
             if (onAction) onAction();
+            setNotification({ type: 'warning', message: 'Attack complete. Spy Report may now be old.' });
         } catch (err) {
             alert('Attack failed: ' + err.message);
         } finally {
@@ -165,7 +291,7 @@ export default function Profile({ userId, isOwnProfile, session, onNavigate, onA
 
     // 1. EMPIRE TAB (Economy & Infrastructure)
     const renderEmpireTab = () => {
-        const s = statsSource;
+        const s = statsSource || {};
         const lvl = viewerSpyLevel;
 
         const netGold = (() => {
@@ -411,12 +537,59 @@ export default function Profile({ userId, isOwnProfile, session, onNavigate, onA
                 </div>
             )}
 
+
+
+
+
+            {/* Avatar Selection Modal */}
+            {isAvatarModalOpen && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50" onClick={(e) => { e.stopPropagation(); setIsAvatarModalOpen(false); }}>
+                    <div className="bg-[#c0c0c0] border-2 border-white border-r-black border-b-black p-1 shadow-xl max-w-sm w-full" onClick={e => e.stopPropagation()}>
+                        <div className="px-2 py-1 bg-[#000080] text-white font-bold flex justify-between items-center mb-2">
+                            <span>Select Avatar</span>
+                            <button onClick={() => setIsAvatarModalOpen(false)} className="bg-[#c0c0c0] text-black w-4 h-4 flex items-center justify-center border border-white border-r-black border-b-black text-xs">✕</button>
+                        </div>
+                        <div className="p-4 grid grid-cols-3 gap-4">
+                            {avatars.map(avatar => (
+                                <button
+                                    key={avatar.id}
+                                    onClick={() => handleAvatarUpdate(avatar.id)}
+                                    className={`flex flex-col items-center gap-2 p-2 border-2 ${profileData?.avatar_id === avatar.id ? 'border-blue-600 bg-blue-100' : 'border-transparent hover:border-gray-400 hover:bg-gray-200'}`}
+                                >
+                                    <img src={avatar.src} alt={avatar.name} className="w-16 h-16 object-cover border border-gray-600 pixelated" />
+                                    <span className="text-xs text-center">{avatar.name}</span>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Profile Header */}
             <div className="flex gap-4 p-4 border-2 border-white border-r-gray-600 border-b-gray-600 mb-4 bg-gray-200">
-                <div className="w-16 h-16 bg-[#008080] border-2 border-gray-600 border-r-white border-b-white flex items-center justify-center shadow-inner relative overflow-hidden group">
-                    {/* Placeholder Avatar */}
-                    <span className="text-3xl text-white font-bold relative z-10">{profileData?.username?.charAt(0).toUpperCase()}</span>
-                    <div className="absolute inset-0 bg-gradient-to-tr from-transparent to-white/20"></div>
+                <div
+                    className={`w-16 h-16 bg-[#008080] border-2 border-gray-600 border-r-white border-b-white flex items-center justify-center shadow-inner relative overflow-hidden group ${viewingOwnProfile ? 'cursor-pointer hover:opacity-90' : ''}`}
+                    onClick={() => viewingOwnProfile && setIsAvatarModalOpen(true)}
+                    title={viewingOwnProfile ? "Click to change avatar" : ""}
+                >
+                    {profileData?.avatar_id && getAvatarPath(profileData.avatar_id) ? (
+                        <img
+                            src={getAvatarPath(profileData.avatar_id)}
+                            alt="Avatar"
+                            className="w-full h-full object-cover pixelated"
+                        />
+                    ) : (
+                        <>
+                            {/* Placeholder Avatar */}
+                            <span className="text-3xl text-white font-bold relative z-10">{profileData?.username?.charAt(0).toUpperCase()}</span>
+                            <div className="absolute inset-0 bg-gradient-to-tr from-transparent to-white/20"></div>
+                        </>
+                    )}
+                    {viewingOwnProfile && (
+                        <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                            <span className="text-[10px] text-white font-bold bg-black/50 px-1">EDIT</span>
+                        </div>
+                    )}
                 </div>
                 <div className="flex-1 min-w-0">
                     <h1 className="text-xl font-bold truncate">{profileData?.username}</h1>
@@ -436,6 +609,13 @@ export default function Profile({ userId, isOwnProfile, session, onNavigate, onA
                             className="px-3 py-1 bg-[#c0c0c0] border-2 border-white border-r-black border-b-black active:border-black active:border-r-white active:border-b-white text-xs"
                         >
                             Message
+                        </button>
+                        <button
+                            onClick={() => fetchData(true)}
+                            disabled={loading || actionLoading}
+                            className="px-3 py-1 bg-[#c0c0c0] border-2 border-white border-r-black border-b-black active:border-black active:border-r-white active:border-b-white text-xs"
+                        >
+                            Refresh
                         </button>
                         <button
                             onClick={handleSpy}
@@ -459,11 +639,16 @@ export default function Profile({ userId, isOwnProfile, session, onNavigate, onA
             {!viewingOwnProfile && (
                 <div className={`mb-2 px-2 py-1 text-xs border ${hasReport ? 'bg-yellow-50 border-yellow-400 text-yellow-900' : 'bg-gray-200 border-gray-400 text-gray-600'}`}>
                     {hasReport ? (
-                        <div className="flex justify-between items-center">
-                            <span>
-                                <strong>INTELLIGENCE REPORT</strong> ({spyReport.hours_old < 1 ? 'Fresh' : `${Math.floor(spyReport.hours_old)}h old`})
-                            </span>
-                            <span className="font-mono">Spy Level: {currentUserStats?.research_spy_report || 0}</span>
+                        <div className="flex flex-col gap-1">
+                            <div className="flex justify-between items-center">
+                                <span>
+                                    <strong>{spyReport.is_passive ? 'PASSIVE OBSERVATION' : 'INTELLIGENCE REPORT ACQUIRED'}</strong> ({spyReport.is_passive || spyReport.is_passive_augmented ? 'Live Gold' : (spyReport.hours_old < 1 ? 'Fresh' : `${Math.floor(spyReport.hours_old)}h old`)})
+                                </span>
+                                <span className="font-mono bg-yellow-200 px-1 border border-yellow-500">Spy Level: {currentUserStats?.research_spy_report || 0}</span>
+                            </div>
+                            <div className="text-[10px] italic opacity-80">
+                                {spyReport.is_passive ? 'Your spies are passively monitoring this kingdom`s treasury.' : 'Some data may be redacted ("???") due to low Spy Report Level. Upgrade "Spy Tech" to reveal more.'}
+                            </div>
                         </div>
                     ) : (
                         <div className="flex justify-between">
@@ -472,6 +657,17 @@ export default function Profile({ userId, isOwnProfile, session, onNavigate, onA
                         </div>
                     )}
                     {spyFailure && <div className="mt-1 text-red-600 font-bold">Latest Spy Attempt Failed: {spyFailure}</div>}
+                </div>
+            )}
+
+            {/* Notification Toast */}
+            {notification && (
+                <div className={`mb-2 mx-2 px-2 py-1 text-xs border font-bold text-center animate-pulse ${notification.type === 'success' ? 'bg-green-200 border-green-600 text-green-900' :
+                    notification.type === 'error' ? 'bg-red-200 border-red-600 text-red-900' :
+                        notification.type === 'warning' ? 'bg-orange-200 border-orange-600 text-orange-900' :
+                            'bg-blue-200 border-blue-600 text-blue-900'
+                    }`}>
+                    {notification.message}
                 </div>
             )}
 
@@ -533,15 +729,19 @@ export default function Profile({ userId, isOwnProfile, session, onNavigate, onA
                                     const isAttacker = battle.attacker_id === session.user.id;
                                     const won = isAttacker ? battle.success : !battle.success;
                                     return (
-                                        <div key={i} className={`p-2 border ${won ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'} text-xs flex justify-between items-center`}>
+                                        <div key={i} className={`p-2 border ${battle.is_spy ? 'bg-yellow-50 border-yellow-200' : (won ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200')} text-xs flex justify-between items-center`}>
                                             <div>
                                                 <div className="font-bold">
-                                                    {isAttacker ? 'You attacked' : 'Attacked by'} {isAttacker ? battle.defender_name : battle.attacker_name}
+                                                    {battle.is_spy ? (
+                                                        <span>🕵️ Spied on {battle.defender_name}</span>
+                                                    ) : (
+                                                        <span>{isAttacker ? 'You attacked' : 'Attacked by'} {isAttacker ? battle.defender_name : battle.attacker_name}</span>
+                                                    )}
                                                 </div>
                                                 <div className="text-[10px] text-gray-500">{new Date(battle.created_at).toLocaleString()}</div>
                                             </div>
-                                            <div className={`font-bold px-2 py-0.5 rounded ${won ? 'bg-green-200 text-green-800' : 'bg-red-200 text-red-800'}`}>
-                                                {won ? 'VICTORY' : 'DEFEAT'}
+                                            <div className={`font-bold px-2 py-0.5 rounded ${battle.is_spy ? 'bg-yellow-200 text-yellow-800' : (won ? 'bg-green-200 text-green-800' : 'bg-red-200 text-red-800')}`}>
+                                                {battle.is_spy ? 'REPORT' : (won ? 'VICTORY' : 'DEFEAT')}
                                             </div>
                                         </div>
                                     );

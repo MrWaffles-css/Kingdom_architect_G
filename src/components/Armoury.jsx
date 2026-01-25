@@ -136,14 +136,23 @@ export default function Armoury({ userStats, onUpdate }) {
     return (
         <div className="space-y-4 font-sans text-black animate-fade-in">
             {/* Header Banner */}
-            <div className="bg-white p-4 border-2 border-gray-400 border-r-white border-b-white shadow-[inset_1px_1px_0px_0px_#000] flex justify-between items-center mb-4">
-                <div>
-                    <h1 className="text-xl font-bold mb-1">Royal Armoury</h1>
-                    <p className="text-sm">Equip your forces with the finest steel.</p>
-                </div>
-                <div className="text-right">
-                    <div className="text-xs text-gray-600 uppercase font-bold">Research Level</div>
-                    <div className="text-2xl font-bold">{researchLevel} <span className="text-sm text-gray-500">/ 5</span></div>
+            {/* Header Banner */}
+            <div className="bg-white border-2 border-gray-400 border-r-white border-b-white shadow-[inset_1px_1px_0px_0px_#000] mb-4">
+                <img
+                    src="/images/armory-banner.png"
+                    alt="Royal Armoury"
+                    className="w-full h-48 object-cover object-center border-b-2 border-gray-400"
+                    style={{ imageRendering: 'pixelated' }}
+                />
+                <div className="p-4 flex justify-between items-center">
+                    <div>
+                        <h1 className="text-xl font-bold mb-1">Royal Armoury</h1>
+                        <p className="text-sm">Equip your forces with the finest steel.</p>
+                    </div>
+                    <div className="text-right">
+                        <div className="text-xs text-gray-600 uppercase font-bold">Research Level</div>
+                        <div className="text-2xl font-bold">{researchLevel} <span className="text-sm text-gray-500">/ 5</span></div>
+                    </div>
                 </div>
             </div>
 
