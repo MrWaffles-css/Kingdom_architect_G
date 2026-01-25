@@ -1,14 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
 
-export default function Reports() {
+export default function Reports({ initialReportId }) {
     const [reports, setReports] = useState([]);
     const [loading, setLoading] = useState(true);
     const [selectedReport, setSelectedReport] = useState(null);
 
     useEffect(() => {
         fetchReports();
-    }, []);
+    }, [initialReportId]); // Refetch when a specific report is requested to ensure it's in the list
+
+    // Effect to select the report once data is loaded
+    useEffect(() => {
+        if (initialReportId && reports.length > 0) {
+            const initial = reports.find(r => r.id === initialReportId);
+            if (initial) {
+                setSelectedReport(initial);
+            }
+        }
+    }, [reports, initialReportId]);
 
     const fetchReports = async () => {
         try {
@@ -87,16 +97,51 @@ export default function Reports() {
                                         <span className="font-bold text-xs uppercase block text-gray-500">Opponent</span>
                                         <span className="text-lg">{selectedReport.data.opponent_name}</span>
                                     </div>
+                                    {/* Gold Seized (Attacker View) */}
                                     {selectedReport.data.gold_stolen !== undefined && (
                                         <div>
                                             <span className="font-bold text-xs uppercase block text-gray-500">Gold Seized</span>
                                             <span className="text-lg font-bold text-[#808000]">{formatNumber(selectedReport.data.gold_stolen)}</span>
+                                            {(selectedReport.data.stolen_from_main !== undefined || selectedReport.data.stolen_from_vault !== undefined) && (
+                                                <div className="text-xs text-gray-600 mt-1">
+                                                    {selectedReport.data.stolen_from_main !== undefined && (
+                                                        <div className="flex justify-between">
+                                                            <span>Main ({Math.round((selectedReport.data.main_steal_percent || 0.5) * 100)}%):</span>
+                                                            <span>{formatNumber(selectedReport.data.stolen_from_main)}</span>
+                                                        </div>
+                                                    )}
+                                                    {selectedReport.data.stolen_from_vault !== undefined && (
+                                                        <div className="flex justify-between">
+                                                            <span>Vault ({Math.round((selectedReport.data.vault_steal_percent || 0) * 100)}%):</span>
+                                                            <span>{formatNumber(selectedReport.data.stolen_from_vault)}</span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
                                         </div>
                                     )}
+
+                                    {/* Gold Lost (Defender View) */}
                                     {selectedReport.data.gold_lost !== undefined && (
                                         <div>
                                             <span className="font-bold text-xs uppercase block text-gray-500">Gold Lost</span>
                                             <span className="text-lg font-bold text-red-700">-{formatNumber(selectedReport.data.gold_lost)}</span>
+                                            {(selectedReport.data.lost_from_main !== undefined || selectedReport.data.lost_from_vault !== undefined) && (
+                                                <div className="text-xs text-gray-600 mt-1">
+                                                    {selectedReport.data.lost_from_main !== undefined && (
+                                                        <div className="flex justify-between">
+                                                            <span>From Main:</span>
+                                                            <span>{formatNumber(selectedReport.data.lost_from_main)}</span>
+                                                        </div>
+                                                    )}
+                                                    {selectedReport.data.lost_from_vault !== undefined && (
+                                                        <div className="flex justify-between">
+                                                            <span>From Vault:</span>
+                                                            <span>{formatNumber(selectedReport.data.lost_from_vault)}</span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
                                         </div>
                                     )}
                                 </div>

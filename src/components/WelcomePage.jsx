@@ -7,6 +7,7 @@ import News from './News';
 import PatchNotes from './PatchNotes';
 import About from './About';
 import Help from './Help';
+import HallOfFame from './HallOfFame';
 
 export default function WelcomePage({ onLogin }) {
     const [startMenuOpen, setStartMenuOpen] = useState(false);
@@ -79,6 +80,7 @@ export default function WelcomePage({ onLogin }) {
         { id: 'patch', label: 'Patch Notes', icon: '📋', action: () => openWindow('patch') },
         { id: 'about', label: 'About', icon: 'ℹ️', action: () => openWindow('about') },
         { id: 'help', label: 'Help', icon: '❓', action: () => openWindow('help') },
+        { id: 'halloffame', label: 'Hall of Fame', icon: '🏆', action: () => openWindow('halloffame') },
     ];
 
     return (
@@ -178,6 +180,12 @@ export default function WelcomePage({ onLogin }) {
             {activeWindow === 'help' && (
                 <WindowWrapper title="Help" onClose={closeWindow}>
                     <Help />
+                </WindowWrapper>
+            )}
+
+            {activeWindow === 'halloffame' && (
+                <WindowWrapper title="Hall of Fame" onClose={closeWindow}>
+                    <HallOfFame />
                 </WindowWrapper>
             )}
 

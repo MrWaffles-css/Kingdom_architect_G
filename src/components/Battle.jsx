@@ -11,9 +11,19 @@ export default function Battle({ userStats, onNavigate, onAction, onViewProfile 
     const [actionLoading, setActionLoading] = useState(null);
     const ITEMS_PER_PAGE = 10;
 
+
+
     useEffect(() => {
         fetchPlayers();
     }, [page]);
+
+    // Auto-refresh every minute (60s) to match turn generation
+    useEffect(() => {
+        const interval = setInterval(() => {
+            fetchPlayers();
+        }, 60000); // 60 seconds
+        return () => clearInterval(interval);
+    }, [page]); // Re-set interval if page changes, though technically not needed, good for closure safety.
 
     const fetchPlayers = async () => {
         setLoading(true);
@@ -64,7 +74,8 @@ export default function Battle({ userStats, onNavigate, onAction, onViewProfile 
                 message: data.message,
                 gold_stolen: data.gold_stolen,
                 casualties: data.casualties,
-                opponent: targetName
+                opponent: targetName,
+                report_id: data.report_id
             });
 
             if (data.success) {
@@ -72,6 +83,15 @@ export default function Battle({ userStats, onNavigate, onAction, onViewProfile 
             }
             // Refresh global stats (turns, gold, soldiers)
             if (onAction) onAction();
+
+            // Redirect immediately to report page as requested
+            if (onNavigate && data.report_id) {
+                onNavigate('Reports', { initialReportId: data.report_id });
+                setAttackResult(null); // Do not show the small modal if we are going full page
+            } else {
+                // Fallback if no navigation available or no ID
+                // Keep modal open
+            }
         } catch (err) {
             console.error('Attack error:', err);
             alert('Attack failed: ' + err.message);
@@ -104,6 +124,8 @@ export default function Battle({ userStats, onNavigate, onAction, onViewProfile 
             setActionLoading(null);
         }
     };
+
+    if (!userStats) return <div className="p-4 text-center">Loading commander profile...</div>;
 
     return (
         <div className="space-y-4 font-sans text-black animate-fade-in relative">

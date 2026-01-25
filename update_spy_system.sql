@@ -60,7 +60,7 @@ RETURNS TABLE (
     hostages int, research_hostage_convert int,
     hours_old float
 ) 
-LANGUAGE plpgsql SECURITY DEFINER
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
 AS $$
 BEGIN
     RETURN QUERY 
@@ -88,6 +88,7 @@ CREATE OR REPLACE FUNCTION public.spy_player(target_id uuid)
 RETURNS json
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
 DECLARE
     v_attacker_id uuid;
@@ -176,6 +177,7 @@ CREATE OR REPLACE FUNCTION public.upgrade_research_spy_report()
 RETURNS json
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
 DECLARE
     v_user_id uuid;

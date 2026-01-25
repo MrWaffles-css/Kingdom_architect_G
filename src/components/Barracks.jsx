@@ -13,6 +13,8 @@ export default function Barracks({ userStats, onUpdate }) {
         sentry: ''
     });
 
+    if (!userStats) return <div className="p-4 text-center">Loading barracks...</div>;
+
     const UNIT_TYPES = [
         { id: 'attack', name: 'Attack Soldier', icon: '⚔️', description: 'Increases Attack strength.', stat: 'Attack' },
         { id: 'defense', name: 'Defense Soldier', icon: '🛡️', description: 'Increases Defense strength.', stat: 'Defense' },

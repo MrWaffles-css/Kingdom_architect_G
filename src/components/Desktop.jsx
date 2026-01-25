@@ -4,34 +4,20 @@ import { supabase } from '../supabase';
 import DesktopIcon from './DesktopIcon';
 import Taskbar from './Taskbar';
 import Window from './Window';
-import Kingdom from './Kingdom';
-import Battle from './Battle';
-import Barracks from './Barracks';
-import GoldMine from './GoldMine';
-import Vault from './Vault';
-import Library from './Library';
-import Armoury from './Armoury';
-import Reports from './Reports';
-import Mail from './Mail';
-import Profile from './Profile';
-import Overview from './Overview';
 import AdminPanel from './AdminPanel';
 import ChatBubbles from './ChatBubbles';
-import SpyReport from './SpyReport';
-
-import kingdomIcon from '../assets/kingdom.png';
-import barracksIcon from '../assets/barracks.png';
-import goldmineIcon from '../assets/goldmine.png';
-import computerIcon from '../assets/computer.png';
-import GamesWindow from './GamesWindow';
-import News from './News';
-import PatchNotes from './PatchNotes';
-import About from './About';
-import Help from './Help';
-import RecycleBin from './RecycleBin';
+import MobileTopBar from './MobileTopBar';
+import Profile from './Profile';
 import Clippy from './Clippy';
 import GuideArrow from './GuideArrow';
-import MobileTopBar from './MobileTopBar';
+// Profile is still needed for the "View Profile" window logic separately from the features list if referenced directly, 
+// strictly speaking it's in the features list, but lines 515 use <Profile /> explicitly. 
+// Actually, I should keep Profile import or use features.find... but keeping it is safer for now.
+// Let's check line 515.
+// Ah, line 515: <Profile ... />. So I DO need to keep Profile import unless I change that logic.
+// The other components (Kingdom, etc) are only used via the features map.
+
+import { desktopFeatures as features } from '../config/desktopFeatures';
 
 const Desktop = ({
     stats,
@@ -199,29 +185,6 @@ const Desktop = ({
             setDragState(null);
         }
     };
-
-    // Feature definition to map icons to components
-    const features = [
-        { id: 'overview', title: 'My Computer', icon: computerIcon, isImage: true, component: Overview, defaultWidth: 700 },
-        { id: 'recycle', title: 'Recycle Bin', icon: 'https://win98icons.alexmeub.com/icons/png/recycle_bin_empty-0.png', isImage: true, component: RecycleBin, defaultWidth: 400 },
-        { id: 'kingdom', title: 'Kingdom', icon: kingdomIcon, isImage: true, component: Kingdom, defaultWidth: 600 },
-        { id: 'barracks', title: 'Barracks', icon: barracksIcon, isImage: true, component: Barracks, defaultWidth: 650 },
-        { id: 'battle', title: 'Battle Field', icon: '🛡️', isImage: false, component: Battle, defaultWidth: 800 },
-        { id: 'goldmine', title: 'Gold Mine', icon: goldmineIcon, isImage: true, component: GoldMine, defaultWidth: 500 },
-        { id: 'vault', title: 'Vault', icon: '💰', isImage: false, component: Vault, defaultWidth: 500 },
-        { id: 'armoury', title: 'Armoury', icon: '⚔️', isImage: false, component: Armoury, defaultWidth: 650 },
-        { id: 'library', title: 'Library', icon: '📚', isImage: false, component: Library, defaultWidth: 500 },
-        { id: 'reports', title: 'Reports', icon: '📜', isImage: false, component: Reports, defaultWidth: 600 },
-        { id: 'mail', title: 'Mail', icon: '📧', isImage: false, component: Mail, defaultWidth: 550 },
-        { id: 'profile', title: 'Profile', icon: '👤', isImage: false, component: Profile, defaultWidth: 700 },
-        { id: 'spy_report', title: 'Spy Report', icon: '🕵️', isImage: false, component: SpyReport, defaultWidth: 500, hidden: true },
-
-        // { id: 'games', title: 'Games', icon: '🎮', isImage: false, component: GamesWindow, defaultWidth: 600 },
-        { id: 'news', title: 'News', icon: '📰', isImage: false, component: News, defaultWidth: 500 },
-        { id: 'patch', title: 'Patch Notes', icon: '📋', isImage: false, component: PatchNotes, defaultWidth: 400 },
-        { id: 'about', title: 'About', icon: 'ℹ️', isImage: false, component: About, defaultWidth: 400 },
-        { id: 'help', title: 'Help', icon: '❓', isImage: false, component: Help, defaultWidth: 400 },
-    ];
 
     const openWindow = (featureId, extraProps = {}) => {
         const existingWindow = openWindows.find(w => w.id === featureId);
@@ -450,8 +413,6 @@ const Desktop = ({
                     onAction: () => refreshUserData(session.user.id),
                     userId: session.user.id,
                     isOwnProfile: true,
-                    isOwnProfile: true,
-                    isOwnProfile: true,
                     onViewProfile: handleViewProfile,
                     onTitleChange: (newTitle) => updateWindowTitle(win.id, newTitle),
                     onClose: () => closeWindow(win.id),
@@ -492,7 +453,7 @@ const Desktop = ({
                         onClose={() => setShowAdmin(false)}
                         onUserUpdate={() => refreshUserData(session.user.id)}
                         onWorldReset={() => {
-                            setStats({ gold: 0, experience: 1000, turns: 0, vault: 0, rank: 1, citizens: 2, kingdom_level: 0, tutorial_step: 0 });
+                            setStats({ gold: 0, experience: 600, turns: 0, vault: 0, rank: 1, citizens: 2, kingdom_level: 0, tutorial_step: 0 });
                             refreshUserData(session.user.id);
                         }}
                     />
@@ -546,23 +507,12 @@ const Desktop = ({
                                 <img src="https://win98icons.alexmeub.com/icons/png/users-1.png" alt="" className="w-6 h-6" />
                                 <span className="text-sm">Profile</span>
                             </button>
-                        </div>
-
-                        <div className="h-px bg-gray-400 my-1 shadow-[0_1px_0_white]"></div>
-
-                        {/* Stats */}
-                        <div className="relative">
-                            <button
-                                onClick={() => { openWindow('profile', { initialTab: 'stats' }); setStartMenuOpen(false); }}
-                                className="w-full text-left px-2 py-1 hover:bg-[#000080] hover:text-white flex items-center gap-2 group"
-                            >
-                                <div className="w-6 h-6 flex items-center justify-center text-xl">📊</div>
-                                <span className="text-sm">Stats</span>
-                            </button>
                             {stats?.tutorial_step === 1 && <GuideArrow className="right-[-40px] top-2" />}
                         </div>
 
                         <div className="h-px bg-gray-400 my-1 shadow-[0_1px_0_white]"></div>
+
+
 
                         {/* Kingdom */}
                         <div className="relative">

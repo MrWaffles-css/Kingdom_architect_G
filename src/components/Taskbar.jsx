@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useGame } from '../contexts/GameContext';
+import { useGameTime } from '../contexts/TimeContext';
 import { supabase } from '../supabase';
 
 const Taskbar = ({ openWindows, activeWindowId, onWindowClick, onStartClick, stats }) => {
-    // Consume serverTime derived from GameContext updates
-    const { serverTime } = useGame() || {};
+    // Consume serverTime derived from TimeContext
+    const { serverTime } = useGameTime() || {};
 
 
     // Fallback to local time if context unavailable (for robust rendering)

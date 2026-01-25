@@ -150,9 +150,8 @@ export default function Library({ userStats, onUpdate }) {
         return costs[level];
     };
 
-    // Helper to get bonus description
-    // Returns: "Increases power by X% -> Y%"
-    const getTechBonusDesc = (level) => {
+    // Helper to get bonus value
+    const getTechBonus = (level) => {
         const bonuses = [
             0, 5, 10, 15, 20, 25, 30, 35, 40, 45,
             50, 55, 60, 65, 70, 75, 80, 85, 90, 95,
@@ -162,15 +161,7 @@ export default function Library({ userStats, onUpdate }) {
             550, 575, 600, 625, 650, 675, 700, 730, 760, 790,
             820, 850, 880, 900
         ];
-
-        const currentBonus = bonuses[Math.min(level, bonuses.length - 1)];
-
-        if (level >= 63) {
-            return `Increases power by ${currentBonus}% (Max)`;
-        }
-
-        const nextBonus = bonuses[Math.min(level + 1, bonuses.length - 1)];
-        return `Increases power by ${currentBonus}% → ${nextBonus}%`;
+        return bonuses[Math.min(level, bonuses.length - 1)];
     };
 
     const handleResearchUpgrade = async (researchName) => {
@@ -238,46 +229,13 @@ export default function Library({ userStats, onUpdate }) {
     };
 
     // Helper to get turns generated per minute
+    // Helper to get turns generated per minute
+    // Linear scaling: Level 1 = 1 turn, Level 2 = 2 turns, etc.
     const getTurnsGenerated = (level) => {
-        if (level === 0) return 0;
-        if (level === 1) return 1;
-        if (level === 2) return 2;
-        if (level === 3) return 4;
-        if (level === 4) return 8;
-        if (level >= 5) return 15;
-        return 0;
+        return level;
     };
 
-    // Description Generators for Standard Upgrades
-    const getVaultStealDesc = (level) => {
-        const current = level * 5;
-        if (level >= 5) return `Steal ${current}% from enemy vaults (Max)`;
-        return `Steal ${current}% → ${(level + 1) * 5}% from enemy vaults`;
-    };
 
-    const getGoldStealDesc = (level) => {
-        const current = 50 + (level * 5);
-        if (level >= 10) return `Steal ${current}% of enemy gold (Max)`;
-        return `Steal ${current}% → ${50 + ((level + 1) * 5)}% of enemy gold`;
-    };
-
-    const getTurnsDesc = (level) => {
-        const current = getTurnsGenerated(level);
-        if (level >= 5) return `Generate ${current} turns per minute (Max)`;
-        const next = getTurnsGenerated(level + 1);
-        return `Generate ${current} → ${next} turns per minute`;
-    };
-
-    const getHostageDesc = (level) => {
-        const current = level * 10;
-        if (level >= 10) return `Convert ${current}% of killed soldiers to hostages (Max)`;
-        return `Convert ${current}% → ${(level + 1) * 10}% of killed soldiers to hostages`;
-    };
-
-    const getWeaponDesc = (level) => {
-        if (level >= 5) return `Access to Tier ${level} Weapons (Max)`;
-        return `Access to Tier ${level} Weapons → Tier ${level + 1} Weapons`;
-    };
 
     // Research Data (Dynamic)
     const researchCategories = {
@@ -286,17 +244,19 @@ export default function Library({ userStats, onUpdate }) {
                 name: 'Steal from Vault %',
                 level: userStats.research_vault_steal || 0,
                 maxLevel: 5,
-                description: getVaultStealDesc(userStats.research_vault_steal || 0),
+                currentStat: `Steal ${(userStats.research_vault_steal || 0) * 5}%`,
+                nextStat: `Steal ${Math.min(((userStats.research_vault_steal || 0) + 1) * 5, 25)}%`,
                 cost: getVaultStealResearchCost(userStats.research_vault_steal || 0),
                 costNum: getVaultStealResearchCostNum(userStats.research_vault_steal || 0),
-                currency: 'xp', // Specify currency type
+                currency: 'xp',
                 disabled: false
             },
             {
                 name: 'Increase Stolen %',
                 level: userStats.research_gold_steal || 0,
                 maxLevel: 10,
-                description: getGoldStealDesc(userStats.research_gold_steal || 0),
+                currentStat: `Steal ${50 + ((userStats.research_gold_steal || 0) * 5)}%`,
+                nextStat: `Steal ${Math.min(50 + (((userStats.research_gold_steal || 0) + 1) * 5), 100)}%`,
                 cost: (userStats.research_gold_steal || 0) >= 10 ? 'Max Level' : `${(5000 * ((userStats.research_gold_steal || 0) + 1)).toLocaleString()} XP`,
                 costNum: 5000 * ((userStats.research_gold_steal || 0) + 1),
                 currency: 'xp',
@@ -306,7 +266,8 @@ export default function Library({ userStats, onUpdate }) {
                 name: 'Increase Turns per Minute',
                 level: userStats.research_turns_per_min || 0,
                 maxLevel: 5,
-                description: getTurnsDesc(userStats.research_turns_per_min || 0),
+                currentStat: `+${getTurnsGenerated(userStats.research_turns_per_min || 0)} Turns / min`,
+                nextStat: `+${getTurnsGenerated(Math.min((userStats.research_turns_per_min || 0) + 1, 5))} Turns / min`,
                 cost: getTurnsResearchCost(userStats.research_turns_per_min || 0),
                 costNum: getTurnsResearchCostNum(userStats.research_turns_per_min || 0),
                 currency: 'xp',
@@ -318,7 +279,8 @@ export default function Library({ userStats, onUpdate }) {
                 name: 'Convert into Hostages %',
                 level: userStats.research_hostage_convert || 0,
                 maxLevel: 10,
-                description: getHostageDesc(userStats.research_hostage_convert || 0),
+                currentStat: `Convert ${(userStats.research_hostage_convert || 0) * 10}%`,
+                nextStat: `Convert ${Math.min(((userStats.research_hostage_convert || 0) + 1) * 10, 100)}%`,
                 cost: getHostageResearchCost(userStats.research_hostage_convert || 0),
                 costNum: getHostageResearchCostNum(userStats.research_hostage_convert || 0),
                 disabled: false
@@ -327,7 +289,8 @@ export default function Library({ userStats, onUpdate }) {
                 name: 'Unlock Better Weapons',
                 level: userStats.research_weapons || 0,
                 maxLevel: 5,
-                description: getWeaponDesc(userStats.research_weapons || 0),
+                currentStat: `Tier ${userStats.research_weapons || 0}`,
+                nextStat: `Tier ${Math.min((userStats.research_weapons || 0) + 1, 5)}`,
                 cost: getWeaponResearchCost(userStats.research_weapons || 0),
                 costNum: getWeaponResearchCostNum(userStats.research_weapons || 0),
                 disabled: false
@@ -336,7 +299,8 @@ export default function Library({ userStats, onUpdate }) {
                 name: 'Attack Technology',
                 level: userStats.research_attack || 0,
                 maxLevel: 63,
-                description: getTechBonusDesc(userStats.research_attack || 0),
+                currentStat: `+${getTechBonus(userStats.research_attack || 0)}% Power`,
+                nextStat: `+${getTechBonus(Math.min((userStats.research_attack || 0) + 1, 63))}% Power`,
                 cost: getTechUpgradeCost(userStats.research_attack || 0),
                 costNum: getTechUpgradeCostNum(userStats.research_attack || 0),
                 currency: 'xp',
@@ -348,7 +312,8 @@ export default function Library({ userStats, onUpdate }) {
                 name: 'Defense Technology',
                 level: userStats.research_defense || 0,
                 maxLevel: 63,
-                description: getTechBonusDesc(userStats.research_defense || 0),
+                currentStat: `+${getTechBonus(userStats.research_defense || 0)}% Power`,
+                nextStat: `+${getTechBonus(Math.min((userStats.research_defense || 0) + 1, 63))}% Power`,
                 cost: getTechUpgradeCost(userStats.research_defense || 0),
                 costNum: getTechUpgradeCostNum(userStats.research_defense || 0),
                 currency: 'xp',
@@ -358,7 +323,8 @@ export default function Library({ userStats, onUpdate }) {
                 name: 'Sentry Technology',
                 level: userStats.research_sentry || 0,
                 maxLevel: 63,
-                description: getTechBonusDesc(userStats.research_sentry || 0),
+                currentStat: `+${getTechBonus(userStats.research_sentry || 0)}% Power`,
+                nextStat: `+${getTechBonus(Math.min((userStats.research_sentry || 0) + 1, 63))}% Power`,
                 cost: getTechUpgradeCost(userStats.research_sentry || 0),
                 costNum: getTechUpgradeCostNum(userStats.research_sentry || 0),
                 currency: 'xp',
@@ -370,7 +336,8 @@ export default function Library({ userStats, onUpdate }) {
                 name: 'Unlock Better Spy Reports',
                 level: userStats.research_spy_report || 0,
                 maxLevel: 5,
-                description: 'Reveal more enemy intel',
+                currentStat: `Level ${userStats.research_spy_report || 0}`,
+                nextStat: `Level ${Math.min((userStats.research_spy_report || 0) + 1, 5)}`,
                 cost: (userStats.research_spy_report || 0) >= 5 ? 'Max Level' : `${(5000 * ((userStats.research_spy_report || 0) + 1)).toLocaleString()} XP`,
                 costNum: 5000 * ((userStats.research_spy_report || 0) + 1),
                 currency: 'xp',
@@ -380,7 +347,8 @@ export default function Library({ userStats, onUpdate }) {
                 name: 'Spy Technology',
                 level: userStats.research_spy || 0,
                 maxLevel: 63,
-                description: getTechBonusDesc(userStats.research_spy || 0),
+                currentStat: `+${getTechBonus(userStats.research_spy || 0)}% Power`,
+                nextStat: `+${getTechBonus(Math.min((userStats.research_spy || 0) + 1, 63))}% Power`,
                 cost: getTechUpgradeCost(userStats.research_spy || 0),
                 costNum: getTechUpgradeCostNum(userStats.research_spy || 0),
                 currency: 'xp',
@@ -476,7 +444,18 @@ export default function Library({ userStats, onUpdate }) {
                             <fieldset key={index} className="border-2 border-white border-l-gray-500 border-t-gray-500 p-2 relative group hover:bg-gray-50">
                                 <legend className="font-bold text-black mb-1 px-1">{research.name}</legend>
 
-                                <p className="text-xs text-gray-800 mb-3 min-h-[2.5em]">{research.description}</p>
+                                <div className="text-xs text-gray-800 mb-3 min-h-[4em] flex flex-col justify-center">
+                                    <div className="flex justify-between items-center border-b border-gray-300 pb-1 mb-1">
+                                        <span className="text-gray-500 font-bold">Current</span>
+                                        <span className="font-bold">{research.currentStat}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-gray-500 font-bold">Next Lvl</span>
+                                        <span className={`font-bold ${research.level >= research.maxLevel ? 'text-gray-400' : 'text-green-700'}`}>
+                                            {research.level >= research.maxLevel ? 'MAX' : research.nextStat}
+                                        </span>
+                                    </div>
+                                </div>
 
                                 <div className="flex justify-between items-end mt-2 mb-2">
                                     <div>

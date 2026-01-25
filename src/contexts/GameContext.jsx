@@ -13,7 +13,7 @@ export function GameProvider({ children }) {
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState(null)
     const [lastProcessedTime, setLastProcessedTime] = useState(Date.now())
-    const [serverTime, setServerTime] = useState(new Date())
+
     const [isAdmin, setIsAdmin] = useState(false)
     const [desktopLayout, setDesktopLayout] = useState({})
     const [isMaintenanceMode, setIsMaintenanceMode] = useState(false)
@@ -47,7 +47,7 @@ export function GameProvider({ children }) {
     }
 
     const isFetching = useRef(false)
-    const lastRefreshedMinute = useRef(-1)
+
 
     // Robust data fetching function
     const refreshUserData = useCallback(async (userId, retries = 3) => {
@@ -70,7 +70,8 @@ export function GameProvider({ children }) {
             setError(null)
 
             // Parallel Fetching: Get Core Data First
-            console.log('[refreshUserData] Fetching Core Data (Profile + Stats)...')
+            const profileReq = supabase.from('profiles').select('is_admin, desktop_layout').eq('id', userId).single();
+            const statsReq = supabase.from('user_stats').select('*').eq('id', userId).single();
 
             // Create a timeout promise
             const timeoutPromise = new Promise((_, reject) =>
@@ -79,10 +80,7 @@ export function GameProvider({ children }) {
 
             // Race between actual fetch and timeout
             const [profileResponse, statsResponse] = await Promise.race([
-                Promise.all([
-                    supabase.from('profiles').select('is_admin, desktop_layout').eq('id', userId).single(),
-                    supabase.from('user_stats').select('*').eq('id', userId).single()
-                ]),
+                Promise.all([profileReq, statsReq]),
                 timeoutPromise
             ])
 
@@ -332,73 +330,8 @@ export function GameProvider({ children }) {
 
 
     // Server Time Sync & Safety Net Poller
-    useEffect(() => {
-        let timer = null;
-        let offset = 0;
-
-        const syncTime = async () => {
-            // Get database NOW() to calculate offset
-            const { data, error } = await supabase.rpc('get_server_time');
-            if (data) {
-                const serverNow = new Date(data).getTime();
-                const localNow = Date.now();
-                offset = serverNow - localNow;
-                console.log('[GameContext] Server time sync offset:', offset, 'ms');
-            }
-
-            // Check maintenance mode occasionally (every sync)
-            await supabase.rpc('check_season_expiry'); // Check if season ended
-            await supabase.rpc('check_season_start');  // Check if new season started
-            const { data: mData, error: mError } = await supabase.rpc('get_maintenance_mode');
-            if (!mError) {
-                setIsMaintenanceMode(mData);
-            }
-        };
-
-        // Define RPC if not exists? We'll assume we can use a simple SQL trigger or just fetch updated_at
-        // Actually, let's just use a simple select now() via rpc if we can, 
-        // OR just compare against the last `updated_at` we got from a fresh fetch.
-        // We will assume `get_server_time` RPC exists (I will create it).
-
-        syncTime();
-
-        timer = setInterval(() => {
-            const currentTimestamp = Date.now() + offset;
-            const now = new Date(currentTimestamp);
-
-            // Update the serverTime state for UI clocks
-            setServerTime(now);
-
-            // AUTO-REFRESH AT TOP OF MINUTE (Synced with Resource Drop)
-            // Resource drop happens at :00. We refresh at :01 to ensure we get the latest data.
-            const currentMinute = now.getMinutes();
-            const currentSecond = now.getSeconds();
-
-            if (currentSecond === 1 && lastRefreshedMinute.current !== currentMinute && session?.user?.id) {
-                console.log('[GameContext] Top of minute (Server Time): Refreshing all data (Rank, Stats, Resources)...');
-                refreshUserData(session.user.id);
-                lastRefreshedMinute.current = currentMinute;
-            }
-
-            // SAFETY NET:
-            // The server runs updates at :00.
-            // If we assume a 5-second grace period for Realtime to arrive...
-            // Check at :05 if the last processed time is "stale" (from the previous minute).
-            if (now.getSeconds() === 5 && session?.user?.id) {
-                // Was the last update from this current minute?
-                const lastUpdate = new Date(lastProcessedTime);
-
-                // If lastUpdate is older than 50 seconds (i.e. from the previous minute)
-                // FORCE a refresh.
-                if (now.getTime() - lastProcessedTime > 50000) {
-                    console.warn('[GameContext] Missed Realtime update! Forcing refresh...');
-                    refreshUserData(session.user.id);
-                }
-            }
-        }, 1000);
-
-        return () => clearInterval(timer);
-    }, [session, lastProcessedTime, refreshUserData]);
+    // MOVED TO TimeContext.jsx
+    // We still keep lastProcessedTime here for Realtime updates tracking but no longer update a 1-second clock state.
 
     // Helper to force a full reload and clear all cached auth data
     const fixSession = async () => {
@@ -428,7 +361,7 @@ export function GameProvider({ children }) {
         error,
         isAdmin,
         isMaintenanceMode,
-        serverTime,
+
         refreshUserData,
         setStats, // Expose for optimistic updates from components
         fixSession,

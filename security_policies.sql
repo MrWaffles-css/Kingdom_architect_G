@@ -116,6 +116,32 @@ USING (
     )
 );
 
+
+-- =====================================================
+-- STEP 4.5: SPY_REPORTS Table Policies
+-- =====================================================
+
+ALTER TABLE public.spy_reports ENABLE ROW LEVEL SECURITY;
+
+-- Allow users to view own spy reports
+CREATE POLICY "Users can view own spy reports"
+ON public.spy_reports
+FOR SELECT
+TO authenticated
+USING (auth.uid() = attacker_id);
+
+-- Allow admins to view all spy reports
+CREATE POLICY "Admins can view all spy reports"
+ON public.spy_reports
+FOR SELECT
+TO authenticated
+USING (
+    EXISTS (
+        SELECT 1 FROM public.profiles
+        WHERE id = auth.uid() AND is_admin = true
+    )
+);
+
 -- =====================================================
 -- STEP 5: Grant Necessary Permissions
 -- =====================================================

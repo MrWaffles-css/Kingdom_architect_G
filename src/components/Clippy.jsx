@@ -12,9 +12,9 @@ const STEPS = [
     },
     {
         id: 1,
-        title: "Stats",
-        content: "First, know thyself. Open the Stats window (Start -> Stats). This shows your Rank, Gold, and Turns. Your Turns refill over time!",
-        target_window: "stats",
+        title: "Profile",
+        content: "First, know thyself. Open the Profile window (Start -> Profile). This shows your Rank and Gold. Your Turns refill over time!",
+        target_window: "profile",
         width: 300,
         rewardText: "Reward: 50 XP"
     },
@@ -155,6 +155,8 @@ const RewardPopup = ({ rewards, onClose }) => {
 export default function Clippy({ stats, openWindows, onAdvance }) {
     const [loading, setLoading] = useState(false);
     const [step, setStep] = useState(stats?.tutorial_step || 0);
+
+
 
     // Draggable State
     const [position, setPosition] = useState({
@@ -311,8 +313,8 @@ export default function Clippy({ stats, openWindows, onAdvance }) {
         if (!openWindows) return;
         let shouldAdvance = false;
 
-        // Step 1: Stats - Just open window
-        if (step === 1 && openWindows.some(w => w.id === 'stats')) shouldAdvance = true;
+        // Step 1: Profile - Just open window
+        if (step === 1 && openWindows.some(w => w.id === 'profile')) shouldAdvance = true;
 
         // Step 3: Kingdom - Reach Level 3
         if (step === 3 && stats && stats.kingdom_level >= 3) shouldAdvance = true;
@@ -359,23 +361,30 @@ export default function Clippy({ stats, openWindows, onAdvance }) {
                 if (step === 9) {
                     console.log('Clippy Step 9: Checking for spy reports...');
 
-                    // Specific check for matching title
-                    const { count: reportCount, error } = await supabase
-                        .from('reports')
-                        .select('id', { count: 'exact', head: true })
-                        .eq('user_id', user.id)
-                        .eq('type', 'spy_report')
-                        .ilike('title', '%Clippy%');
+                    // 1. Get Clippy's ID
+                    const { data: clippyData } = await supabase
+                        .from('profiles')
+                        .select('id')
+                        .ilike('username', 'Clippy')
+                        .single();
 
-                    if (error) {
-                        console.error('Clippy Step 9 Error:', error);
-                    }
+                    if (clippyData) {
+                        // 2. Check spy_reports table
+                        const { count: reportCount, error } = await supabase
+                            .from('spy_reports')
+                            .select('id', { count: 'exact', head: true })
+                            .eq('attacker_id', user.id)
+                            .eq('defender_id', clippyData.id);
 
-                    console.log('Clippy Step 9: Reports found:', reportCount);
-
-                    if ((reportCount || 0) > 0) {
-                        console.log('Clippy Step 9: Advancing!');
-                        handleAction();
+                        if (error) {
+                            console.error('Clippy Step 9 Error:', error);
+                        } else {
+                            console.log('Clippy Step 9: Reports found:', reportCount);
+                            if ((reportCount || 0) > 0) {
+                                console.log('Clippy Step 9: Advancing!');
+                                handleAction();
+                            }
+                        }
                     }
                 }
 
@@ -404,6 +413,8 @@ export default function Clippy({ stats, openWindows, onAdvance }) {
 
         return () => clearInterval(interval);
     }, [step]);
+
+    if (!stats) return null;
 
     if (!currentStepData) return null;
 

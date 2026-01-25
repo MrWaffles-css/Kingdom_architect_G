@@ -211,6 +211,8 @@ export default function AdminPanel({ onClose, onWorldReset, onUserUpdate }) {
 function AdminSeasonPanel({ onSchedule }) {
     const [scheduledDate, setScheduledDate] = useState('');
     const [currentSchedule, setCurrentSchedule] = useState(null);
+    const [seasonNumber, setSeasonNumber] = useState('');
+    const [archiving, setArchiving] = useState(false);
 
     useEffect(() => {
         fetchSchedule();
@@ -232,6 +234,23 @@ function AdminSeasonPanel({ onSchedule }) {
         }
         onSchedule(date.toISOString());
         setCurrentSchedule(date);
+    };
+
+    const handleArchive = async () => {
+        if (!seasonNumber) return alert('Please enter a season number');
+        if (!window.confirm(`Are you sure you want to archive the current rankings as Season ${seasonNumber}?`)) return;
+
+        setArchiving(true);
+        try {
+            const { data, error } = await supabase.rpc('archive_hall_of_fame', { p_season_number: parseInt(seasonNumber) });
+            if (error) throw error;
+            alert('Successfully archived Season ' + seasonNumber);
+            setSeasonNumber('');
+        } catch (err) {
+            alert('Error: ' + err.message);
+        } finally {
+            setArchiving(false);
+        }
     };
 
     return (
@@ -262,6 +281,28 @@ function AdminSeasonPanel({ onSchedule }) {
                             className="px-4 py-1 bg-[#c0c0c0] border-2 border-white border-r-gray-600 border-b-gray-600 active:border-gray-600 active:border-r-white active:border-b-white font-bold text-sm"
                         >
                             Set Schedule
+                        </button>
+                    </div>
+                </div>
+
+                {/* Archive Hall of Fame */}
+                <div className="bg-yellow-100 p-4 border border-gray-400 mt-4">
+                    <h3 className="font-bold mb-2">Archive Current Rankings to Hall of Fame:</h3>
+                    <p className="text-sm mb-2 text-gray-700">This will take a snapshot of the current leaderboard and save it permanently as a Hall of Fame entry.</p>
+                    <div className="flex gap-2 items-center">
+                        <input
+                            type="number"
+                            placeholder="Season #"
+                            value={seasonNumber}
+                            onChange={(e) => setSeasonNumber(e.target.value)}
+                            className="border border-gray-400 p-1 w-24"
+                        />
+                        <button
+                            onClick={handleArchive}
+                            disabled={archiving}
+                            className="px-4 py-1 bg-[#c0c0c0] border-2 border-white border-r-gray-600 border-b-gray-600 font-bold text-sm active:translate-y-[1px]"
+                        >
+                            {archiving ? 'Archiving...' : 'Archive Standings'}
                         </button>
                     </div>
                 </div>

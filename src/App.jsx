@@ -3,6 +3,7 @@ import { supabase } from './supabase'
 import { useGame } from './contexts/GameContext'
 import WelcomePage from './components/WelcomePage'
 import Desktop from './components/Desktop'
+import ErrorBoundary from './components/ErrorBoundary'
 
 export default function App() {
     const {
@@ -11,7 +12,7 @@ export default function App() {
         loading,
         error,
         isAdmin,
-        serverTime,
+
         refreshUserData,
         setStats,
         fixSession,
@@ -50,13 +51,23 @@ export default function App() {
 
             // Fetch Next Season Start and update constantly
             const fetchNextSeasonStart = async () => {
-                const { data } = await supabase
-                    .from('game_settings')
-                    .select('value')
-                    .eq('key', 'next_season_start')
-                    .single();
-                if (data?.value?.start_time) {
-                    setNextSeasonStart(new Date(data.value.start_time));
+                try {
+                    const { data, error } = await supabase
+                        .from('game_settings')
+                        .select('value')
+                        .eq('key', 'next_season_start')
+                        .maybeSingle(); // Use maybeSingle to avoid 406 on zero rows
+
+                    if (error && error.code !== 'PGRST116') {
+                        console.warn("Error fetching next season start:", error);
+                        return;
+                    }
+
+                    if (data?.value?.start_time) {
+                        setNextSeasonStart(new Date(data.value.start_time));
+                    }
+                } catch (err) {
+                    console.warn("Exception fetching next season start:", err);
                 }
             };
             fetchNextSeasonStart();
@@ -274,21 +285,23 @@ export default function App() {
 
     // Main App UI (Desktop)
     return (
-        <Desktop
-            stats={stats}
-            session={session}
-            handleBuildKingdom={handleBuildKingdom}
-            handleUpgradeKingdom={handleUpgradeKingdom}
-            handleNavigate={() => { }} // Legacy, mostly unused now
-            handleLogout={handleLogout}
-            handleViewProfile={handleViewProfile}
-            setStats={setStats}
-            refreshUserData={refreshUserData}
-            viewingUserId={viewingUserId}
-            setViewingUserId={setViewingUserId}
-            showAdmin={showAdmin}
-            setShowAdmin={setShowAdmin}
-            isAdmin={isAdmin}
-        />
+        <ErrorBoundary>
+            <Desktop
+                stats={stats}
+                session={session}
+                handleBuildKingdom={handleBuildKingdom}
+                handleUpgradeKingdom={handleUpgradeKingdom}
+                handleNavigate={() => { }} // Legacy, mostly unused now
+                handleLogout={handleLogout}
+                handleViewProfile={handleViewProfile}
+                setStats={setStats}
+                refreshUserData={refreshUserData}
+                viewingUserId={viewingUserId}
+                setViewingUserId={setViewingUserId}
+                showAdmin={showAdmin}
+                setShowAdmin={setShowAdmin}
+                isAdmin={isAdmin}
+            />
+        </ErrorBoundary>
     )
 }
