@@ -537,27 +537,38 @@ const Alliance = ({ stats: rawStats, session, onUpdate, onClose, onNavigate }) =
                                     <img src="https://win98icons.alexmeub.com/icons/png/users-1.png" className="w-5 h-5" /> Member Rankings
                                 </h3>
                                 <div className="border border-gray-400 bg-white max-h-[300px] overflow-y-auto">
+                                    {/* Header Row */}
+                                    <div className="grid grid-cols-12 bg-gray-200 p-2 font-bold text-xs border-b border-gray-400 sticky top-0">
+                                        <div className="col-span-1 text-center">#</div>
+                                        <div className="col-span-7">Member</div>
+                                        <div className="col-span-4 text-right">Overall Rank</div>
+                                    </div>
+
                                     {members.map((m, idx) => {
                                         let rankIcon = null;
                                         if (idx === 0) rankIcon = '🥇';
                                         else if (idx === 1) rankIcon = '🥈';
                                         else if (idx === 2) rankIcon = '🥉';
 
+                                        const overallRank = m.user_stats?.[0]?.rank || 0;
+
                                         return (
-                                            <div key={m.id} className="flex items-center justify-between p-2 border-b border-gray-100 hover:bg-gray-50 text-xs">
-                                                <div className="flex items-center gap-2">
-                                                    <span className="font-mono w-5 text-right font-bold text-gray-500">#{idx + 1}</span>
+                                            <div key={m.id} className="grid grid-cols-12 p-2 border-b border-gray-100 hover:bg-gray-50 text-xs items-center">
+                                                <div className="col-span-1 text-center">
+                                                    <span className="font-mono font-bold text-gray-500">#{idx + 1}</span>
+                                                    {rankIcon && <span className="ml-1" title={`Alliance Position ${idx + 1}`}>{rankIcon}</span>}
+                                                </div>
+                                                <div className="col-span-7 flex items-center gap-2">
                                                     <img src={getAvatarPath(m.avatar_id)} className="w-6 h-6 border border-gray-300" />
                                                     <span
-                                                        className="cursor-pointer hover:underline text-blue-900 font-bold"
+                                                        className="cursor-pointer hover:underline text-blue-900 font-bold truncate"
                                                         onClick={() => onNavigate('profile', { userId: m.id })}
                                                     >
                                                         {m.username} {m.id === myAlliance?.leader_id && '👑'}
                                                     </span>
                                                 </div>
-                                                <div className="flex items-center gap-2">
-                                                    <span className="text-gray-600">Rank: {(m.user_stats?.[0]?.rank || 0).toLocaleString()}</span>
-                                                    {rankIcon && <span title={`Rank ${idx + 1}`}>{rankIcon}</span>}
+                                                <div className="col-span-4 text-right font-semibold text-gray-700">
+                                                    {overallRank.toLocaleString()}
                                                 </div>
                                             </div>
                                         );
