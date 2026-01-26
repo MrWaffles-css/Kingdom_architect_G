@@ -102,9 +102,9 @@ export default function Mail({ session }) {
             </div>
 
             {/* Main Area */}
-            <div className="flex-1 flex overflow-hidden p-1 gap-1">
+            <div className="flex-1 flex flex-col md:flex-row overflow-hidden p-1 gap-1">
                 {/* Folder List */}
-                <div className="w-40 bg-white border-2 border-gray-600 border-r-white border-b-white p-2">
+                <div className="w-full md:w-40 bg-white border-2 border-gray-600 border-r-white border-b-white p-2 flex-shrink-0">
                     <div className="font-bold mb-2">Local Folders</div>
                     <ul className="space-y-1">
                         <li

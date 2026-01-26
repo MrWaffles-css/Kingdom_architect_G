@@ -606,7 +606,7 @@ const Alliance = ({ stats: rawStats, session, onUpdate, onClose, onNavigate }) =
             </div>
 
             {/* Tabs */}
-            <div className="flex border-b border-gray-400 bg-gray-200">
+            <div className="flex border-b border-gray-400 bg-gray-200 overflow-x-auto no-scrollbar whitespace-nowrap">
                 <button onClick={() => setActiveTab('home')} className={`px-4 py-1 text-sm ${activeTab === 'home' ? 'bg-white font-bold border-t-2 border-l-2 border-r-2 border-gray-100 border-b-white translate-y-[1px]' : 'border-2 border-transparent hover:bg-gray-300'}`}>Home</button>
                 <button onClick={() => setActiveTab('overview')} className={`px-4 py-1 text-sm ${activeTab === 'overview' ? 'bg-white font-bold border-t-2 border-l-2 border-r-2 border-gray-100 border-b-white translate-y-[1px]' : 'border-2 border-transparent hover:bg-gray-300'}`}>Members</button>
                 <button onClick={() => setActiveTab('chat')} className={`px-4 py-1 text-sm relative ${activeTab === 'chat' ? 'bg-white font-bold border-t-2 border-l-2 border-r-2 border-gray-100 border-b-white translate-y-[1px]' : 'border-2 border-transparent hover:bg-gray-300'}`}>

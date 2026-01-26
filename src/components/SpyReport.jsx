@@ -100,7 +100,7 @@ export default function SpyReport({ spyReport, userStats, onClose, session }) {
             <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-4">
 
                 {/* Economy Section */}
-                <div className="grid grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <fieldset className="border border-white border-l-gray-600 border-t-gray-600 p-2 bg-white">
                         <legend className="text-[10px] uppercase font-bold px-1">Gold</legend>
                         <div className="font-bold">{formatNumber(spyReport.gold)}</div>

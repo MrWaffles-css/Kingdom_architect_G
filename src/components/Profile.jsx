@@ -343,7 +343,7 @@ export default function Profile({ userId, isOwnProfile, session, onNavigate, onA
                 {/* Economy Overview */}
                 <fieldset className="border-2 border-white border-l-gray-500 border-t-gray-500 p-2">
                     <legend className="px-1 text-sm font-bold">Economy</legend>
-                    <div className="grid grid-cols-3 gap-4 text-sm">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                         <div className="bg-white p-2 border border-gray-400">
                             <div className="text-xs text-gray-500 uppercase font-bold">Treasury</div>
                             <div className="text-lg font-bold flex items-center gap-2">
@@ -708,7 +708,7 @@ export default function Profile({ userId, isOwnProfile, session, onNavigate, onA
             )}
 
             {/* Navigation Tabs */}
-            <div className="flex gap-1 border-b border-white pr-2 pl-2">
+            <div className="flex gap-1 border-b border-white pr-2 pl-2 overflow-x-auto no-scrollbar whitespace-nowrap">
                 {[
                     { id: 'empire', label: 'Empire' },
                     { id: 'military', label: 'Military' },
