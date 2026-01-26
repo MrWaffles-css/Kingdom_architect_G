@@ -130,7 +130,15 @@ const Alliance = ({ stats: rawStats, session, onUpdate, onClose, onNavigate }) =
         }
     };
 
-    // ... existing fetchJoinRequests ... 
+    const fetchJoinRequests = async () => {
+        try {
+            const { data, error } = await supabase.rpc('get_alliance_requests');
+            if (error) throw error;
+            setJoinRequests(data || []);
+        } catch (err) {
+            console.error(err);
+        }
+    };
 
     const updateAnnouncement = async () => {
         try {
@@ -145,7 +153,240 @@ const Alliance = ({ stats: rawStats, session, onUpdate, onClose, onNavigate }) =
         }
     };
 
-    // ... actions ... Use existing handleCreate, handleJoinRequest, etc. unchanged ...
+    // --- ACTIONS ---
+
+    const handleCreate = async (e) => {
+        e.preventDefault();
+        const name = e.target.name.value;
+        const desc = e.target.description.value;
+        if (!name) return;
+
+        setLoading(true);
+        try {
+            const { data, error } = await supabase.rpc('create_alliance', {
+                p_name: name,
+                p_description: desc
+            });
+            if (error) throw error;
+            if (!data.success) throw new Error(data.message);
+
+            // Success
+            onUpdate({ alliance_id: data.alliance_id }); // Update context
+            // Effect will trigger fetch
+        } catch (err) {
+            setModal({ show: true, type: 'alert', message: err.message });
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleJoinRequest = async (id) => {
+        setLoading(true);
+        try {
+            // Updated to be a Request
+            const { data, error } = await supabase.rpc('join_alliance', {
+                p_alliance_id: id
+            });
+            if (error) throw error;
+            if (!data.success) throw new Error(data.message);
+
+            // Optimistic update
+            setMyRequests(prev => [...prev, id]);
+            setModal({ show: true, type: 'alert', message: 'Request sent to alliance leader.' });
+        } catch (err) {
+            setModal({ show: true, type: 'alert', message: err.message });
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleLeave = async () => {
+        const isLastPerson = members.length === 1;
+
+        if (isLastPerson) {
+            setModal({
+                show: true,
+                type: 'disband',
+                message: 'You are the last member. Leaving will disband the alliance. Are you sure?',
+                onConfirm: executeLeave
+            });
+        } else {
+            setModal({
+                show: true,
+                type: 'leave',
+                message: 'Are you sure you want to leave?',
+                onConfirm: executeLeave
+            });
+        }
+    };
+
+    const executeLeave = async () => {
+        setModal({ show: false, type: '', message: '', onConfirm: null });
+        setLoading(true);
+        try {
+            const { data, error } = await supabase.rpc('leave_alliance');
+            if (error) throw error;
+            if (!data.success) throw new Error(data.message);
+
+            onUpdate({ alliance_id: null });
+            setMyAlliance(null);
+            setMembers([]);
+            setChatMessages([]);
+            setActiveTab('browse');
+        } catch (err) {
+            setModal({ show: true, type: 'alert', message: err.message });
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const membersRef = useRef(members);
+    useEffect(() => {
+        membersRef.current = members;
+    }, [members]);
+
+    const handleSendMessage = async (e) => {
+        e.preventDefault();
+        if (!newMessage.trim()) return;
+
+        const msgContent = newMessage;
+        setNewMessage(''); // Clear input immediately
+
+        // 1. Optimistic Update
+        const tempId = 'temp-' + Date.now();
+        const myProfile = membersRef.current.find(m => m.id === session.user.id);
+        const optimisticMsg = {
+            id: tempId,
+            alliance_id: stats.alliance_id,
+            sender_id: session.user.id,
+            message: msgContent,
+            created_at: new Date().toISOString(),
+            sender: myProfile ? { username: myProfile.username, avatar_id: myProfile.avatar_id } : { username: 'Me' } // Fallback
+        };
+
+        setChatMessages(prev => [...prev, optimisticMsg]);
+        setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+
+        try {
+            const { data, error } = await supabase.rpc('send_alliance_message', { p_message: msgContent });
+
+            if (error) throw error;
+            if (!data.success) throw new Error(data.message);
+
+            const realMsgData = data.data; // Returned from RPC
+
+            // 2. Reconcile with Realtime / State
+            setChatMessages(prev => {
+                // Remove temp message
+                const filtered = prev.filter(m => m.id !== tempId);
+
+                // Check if real message already exists (from Realtime)
+                if (filtered.some(m => m.id === realMsgData.id)) {
+                    return filtered;
+                }
+
+                // Add real message with properly formatted sender
+                const realMsg = {
+                    ...realMsgData,
+                    sender: optimisticMsg.sender // Reuse sender info we already have
+                };
+
+                // Insert at end (or resorts automatically if we sort by date)
+                // Since we just appended, let's append.
+                return [...filtered, realMsg];
+            });
+
+        } catch (err) {
+            console.error(err);
+            setModal({ show: true, type: 'alert', message: 'Failed to send message: ' + err.message });
+            // Remove optimistic message on error
+            setChatMessages(prev => prev.filter(m => m.id !== tempId));
+            setNewMessage(msgContent); // Restore input
+        }
+    };
+
+    const handleApprove = async (reqId) => {
+        try {
+            const { data, error } = await supabase.rpc('approve_join_request', { p_request_id: reqId });
+            if (error) throw error;
+            if (data.success) {
+                // Refresh requests and members
+                fetchJoinRequests();
+                fetchMyAllianceData();
+            }
+        } catch (err) { console.error(err); setModal({ show: true, type: 'alert', message: err.message }); }
+    };
+
+    const handleReject = async (reqId) => {
+        setModal({
+            show: true,
+            type: 'confirm',
+            message: 'Are you sure you want to reject this user?',
+            onConfirm: async () => {
+                setModal({ show: false, type: '', message: '', onConfirm: null }); // Close confirm modal
+                try {
+                    const { data, error } = await supabase.rpc('reject_join_request', { p_request_id: reqId });
+                    if (error) throw error;
+                    if (data.success) {
+                        fetchJoinRequests();
+                    }
+                } catch (err) { console.error(err); setModal({ show: true, type: 'alert', message: err.message }); }
+            }
+        });
+    };
+
+    // --- REALTIME CHAT ---
+    const subscribeToChat = () => {
+        const channel = supabase
+            .channel(`alliance_chat:${stats.alliance_id}`)
+            .on('postgres_changes', {
+                event: 'INSERT',
+                schema: 'public',
+                table: 'alliance_messages',
+                filter: `alliance_id=eq.${stats.alliance_id}`
+            }, async (payload) => {
+                if (!payload.new) return;
+
+                // Determine user name for the payload sender
+                const senderId = payload.new.sender_id;
+
+                // Use Ref to check current members without closure staleness
+                const sender = membersRef.current.find(m => m.id === senderId);
+                let senderData = sender ? { username: sender.username, avatar_id: sender.avatar_id } : { username: 'Unknown' };
+
+                // If not found in members (e.g. new member or failed fetch), fetch from DB
+                if (!sender) {
+                    try {
+                        const { data } = await supabase.from('profiles').select('username, avatar_id').eq('id', senderId).single();
+                        if (data) senderData = data;
+                    } catch (e) {
+                        console.error("Error identifying chat sender", e);
+                    }
+                }
+
+                const newMsg = {
+                    ...payload.new,
+                    sender: senderData
+                };
+
+                setChatMessages(prev => {
+                    // Simple deduplication check: if message with same ID exists, ignore
+                    if (prev.some(m => m.id === newMsg.id)) return prev;
+                    return [...prev, newMsg];
+                });
+
+                if (activeTabRef.current !== 'chat') {
+                    setUnreadCount(prev => prev + 1);
+                }
+
+                setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+            })
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    };
 
     if (!stats.alliance_id) {
         // ... existing render for Browse/Create ...
