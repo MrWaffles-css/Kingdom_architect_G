@@ -92,25 +92,49 @@ const Alliance = ({ stats: rawStats, session, onUpdate, onClose, onNavigate }) =
             setMyAlliance(allianceData);
             setTempAnnouncement(allianceData.announcement || '');
 
-            // 2. Members (and Sort for internal ranking)
+            // 2. Members with overall_rank from leaderboard
             const { data: membersData, error: membersError } = await supabase
                 .from('profiles')
-                .select('id, username, avatar_id, user_stats(rank, citizens)')
+                .select(`
+                    id, 
+                    username, 
+                    avatar_id,
+                    user_stats(rank, citizens)
+                `)
                 .eq('alliance_id', stats.alliance_id);
 
             if (membersError) throw membersError;
 
-            // Sort members by rank DESC
+            // Get overall_rank for each member from leaderboard
+            const memberIds = (membersData || []).map(m => m.id);
+            const { data: leaderboardData, error: lbError } = await supabase
+                .from('leaderboard')
+                .select('id, overall_rank')
+                .in('id', memberIds);
+
+            if (!lbError && leaderboardData) {
+                // Merge overall_rank into members data
+                const rankMap = {};
+                leaderboardData.forEach(lb => {
+                    rankMap[lb.id] = lb.overall_rank;
+                });
+
+                membersData.forEach(m => {
+                    m.overall_rank = rankMap[m.id] || 999999;
+                });
+            }
+
+            // Sort members by overall_rank ASC (lower rank = better)
             const sortedMembers = (membersData || []).sort((a, b) => {
-                const rankA = a.user_stats?.[0]?.rank || 0;
-                const rankB = b.user_stats?.[0]?.rank || 0;
-                return rankB - rankA;
+                const rankA = a.overall_rank || 999999;
+                const rankB = b.overall_rank || 999999;
+                return rankA - rankB;
             });
             setMembers(sortedMembers);
 
             // 3. Global Leaderboard
-            const { data: lbData, error: lbError } = await supabase.rpc('get_alliance_leaderboard');
-            if (!lbError) setLeaderboard(lbData || []);
+            const { data: lbData, error: lbError2 } = await supabase.rpc('get_alliance_leaderboard');
+            if (!lbError2) setLeaderboard(lbData || []);
 
             // 4. Chat
             const { data: msgs, error: chatError } = await supabase
@@ -545,18 +569,12 @@ const Alliance = ({ stats: rawStats, session, onUpdate, onClose, onNavigate }) =
                                     </div>
 
                                     {members.map((m, idx) => {
-                                        let rankIcon = null;
-                                        if (idx === 0) rankIcon = '🥇';
-                                        else if (idx === 1) rankIcon = '🥈';
-                                        else if (idx === 2) rankIcon = '🥉';
-
-                                        const overallRank = m.user_stats?.[0]?.rank || 0;
+                                        const overallRank = m.overall_rank || 999999;
 
                                         return (
                                             <div key={m.id} className="grid grid-cols-12 p-2 border-b border-gray-100 hover:bg-gray-50 text-xs items-center">
                                                 <div className="col-span-1 text-center">
                                                     <span className="font-mono font-bold text-gray-500">#{idx + 1}</span>
-                                                    {rankIcon && <span className="ml-1" title={`Alliance Position ${idx + 1}`}>{rankIcon}</span>}
                                                 </div>
                                                 <div className="col-span-7 flex items-center gap-2">
                                                     <img src={getAvatarPath(m.avatar_id)} className="w-6 h-6 border border-gray-300" />
@@ -568,7 +586,7 @@ const Alliance = ({ stats: rawStats, session, onUpdate, onClose, onNavigate }) =
                                                     </span>
                                                 </div>
                                                 <div className="col-span-4 text-right font-semibold text-gray-700">
-                                                    {overallRank.toLocaleString()}
+                                                    #{overallRank.toLocaleString()}
                                                 </div>
                                             </div>
                                         );
