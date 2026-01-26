@@ -245,14 +245,14 @@ export default function Battle({ userStats, onNavigate, onAction, onViewProfile 
                     <table className="w-full text-left border-collapse">
                         <thead>
                             <tr className="bg-gray-100 text-xs text-gray-600 uppercase border-b border-gray-300">
+                                <th className="p-2 text-right border-r border-gray-300">Rank</th>
                                 <th className="p-2 border-r border-gray-300">Alliance</th>
                                 <th className="p-2 border-r border-gray-300">Name</th>
                                 <th className="p-2 text-right border-r border-gray-300">Treasury</th>
+                                <th className="p-2 text-center border-r border-gray-300">Actions</th>
                                 <th className="p-2 text-right border-r border-gray-300">Defense</th>
                                 <th className="p-2 text-right border-r border-gray-300">Sentry</th>
-                                <th className="p-2 text-right border-r border-gray-300">Rank</th>
                                 <th className="p-2 text-right border-r border-gray-300">Last Updated</th>
-                                <th className="p-2 text-center">Actions</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -269,6 +269,9 @@ export default function Battle({ userStats, onNavigate, onAction, onViewProfile 
                                         key={player.id}
                                         className={`text-[0.8em] ${isCurrentUser ? 'bg-blue-50' : 'hover:bg-blue-600 hover:text-white group'}`}
                                     >
+                                        <td className="p-2 text-right border-r border-gray-200 border-b font-mono">
+                                            #{formatNumber(player.overall_rank)}
+                                        </td>
                                         <td className="p-2 border-r border-gray-200 border-b font-mono text-[0.9em]">
                                             {player.alliance || '-'}
                                         </td>
@@ -298,33 +301,7 @@ export default function Battle({ userStats, onNavigate, onAction, onViewProfile 
                                                 <span className="opacity-40">???</span>
                                             )}
                                         </td>
-                                        <td className="p-2 text-right border-r border-gray-200 border-b font-mono">
-                                            {player.defense !== null && player.defense !== undefined ? (
-                                                <span>{formatNumber(player.defense)}</span>
-                                            ) : (
-                                                <span className="opacity-40">???</span>
-                                            )}
-                                        </td>
-                                        <td className="p-2 text-right border-r border-gray-200 border-b font-mono">
-                                            {player.sentry !== null && player.sentry !== undefined ? (
-                                                <span>{formatNumber(player.sentry)}</span>
-                                            ) : (
-                                                <span className="opacity-40">???</span>
-                                            )}
-                                        </td>
-                                        <td className="p-2 text-right border-r border-gray-200 border-b font-mono">
-                                            #{formatNumber(player.overall_rank)}
-                                        </td>
-                                        <td className="p-2 text-right border-r border-gray-200 border-b text-[0.7em]">
-                                            {player.last_spied_at ? (
-                                                <span className="text-gray-600 font-medium">
-                                                    {timeAgo(player.last_spied_at)}
-                                                </span>
-                                            ) : (
-                                                <span className="opacity-40">-</span>
-                                            )}
-                                        </td>
-                                        <td className="p-2 text-center border-b border-gray-200">
+                                        <td className="p-2 text-center border-b border-gray-200 border-r">
                                             {!isCurrentUser && (
                                                 <div className="flex justify-center gap-2">
                                                     <button
@@ -344,6 +321,29 @@ export default function Battle({ userStats, onNavigate, onAction, onViewProfile 
                                                         Spy
                                                     </button>
                                                 </div>
+                                            )}
+                                        </td>
+                                        <td className="p-2 text-right border-r border-gray-200 border-b font-mono">
+                                            {player.defense !== null && player.defense !== undefined ? (
+                                                <span>{formatNumber(player.defense)}</span>
+                                            ) : (
+                                                <span className="opacity-40">???</span>
+                                            )}
+                                        </td>
+                                        <td className="p-2 text-right border-r border-gray-200 border-b font-mono">
+                                            {player.sentry !== null && player.sentry !== undefined ? (
+                                                <span>{formatNumber(player.sentry)}</span>
+                                            ) : (
+                                                <span className="opacity-40">???</span>
+                                            )}
+                                        </td>
+                                        <td className="p-2 text-right border-r border-gray-200 border-b text-[0.7em]">
+                                            {player.last_spied_at ? (
+                                                <span className="text-gray-600 font-medium">
+                                                    {timeAgo(player.last_spied_at)}
+                                                </span>
+                                            ) : (
+                                                <span className="opacity-40">-</span>
                                             )}
                                         </td>
                                     </tr>
