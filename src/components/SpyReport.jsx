@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { supabase } from '../supabase';
 
 const formatNumber = (num) => {
     return new Intl.NumberFormat('en-US').format(num);
@@ -12,7 +13,64 @@ const WEAPON_NAMES = {
     sentry: ['Wooden Torch', 'Signal Horn', 'Watchtower Lens', 'Guard Dog', 'Mystic Ward', 'All-Seeing Eye']
 };
 
-export default function SpyReport({ spyReport, userStats, onClose }) {
+export default function SpyReport({ spyReport, userStats, onClose, session }) {
+    const [showShareModal, setShowShareModal] = useState(false);
+    const [shareType, setShareType] = useState('alliance');
+    const [allianceMembers, setAllianceMembers] = useState([]);
+    const [selectedUser, setSelectedUser] = useState(null);
+    const [sharing, setSharing] = useState(false);
+
+
+
+    // Fetch alliance members when share modal opens
+    const handleOpenShareModal = async () => {
+        setShowShareModal(true);
+        if (userStats.alliance_id) {
+            try {
+                const { data, error } = await supabase
+                    .from('profiles')
+                    .select('id, username')
+                    .eq('alliance_id', userStats.alliance_id)
+                    .neq('id', session?.user?.id);
+
+                if (!error && data) {
+                    setAllianceMembers(data);
+                }
+            } catch (err) {
+                console.error('Error fetching alliance members:', err);
+            }
+        }
+    };
+
+    const handleShare = async () => {
+        if (shareType === 'individual' && !selectedUser) {
+            alert('Please select a recipient');
+            return;
+        }
+
+        setSharing(true);
+        try {
+            const { data, error } = await supabase.rpc('share_spy_report', {
+                p_report_data: spyReport,
+                p_share_type: shareType,
+                p_shared_with_user_id: shareType === 'individual' ? selectedUser : null,
+                p_target_username: spyReport.name
+            });
+
+            if (error) throw error;
+            if (!data.success) throw new Error(data.message);
+
+            // Close modal and spy report window
+            setShowShareModal(false);
+            onClose();
+        } catch (err) {
+            console.error('Error sharing report:', err);
+            alert('Failed to share report: ' + err.message);
+        } finally {
+            setSharing(false);
+        }
+    };
+
     if (!spyReport) {
         return (
             <div className="p-4 text-center">
@@ -245,13 +303,21 @@ export default function SpyReport({ spyReport, userStats, onClose }) {
                 </fieldset>
 
                 {/* Footer Actions */}
-                <div className="pt-2">
-                    <button
-                        onClick={onClose}
-                        className="w-full py-1 bg-[#c0c0c0] border-2 border-white border-r-gray-800 border-b-gray-800 active:border-gray-800 active:border-r-white active:border-b-white font-bold text-black text-sm"
-                    >
-                        Close Report
-                    </button>
+                <div className="pt-2 space-y-2">
+                    <div className="grid grid-cols-2 gap-2">
+                        <button
+                            onClick={handleOpenShareModal}
+                            className="py-1 bg-blue-600 text-white border-2 border-blue-400 border-r-blue-800 border-b-blue-800 active:border-blue-800 active:border-r-blue-400 active:border-b-blue-400 font-bold text-sm"
+                        >
+                            📤 Share Report
+                        </button>
+                        <button
+                            onClick={onClose}
+                            className="py-1 bg-[#c0c0c0] border-2 border-white border-r-gray-800 border-b-gray-800 active:border-gray-800 active:border-r-white active:border-b-white font-bold text-black text-sm"
+                        >
+                            Close Report
+                        </button>
+                    </div>
                     {spyReport.name === 'Clippy' && (
                         <p className="text-center text-[10px] mt-2 text-gray-500 italic">
                             (This was a tutorial mission. Reloading to proceed...)
@@ -259,6 +325,91 @@ export default function SpyReport({ spyReport, userStats, onClose }) {
                     )}
                 </div>
             </div>
+
+            {/* Share Modal */}
+            {showShareModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+                    <div className="bg-[#c0c0c0] border-2 border-white border-r-gray-800 border-b-gray-800 p-1 shadow-xl max-w-md w-full">
+                        <div className="px-2 py-1 bg-[#000080] text-white font-bold flex justify-between items-center">
+                            <span>Share Spy Report</span>
+                            <button
+                                onClick={() => setShowShareModal(false)}
+                                className="bg-[#c0c0c0] text-black w-5 h-4 text-xs flex items-center justify-center border border-white border-r-black border-b-black font-bold"
+                            >
+                                ✕
+                            </button>
+                        </div>
+                        <div className="p-4 space-y-4">
+                            <div>
+                                <label className="block text-xs font-bold mb-2">Share With:</label>
+                                <div className="space-y-2">
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                        <input
+                                            type="radio"
+                                            value="alliance"
+                                            checked={shareType === 'alliance'}
+                                            onChange={(e) => setShareType(e.target.value)}
+                                            disabled={!userStats.alliance_id}
+                                        />
+                                        <span className="text-sm">Entire Alliance {!userStats.alliance_id && '(Not in alliance)'}</span>
+                                    </label>
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                        <input
+                                            type="radio"
+                                            value="individual"
+                                            checked={shareType === 'individual'}
+                                            onChange={(e) => setShareType(e.target.value)}
+                                        />
+                                        <span className="text-sm">Individual Player</span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            {shareType === 'individual' && (
+                                <div>
+                                    <label className="block text-xs font-bold mb-1">Select Player:</label>
+                                    <select
+                                        value={selectedUser || ''}
+                                        onChange={(e) => setSelectedUser(e.target.value)}
+                                        className="w-full border border-gray-600 p-1 text-sm"
+                                    >
+                                        <option value="">-- Select a player --</option>
+                                        {allianceMembers.map(member => (
+                                            <option key={member.id} value={member.id}>
+                                                {member.username}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <p className="text-xs text-gray-600 mt-1">
+                                        {userStats.alliance_id ? 'Showing alliance members' : 'Join an alliance to share with members'}
+                                    </p>
+                                </div>
+                            )}
+
+                            <div className="bg-yellow-50 border border-yellow-300 p-2 text-xs">
+                                <p className="font-bold mb-1">ℹ️ Note:</p>
+                                <p>Shared reports expire after 24 hours and will appear in the recipient's alliance chat.</p>
+                            </div>
+
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={handleShare}
+                                    disabled={sharing || (shareType === 'alliance' && !userStats.alliance_id)}
+                                    className="flex-1 py-1 bg-blue-600 text-white border-2 border-blue-400 border-r-blue-800 border-b-blue-800 active:border-blue-800 active:border-r-blue-400 active:border-b-blue-400 font-bold text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    {sharing ? 'Sharing...' : 'Share'}
+                                </button>
+                                <button
+                                    onClick={() => setShowShareModal(false)}
+                                    className="flex-1 py-1 bg-[#c0c0c0] border-2 border-white border-r-gray-800 border-b-gray-800 active:border-gray-800 active:border-r-white active:border-b-white font-bold text-sm"
+                                >
+                                    Cancel
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

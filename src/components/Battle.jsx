@@ -4,18 +4,16 @@ import { supabase } from '../supabase';
 export default function Battle({ userStats, onNavigate, onAction, onViewProfile }) {
     const [players, setPlayers] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [page, setPage] = useState(0);
     const [totalPlayers, setTotalPlayers] = useState(0);
     const [errorMsg, setErrorMsg] = useState(null);
     const [attackResult, setAttackResult] = useState(null);
     const [actionLoading, setActionLoading] = useState(null);
-    const ITEMS_PER_PAGE = 10;
 
 
 
     useEffect(() => {
         fetchPlayers();
-    }, [page]);
+    }, []);
 
     // Auto-refresh every minute (60s) to match turn generation
     useEffect(() => {
@@ -23,25 +21,17 @@ export default function Battle({ userStats, onNavigate, onAction, onViewProfile 
             fetchPlayers();
         }, 60000); // 60 seconds
         return () => clearInterval(interval);
-    }, [page]); // Re-set interval if page changes, though technically not needed, good for closure safety.
+    }, []);
 
     const fetchPlayers = async () => {
         setLoading(true);
         setErrorMsg(null);
         try {
-            // Get total count
-            const { count, error: countError } = await supabase
-                .from('leaderboard')
-                .select('*', { count: 'exact', head: true });
-
-            if (countError) throw countError;
-            setTotalPlayers(count || 0);
-
-            // Get paginated data via RPC (handles passive spy gold reveal)
+            // Get all players via RPC (handles passive spy gold reveal)
             const { data, error } = await supabase
                 .rpc('get_battle_opponents', {
-                    p_page: page,
-                    p_limit: ITEMS_PER_PAGE
+                    p_page: 0,
+                    p_limit: 1000 // Get all players (adjust if you have more than 1000)
                 });
 
             if (error) throw error;
@@ -61,6 +51,24 @@ export default function Battle({ userStats, onNavigate, onAction, onViewProfile 
 
     const formatNumber = (num) => {
         return new Intl.NumberFormat('en-US').format(num);
+    };
+
+    const timeAgo = (dateString) => {
+        if (!dateString) return '';
+        const date = new Date(dateString);
+        const now = new Date();
+        const seconds = Math.floor((now - date) / 1000);
+
+        if (seconds < 60) return 'Just now';
+
+        const minutes = Math.floor(seconds / 60);
+        if (minutes < 60) return `${minutes}m ago`;
+
+        const hours = Math.floor(minutes / 60);
+        if (hours < 24) return `${hours}h ago`;
+
+        const days = Math.floor(hours / 24);
+        return `${days}d ago`;
     };
 
     const handleAttack = async (targetId, targetName) => {
@@ -114,6 +122,9 @@ export default function Battle({ userStats, onNavigate, onAction, onViewProfile 
             if (data.success) {
                 // Refresh global stats (turns if spy cost turns, though currently 0)
                 if (onAction) onAction();
+
+                // Refresh battlefield list to show new intel (Defense/Sentry)
+                fetchPlayers();
 
                 // Open new Spy Report Window
                 if (onNavigate) {
@@ -228,43 +239,26 @@ export default function Battle({ userStats, onNavigate, onAction, onViewProfile 
 
             {/* Battle List Table */}
             <div className="border border-gray-400 bg-white">
-                <div className="p-2 border-b border-gray-400 bg-gray-200 flex justify-between items-center">
-                    <div className="text-xs font-bold text-gray-600 uppercase">
-                        {totalPlayers} Warriors | Page {page + 1} of {Math.ceil(totalPlayers / ITEMS_PER_PAGE)}
-                    </div>
-                    <div className="flex gap-2">
-                        <button
-                            onClick={() => setPage(p => Math.max(0, p - 1))}
-                            disabled={page === 0}
-                            className="px-2 py-0.5 text-xs font-bold bg-[#c0c0c0] border border-white border-r-gray-800 border-b-gray-800 active:border-gray-800 active:border-r-white active:border-b-white disabled:text-gray-500"
-                        >
-                            &lt;&lt; Back
-                        </button>
-                        <button
-                            onClick={() => setPage(p => (p + 1) * ITEMS_PER_PAGE < totalPlayers ? p + 1 : p)}
-                            disabled={(page + 1) * ITEMS_PER_PAGE >= totalPlayers}
-                            className="px-2 py-0.5 text-xs font-bold bg-[#c0c0c0] border border-white border-r-gray-800 border-b-gray-800 active:border-gray-800 active:border-r-white active:border-b-white disabled:text-gray-500"
-                        >
-                            Next &gt;&gt;
-                        </button>
-                    </div>
-                </div>
 
-                <div className="overflow-x-auto">
+
+                <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
                     <table className="w-full text-left border-collapse">
                         <thead>
                             <tr className="bg-gray-100 text-xs text-gray-600 uppercase border-b border-gray-300">
                                 <th className="p-2 border-r border-gray-300">Alliance</th>
                                 <th className="p-2 border-r border-gray-300">Name</th>
                                 <th className="p-2 text-right border-r border-gray-300">Treasury</th>
+                                <th className="p-2 text-right border-r border-gray-300">Defense</th>
+                                <th className="p-2 text-right border-r border-gray-300">Sentry</th>
                                 <th className="p-2 text-right border-r border-gray-300">Rank</th>
+                                <th className="p-2 text-right border-r border-gray-300">Last Updated</th>
                                 <th className="p-2 text-center">Actions</th>
                             </tr>
                         </thead>
                         <tbody>
                             {loading ? (
                                 <tr>
-                                    <td colSpan="5" className="p-8 text-center text-gray-500 italic">
+                                    <td colSpan="8" className="p-8 text-center text-gray-500 italic">
                                         Querying realm database...
                                     </td>
                                 </tr>
@@ -305,7 +299,30 @@ export default function Battle({ userStats, onNavigate, onAction, onViewProfile 
                                             )}
                                         </td>
                                         <td className="p-2 text-right border-r border-gray-200 border-b font-mono">
+                                            {player.defense !== null && player.defense !== undefined ? (
+                                                <span>{formatNumber(player.defense)}</span>
+                                            ) : (
+                                                <span className="opacity-40">???</span>
+                                            )}
+                                        </td>
+                                        <td className="p-2 text-right border-r border-gray-200 border-b font-mono">
+                                            {player.sentry !== null && player.sentry !== undefined ? (
+                                                <span>{formatNumber(player.sentry)}</span>
+                                            ) : (
+                                                <span className="opacity-40">???</span>
+                                            )}
+                                        </td>
+                                        <td className="p-2 text-right border-r border-gray-200 border-b font-mono">
                                             #{formatNumber(player.overall_rank)}
+                                        </td>
+                                        <td className="p-2 text-right border-r border-gray-200 border-b text-[0.7em]">
+                                            {player.last_spied_at ? (
+                                                <span className="text-gray-600 font-medium">
+                                                    {timeAgo(player.last_spied_at)}
+                                                </span>
+                                            ) : (
+                                                <span className="opacity-40">-</span>
+                                            )}
                                         </td>
                                         <td className="p-2 text-center border-b border-gray-200">
                                             {!isCurrentUser && (

@@ -26,11 +26,13 @@ BEGIN
     SELECT 
         l.id,
         l.username,
-        us.alliance,
+        a.name as alliance,
         us.gold,
         l.overall_rank
     FROM public.leaderboard l
     LEFT JOIN public.user_stats us ON l.id = us.id
+    LEFT JOIN public.profiles p ON l.id = p.id
+    LEFT JOIN public.alliances a ON p.alliance_id = a.id
     WHERE 
         -- If tutorial step > 12 (Attack Clippy step is 12), hide Clippy
         -- If tutorial skipped (999), this is > 12, so Clippy is hidden.
@@ -43,3 +45,4 @@ BEGIN
     OFFSET p_page * p_limit;
 END;
 $$;
+

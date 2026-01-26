@@ -20,6 +20,12 @@ const Alliance = ({ stats: rawStats, session, onUpdate, onClose, onNavigate }) =
     const [announcementEdit, setAnnouncementEdit] = useState(false);
     const [tempAnnouncement, setTempAnnouncement] = useState('');
 
+    // Diplomacy State
+    const [diplomacyList, setDiplomacyList] = useState([]);
+
+    // Shared Spy Reports State
+    const [sharedReports, setSharedReports] = useState([]);
+
     // Approval System State
     const [myRequests, setMyRequests] = useState([]);
     const [joinRequests, setJoinRequests] = useState([]);
@@ -29,12 +35,17 @@ const Alliance = ({ stats: rawStats, session, onUpdate, onClose, onNavigate }) =
 
     useEffect(() => {
         if (stats.alliance_id) {
+            console.log('[Alliance] User has alliance_id:', stats.alliance_id);
             // Default to 'home' if initial load
             if (activeTab === 'browse' || !activeTab) setActiveTab('home');
             fetchMyAllianceData();
             subscribeToChat();
+            subscribeToSharedReports();
+            console.log('[Alliance] About to fetch shared reports...');
+            fetchSharedReports();
         } else {
-            if (['home', 'overview', 'chat', 'requests'].includes(activeTab)) {
+            console.log('[Alliance] No alliance_id, showing browse mode');
+            if (['home', 'overview', 'chat', 'requests', 'diplomacy'].includes(activeTab)) {
                 setActiveTab('browse');
             }
             fetchAllianceList();
@@ -52,6 +63,9 @@ const Alliance = ({ stats: rawStats, session, onUpdate, onClose, onNavigate }) =
         }
         if (activeTab === 'requests') {
             fetchJoinRequests();
+        }
+        if (activeTab === 'diplomacy') {
+            fetchDiplomacy();
         }
     }, [activeTab, chatMessages, stats.alliance_id]);
 
@@ -107,22 +121,35 @@ const Alliance = ({ stats: rawStats, session, onUpdate, onClose, onNavigate }) =
 
             // Get overall_rank for each member from leaderboard
             const memberIds = (membersData || []).map(m => m.id);
+            console.log('Fetching leaderboard data for member IDs:', memberIds);
+
             const { data: leaderboardData, error: lbError } = await supabase
                 .from('leaderboard')
                 .select('id, overall_rank')
                 .in('id', memberIds);
 
-            if (!lbError && leaderboardData) {
-                // Merge overall_rank into members data
-                const rankMap = {};
+            console.log('Leaderboard query result:', { leaderboardData, lbError });
+
+            if (lbError) {
+                console.error('Error fetching leaderboard data:', lbError);
+            }
+
+            // Merge overall_rank into members data
+            const rankMap = {};
+            if (leaderboardData && leaderboardData.length > 0) {
                 leaderboardData.forEach(lb => {
                     rankMap[lb.id] = lb.overall_rank;
                 });
-
-                membersData.forEach(m => {
-                    m.overall_rank = rankMap[m.id] || 999999;
-                });
+                console.log('Rank map created:', rankMap);
+            } else {
+                console.warn('No leaderboard data returned for members');
             }
+
+            membersData.forEach(m => {
+                m.overall_rank = rankMap[m.id] || 999999;
+            });
+
+            console.log('Members with overall_rank:', membersData.map(m => ({ username: m.username, overall_rank: m.overall_rank })));
 
             // Sort members by overall_rank ASC (lower rank = better)
             const sortedMembers = (membersData || []).sort((a, b) => {
@@ -161,6 +188,49 @@ const Alliance = ({ stats: rawStats, session, onUpdate, onClose, onNavigate }) =
             setJoinRequests(data || []);
         } catch (err) {
             console.error(err);
+        }
+    };
+
+    const fetchDiplomacy = async () => {
+        try {
+            const { data, error } = await supabase.rpc('get_alliance_diplomacy');
+            if (error) throw error;
+            setDiplomacyList(data || []);
+        } catch (err) {
+            console.error('Error fetching diplomacy:', err);
+            setModal({ show: true, type: 'alert', message: 'Failed to load diplomacy data: ' + err.message });
+        }
+    };
+
+    const handleSetRelation = async (targetAllianceId, relationType) => {
+        try {
+            const { data, error } = await supabase.rpc('set_alliance_relation', {
+                p_target_alliance_id: targetAllianceId,
+                p_relation_type: relationType
+            });
+            if (error) throw error;
+            if (!data.success) throw new Error(data.message);
+
+            // Refresh diplomacy list
+            fetchDiplomacy();
+        } catch (err) {
+            console.error('Error setting relation:', err);
+            setModal({ show: true, type: 'alert', message: err.message });
+        }
+    };
+
+    const fetchSharedReports = async () => {
+        try {
+            console.log('Fetching shared spy reports...');
+            const { data, error } = await supabase.rpc('get_shared_spy_reports');
+            if (error) {
+                console.error('Error from RPC:', error);
+                throw error;
+            }
+            console.log('Shared reports received:', data);
+            setSharedReports(data || []);
+        } catch (err) {
+            console.error('Error fetching shared reports:', err);
         }
     };
 
@@ -412,6 +482,50 @@ const Alliance = ({ stats: rawStats, session, onUpdate, onClose, onNavigate }) =
         };
     };
 
+    const subscribeToSharedReports = () => {
+        const channel = supabase
+            .channel(`shared_spy_reports:${stats.alliance_id}`)
+            .on('postgres_changes', {
+                event: 'INSERT',
+                schema: 'public',
+                table: 'shared_spy_reports',
+                filter: `alliance_id=eq.${stats.alliance_id}`
+            }, async (payload) => {
+                if (!payload.new) return;
+
+                // Fetch the complete report data with username
+                const { data, error } = await supabase
+                    .from('shared_spy_reports')
+                    .select(`
+                        *,
+                        shared_by_profile:shared_by(username)
+                    `)
+                    .eq('id', payload.new.id)
+                    .single();
+
+                if (error || !data) return;
+
+                const newReport = {
+                    ...data,
+                    shared_by_username: data.shared_by_profile?.username || 'Unknown'
+                };
+
+                setSharedReports(prev => {
+                    // Deduplication check
+                    if (prev.some(r => r.id === newReport.id)) return prev;
+                    return [newReport, ...prev];
+                });
+
+                // Scroll to bottom to show new report
+                setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+            })
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    };
+
     if (!stats.alliance_id) {
         // ... existing render for Browse/Create ...
         return (
@@ -499,6 +613,7 @@ const Alliance = ({ stats: rawStats, session, onUpdate, onClose, onNavigate }) =
                     Chat
                     {unreadCount > 0 && <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] w-4 h-4 flex items-center justify-center rounded-full shadow-sm">{unreadCount > 9 ? '9+' : unreadCount}</span>}
                 </button>
+                {isLeader && <button onClick={() => setActiveTab('diplomacy')} className={`px-4 py-1 text-sm ${activeTab === 'diplomacy' ? 'bg-white font-bold border-t-2 border-l-2 border-r-2 border-gray-100 border-b-white translate-y-[1px]' : 'border-2 border-transparent hover:bg-gray-300'}`}>Diplomacy</button>}
                 {isLeader && <button onClick={() => setActiveTab('requests')} className={`px-4 py-1 text-sm ${activeTab === 'requests' ? 'bg-white font-bold border-t-2 border-l-2 border-r-2 border-gray-100 border-b-white translate-y-[1px]' : 'border-2 border-transparent hover:bg-gray-300'}`}>Requests</button>}
             </div>
 
@@ -651,6 +766,59 @@ const Alliance = ({ stats: rawStats, session, onUpdate, onClose, onNavigate }) =
                                     </div>
                                 );
                             })}
+
+                            {/* Shared Spy Reports */}
+                            {sharedReports.map(report => (
+                                <div key={report.id} className="border-2 border-gray-400 bg-gray-100 shadow-[2px_2px_0_rgba(0,0,0,0.3)]">
+                                    <div className="bg-[#000080] text-white px-2 py-1 flex items-center gap-2 text-xs font-bold">
+                                        <span>📊</span>
+                                        <span>Spy Report: {report.target_username}</span>
+                                        <span className="text-[10px] font-normal ml-auto">by {report.shared_by_username}</span>
+                                    </div>
+                                    <div className="p-2 flex items-center justify-between gap-2">
+                                        <div className="flex items-center gap-3 text-xs">
+                                            <div className="flex items-center gap-1">
+                                                <span>💰</span>
+                                                <span className="font-bold">{new Intl.NumberFormat('en-US').format(report.report_data?.gold || 0)}</span>
+                                            </div>
+                                            <div className="flex items-center gap-1">
+                                                <span>🛡️</span>
+                                                <span className="font-bold">{new Intl.NumberFormat('en-US').format(report.report_data?.defense || 0)}</span>
+                                            </div>
+                                            <span className="text-[10px] text-gray-500">
+                                                {new Date(report.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                            </span>
+                                        </div>
+                                        <div className="flex gap-1">
+                                            <button
+                                                onClick={() => {
+                                                    onNavigate('Battle', {
+                                                        targetUsername: report.target_username,
+                                                        targetId: report.target_player_id
+                                                    });
+                                                }}
+                                                className="px-2 py-1 bg-gray-300 border-2 border-white border-r-black border-b-black active:border-r-white active:border-b-white text-[10px] font-bold"
+                                            >
+                                                ⚔️ Attack
+                                            </button>
+                                            <button
+                                                onClick={() => {
+                                                    onNavigate('SpyReport', {
+                                                        spyReport: {
+                                                            ...report.report_data,
+                                                            name: report.target_username
+                                                        }
+                                                    });
+                                                }}
+                                                className="px-2 py-1 bg-gray-300 border-2 border-white border-r-black border-b-black active:border-r-white active:border-b-white text-[10px] font-bold"
+                                            >
+                                                View
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+
                             <div ref={chatEndRef}></div>
                         </div>
 
@@ -705,6 +873,62 @@ const Alliance = ({ stats: rawStats, session, onUpdate, onClose, onNavigate }) =
                                     </div>
                                 </div>
                             ))}
+                        </div>
+                    </div>
+                )}
+
+                {activeTab === 'diplomacy' && isLeader && (
+                    <div className="h-full overflow-y-auto p-4">
+                        <div className="mb-4 flex items-center gap-2">
+                            <img src="https://win98icons.alexmeub.com/icons/png/world-0.png" className="w-6 h-6" />
+                            <h4 className="font-bold border-b border-gray-300 flex-1 pb-1">Diplomatic Relations</h4>
+                        </div>
+
+                        <div className="mb-4 p-3 bg-blue-50 border border-blue-200 text-sm">
+                            <p className="font-bold mb-1">🤝 Diplomacy Guide:</p>
+                            <ul className="text-xs space-y-1 ml-4">
+                                <li><span className="font-bold text-gray-600">Neutral:</span> Default stance - no special relationship</li>
+                                <li><span className="font-bold text-green-700">Ally:</span> Friendly alliance - coordinate strategies</li>
+                                <li><span className="font-bold text-red-700">Enemy:</span> Hostile alliance - mark for conflict</li>
+                            </ul>
+                        </div>
+
+                        {diplomacyList.length === 0 && (
+                            <div className="text-gray-500 italic text-center mt-10">No other alliances found.</div>
+                        )}
+
+                        <div className="border border-gray-400 bg-white">
+                            <div className="grid grid-cols-12 bg-gray-200 p-2 font-bold text-xs border-b border-gray-400">
+                                <div className="col-span-5">Alliance Name</div>
+                                <div className="col-span-4">Description</div>
+                                <div className="col-span-1 text-center">Members</div>
+                                <div className="col-span-2 text-center">Relation</div>
+                            </div>
+                            {diplomacyList.map(alliance => {
+                                const relationType = alliance.relation_type || 'neutral';
+                                let relationColor = 'text-gray-600';
+                                if (relationType === 'ally') relationColor = 'text-green-700 font-bold';
+                                if (relationType === 'enemy') relationColor = 'text-red-700 font-bold';
+
+                                return (
+                                    <div key={alliance.alliance_id} className="grid grid-cols-12 p-2 border-b border-gray-200 items-center text-xs hover:bg-gray-50">
+                                        <div className="col-span-5 font-bold text-blue-900 truncate">{alliance.alliance_name}</div>
+                                        <div className="col-span-4 text-gray-600 truncate text-[10px]">{alliance.alliance_description || 'No description'}</div>
+                                        <div className="col-span-1 text-center text-gray-700">{alliance.member_count}</div>
+                                        <div className="col-span-2 text-center">
+                                            <select
+                                                value={relationType}
+                                                onChange={(e) => handleSetRelation(alliance.alliance_id, e.target.value)}
+                                                className={`w-full px-1 py-0.5 border border-gray-400 text-xs ${relationColor} bg-white cursor-pointer`}
+                                            >
+                                                <option value="neutral">Neutral</option>
+                                                <option value="ally" className="text-green-700">Ally</option>
+                                                <option value="enemy" className="text-red-700">Enemy</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                );
+                            })}
                         </div>
                     </div>
                 )}
