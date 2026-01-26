@@ -251,13 +251,59 @@ const Alliance = ({ stats: rawStats, session, onUpdate, onClose, onNavigate }) =
         e.preventDefault();
         if (!newMessage.trim()) return;
 
+        const msgContent = newMessage;
+        setNewMessage(''); // Clear input immediately
+
+        // 1. Optimistic Update
+        const tempId = 'temp-' + Date.now();
+        const myProfile = membersRef.current.find(m => m.id === session.user.id);
+        const optimisticMsg = {
+            id: tempId,
+            alliance_id: stats.alliance_id,
+            sender_id: session.user.id,
+            message: msgContent,
+            created_at: new Date().toISOString(),
+            sender: myProfile ? { username: myProfile.username, avatar_id: myProfile.avatar_id } : { username: 'Me' } // Fallback
+        };
+
+        setChatMessages(prev => [...prev, optimisticMsg]);
+        setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+
         try {
-            const { error } = await supabase.rpc('send_alliance_message', { p_message: newMessage });
+            const { data, error } = await supabase.rpc('send_alliance_message', { p_message: msgContent });
+
             if (error) throw error;
-            setNewMessage('');
+            if (!data.success) throw new Error(data.message);
+
+            const realMsgData = data.data; // Returned from RPC
+
+            // 2. Reconcile with Realtime / State
+            setChatMessages(prev => {
+                // Remove temp message
+                const filtered = prev.filter(m => m.id !== tempId);
+
+                // Check if real message already exists (from Realtime)
+                if (filtered.some(m => m.id === realMsgData.id)) {
+                    return filtered;
+                }
+
+                // Add real message with properly formatted sender
+                const realMsg = {
+                    ...realMsgData,
+                    sender: optimisticMsg.sender // Reuse sender info we already have
+                };
+
+                // Insert at end (or resorts automatically if we sort by date)
+                // Since we just appended, let's append.
+                return [...filtered, realMsg];
+            });
+
         } catch (err) {
             console.error(err);
             setModal({ show: true, type: 'alert', message: 'Failed to send message: ' + err.message });
+            // Remove optimistic message on error
+            setChatMessages(prev => prev.filter(m => m.id !== tempId));
+            setNewMessage(msgContent); // Restore input
         }
     };
 

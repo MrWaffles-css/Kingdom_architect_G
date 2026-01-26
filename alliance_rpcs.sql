@@ -128,6 +128,7 @@ RETURNS JSONB AS $$
 DECLARE
     v_user_id UUID := auth.uid();
     v_alliance_id UUID;
+    v_new_msg RECORD;
 BEGIN
     SELECT alliance_id INTO v_alliance_id FROM public.profiles WHERE id = v_user_id;
 
@@ -136,9 +137,13 @@ BEGIN
     END IF;
 
     INSERT INTO public.alliance_messages (alliance_id, sender_id, message)
-    VALUES (v_alliance_id, v_user_id, p_message);
+    VALUES (v_alliance_id, v_user_id, p_message)
+    RETURNING id, alliance_id, sender_id, message, created_at INTO v_new_msg;
 
-    RETURN jsonb_build_object('success', true);
+    RETURN jsonb_build_object(
+        'success', true, 
+        'data', to_jsonb(v_new_msg)
+    );
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
