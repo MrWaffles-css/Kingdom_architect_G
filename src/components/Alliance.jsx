@@ -561,12 +561,21 @@ const Alliance = ({ stats: rawStats, session, onUpdate, onClose, onNavigate }) =
                                 const isMe = msg.sender_id === session.user.id;
                                 return (
                                     <div key={msg.id} className={`flex gap-2 ${isMe ? 'flex-row-reverse' : ''}`}>
-                                        <div className="flex-shrink-0" title={msg.sender?.username}>
+                                        <div
+                                            className="flex-shrink-0 cursor-pointer hover:opacity-80"
+                                            title={msg.sender?.username}
+                                            onClick={() => onNavigate('profile', { userId: msg.sender_id })}
+                                        >
                                             <img src={getAvatarPath(msg.sender?.avatar_id)} className="w-8 h-8 object-cover border border-gray-400 bg-gray-200" alt="" />
                                         </div>
                                         <div className={`max-w-[70%] p-2 rounded border border-gray-400 shadow-sm text-sm ${isMe ? 'bg-[#ffffe0]' : 'bg-gray-100'}`}>
                                             <div className="font-bold text-[10px] text-gray-500 mb-1 flex justify-between gap-2">
-                                                <span>{msg.sender?.username}</span>
+                                                <span
+                                                    className="cursor-pointer hover:underline hover:text-blue-800"
+                                                    onClick={() => onNavigate('profile', { userId: msg.sender_id })}
+                                                >
+                                                    {msg.sender?.username}
+                                                </span>
                                                 <span>{new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                                             </div>
                                             <p className="break-words">{msg.message}</p>
