@@ -147,8 +147,8 @@ export default function Profile({ userId, isOwnProfile, session, onNavigate, onA
 
     const fetchSpyReport = async () => {
         try {
-            // 1. Try to get an official Spy Report
-            const { data: reports, error } = await supabase
+            // 1. Get MY official spy reports
+            const { data: myReports } = await supabase
                 .from('spy_reports')
                 .select('*')
                 .eq('attacker_id', session.user.id)
@@ -156,74 +156,103 @@ export default function Profile({ userId, isOwnProfile, session, onNavigate, onA
                 .order('created_at', { ascending: false })
                 .limit(1);
 
-            let report = null;
-            if (reports && reports.length > 0) {
-                report = reports[0];
-                const created = new Date(report.created_at);
-                report.hours_old = (new Date() - created) / (1000 * 60 * 60);
+            // 2. Get updates from Alliance (Shared Intel)
+            // This returns reports from ANYONE in my alliance (could include me, but filtered in RPC usually)
+            const { data: sharedReports } = await supabase.rpc('get_shared_spy_reports', { p_target_id: targetUserId });
+
+            // 3. Compare and find the newest relevant report
+            let bestReport = null;
+            let reportSource = 'none'; // 'me', 'alliance', 'passive'
+
+            // Check my report
+            if (myReports && myReports.length > 0) {
+                bestReport = myReports[0];
+                reportSource = 'me';
             }
 
-            // 2. Also check "Passive" Intel (Battlefield logic)
-            // If my spies are strong enough, I see gold even without a report.
-            const { data: passiveData } = await supabase.rpc('get_passive_intel', { target_id: targetUserId });
+            // Check alliance reports
+            if (sharedReports && sharedReports.length > 0) {
+                // sharedReports[0] is the newest because RPC orders by desc
+                const newestShared = sharedReports[0];
 
-            if (passiveData && passiveData.success) {
-                // If passive check succeeds, we know Gold/Citizens/etc.
-                // We can construct a "Virtual" report or augment the existing one.
-                // Passive intel usually only gives Gold, maybe Citizens?
-                // Let's assume it gives what Battle list gives: Gold.
+                // Parse the inner data if it's JSON string, or used directly if jsonb
+                // RPC returns 'data' column as jsonb. 
+                // We need to shape it like a spy_report. 
+                // The RPC return structure is { id, attacker_id, attacker_name, created_at, hours_old, data }
+                // 'data' is the spy_report row content.
 
-                if (!report) {
-                    report = {
-                        hours_old: 0, // It's live
-                        gold: passiveData.gold,
-                        // inferred fields
-                        is_passive: true
+                const sharedDate = new Date(newestShared.created_at);
+                const myDate = bestReport ? new Date(bestReport.created_at) : new Date(0);
+
+                if (sharedDate > myDate) {
+                    // Alliance report is newer!
+                    bestReport = {
+                        ...newestShared.data, // The raw spy report data
+                        id: newestShared.id,
+                        attacker_name: newestShared.attacker_name,
+                        created_at: newestShared.created_at,
+                        is_shared: true,
+                        shared_by: newestShared.attacker_name
                     };
-                } else {
-                    // Update gold in report if passive is newer/live? 
-                    // Report is a snapshot. Passive is live. Passive is better for Gold.
-                    // But Report has more details (buildings etc).
-                    report.gold = passiveData.gold;
-                    report.is_passive_augmented = true;
+                    reportSource = 'alliance';
                 }
             }
 
-            if (report) {
-                setSpyReport(report);
-            } else {
-                setSpyReport(null);
+            // Calculate hours old
+            if (bestReport) {
+                const created = new Date(bestReport.created_at);
+                bestReport.hours_old = (new Date() - created) / (1000 * 60 * 60);
             }
 
-        } catch (error) { console.error(error); }
+            // 4. Also check "Passive" Intel (Battlefield logic)
+            // This is "Live" checking if my spies are strong enough
+            const { data: passiveData } = await supabase.rpc('get_passive_intel', { target_id: targetUserId });
+
+            if (passiveData && passiveData.success) {
+                // If passive check succeeds, we know Gold is accessible
+                if (!bestReport) {
+                    bestReport = {
+                        hours_old: 0,
+                        gold: passiveData.gold,
+                        is_passive: true
+                    };
+                    reportSource = 'passive';
+                } else {
+                    // Augment existing report with live gold?
+                    // Only IF passive is fresh data. Passive is always live.
+                    // But if we have a detailed report from 1 min ago, maybe keep that structure.
+                    // Let's just update gold.
+                    bestReport.gold = passiveData.gold;
+                    bestReport.is_passive_augmented = true;
+                }
+            }
+
+            setSpyReport(bestReport);
+
+        } catch (error) { console.error('fetchSpyReport error:', error); }
     };
 
     const fetchBattleHistory = async () => {
         try {
             const { data: battles } = await supabase.rpc('get_battle_history', { target_id: targetUserId, limit_count: 10 });
 
-            let spyLogs = [];
-            if (!viewingOwnProfile) {
-                const { data: spies } = await supabase
-                    .from('spy_reports')
-                    .select('*')
-                    .eq('attacker_id', session.user.id)
-                    .eq('defender_id', targetUserId)
-                    .order('created_at', { ascending: false })
-                    .limit(5);
+            // Get Alliance Spy Logs for History
+            const { data: sharedReports } = await supabase.rpc('get_shared_spy_reports', { p_target_id: targetUserId });
 
-                if (spies) {
-                    spyLogs = spies.map(s => ({
-                        id: s.id,
-                        created_at: s.created_at,
-                        attacker_name: 'You',
-                        defender_name: profileData?.username || 'Target',
-                        success: true,
-                        is_spy: true,
-                        attacker_id: session.user.id
-                    }));
-                }
+            let spyLogs = [];
+            if (sharedReports) {
+                spyLogs = sharedReports.map(s => ({
+                    id: s.id,
+                    created_at: s.created_at,
+                    attacker_name: s.attacker_id === session.user.id ? 'You' : s.attacker_name, // Should match RPC output
+                    defender_name: profileData?.username || 'Target',
+                    success: true,
+                    is_spy: true,
+                    is_shared: s.attacker_id !== session.user.id,
+                    attacker_id: s.attacker_id
+                }));
             }
+
             const combined = [...(battles || []), ...spyLogs].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
             setBattleHistory(combined);
         } catch (error) { console.error(error); }
@@ -642,12 +671,19 @@ export default function Profile({ userId, isOwnProfile, session, onNavigate, onA
                         <div className="flex flex-col gap-1">
                             <div className="flex justify-between items-center">
                                 <span>
-                                    <strong>{spyReport.is_passive ? 'PASSIVE OBSERVATION' : 'INTELLIGENCE REPORT ACQUIRED'}</strong> ({spyReport.is_passive || spyReport.is_passive_augmented ? 'Live Gold' : (spyReport.hours_old < 1 ? 'Fresh' : `${Math.floor(spyReport.hours_old)}h old`)})
+                                    <strong>
+                                        {spyReport.is_passive ? 'PASSIVE OBSERVATION' :
+                                            spyReport.is_shared ? `ALLIANCE INTEL (via ${spyReport.shared_by})` :
+                                                'INTELLIGENCE REPORT ACQUIRED'}
+                                    </strong>
+                                    ({spyReport.is_passive || spyReport.is_passive_augmented ? 'Live Gold' : (spyReport.hours_old < 1 ? 'Fresh' : `${Math.floor(spyReport.hours_old)}h old`)})
                                 </span>
                                 <span className="font-mono bg-yellow-200 px-1 border border-yellow-500">Spy Level: {currentUserStats?.research_spy_report || 0}</span>
                             </div>
                             <div className="text-[10px] italic opacity-80">
-                                {spyReport.is_passive ? 'Your spies are passively monitoring this kingdom`s treasury.' : 'Some data may be redacted ("???") due to low Spy Report Level. Upgrade "Spy Tech" to reveal more.'}
+                                {spyReport.is_passive ? 'Your spies are passively monitoring this kingdom`s treasury.' :
+                                    spyReport.is_shared ? 'This report was shared by an alliance member.' :
+                                        'Some data may be redacted ("???") due to low Spy Report Level. Upgrade "Spy Tech" to reveal more.'}
                             </div>
                         </div>
                     ) : (

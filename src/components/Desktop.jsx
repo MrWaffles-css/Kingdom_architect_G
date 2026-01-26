@@ -18,6 +18,7 @@ import GuideArrow from './GuideArrow';
 // The other components (Kingdom, etc) are only used via the features map.
 
 import { desktopFeatures as features } from '../config/desktopFeatures';
+import { getAvatarPath } from '../config/avatars';
 
 const Desktop = ({
     stats,
@@ -353,11 +354,30 @@ const Desktop = ({
 
                 if (feature.hidden) return null;
 
+                let iconContent = feature.isImage ? <img src={feature.icon} alt={feature.title} className={`${feature.iconClassName || 'w-8 h-8'} pixelated`} /> : feature.icon;
+
+                // Override for Profile if avatar exists
+                if (feature.id === 'profile' && stats?.avatar_id) {
+                    const avatarSrc = getAvatarPath(stats.avatar_id);
+                    if (avatarSrc) {
+                        // Use a larger, framed icon for the avatar
+                        iconContent = (
+                            <div className="w-12 h-12 relative flex items-center justify-center">
+                                <img
+                                    src={avatarSrc}
+                                    alt="Profile"
+                                    className="w-full h-full object-cover border-2 border-white shadow-sm pixelated bg-[#008080]"
+                                />
+                            </div>
+                        );
+                    }
+                }
+
                 return (
                     <React.Fragment key={feature.id}>
                         <DesktopIcon
                             label={feature.title}
-                            icon={feature.isImage ? <img src={feature.icon} alt={feature.title} className={`${feature.iconClassName || 'w-8 h-8'} pixelated`} /> : feature.icon}
+                            icon={iconContent}
                             onClick={() => {
                                 if (!dragMoved.current) {
                                     openWindow(feature.id);

@@ -70,7 +70,7 @@ export function GameProvider({ children }) {
             setError(null)
 
             // Parallel Fetching: Get Core Data First
-            const profileReq = supabase.from('profiles').select('is_admin, desktop_layout').eq('id', userId).single();
+            const profileReq = supabase.from('profiles').select('is_admin, desktop_layout, avatar_id, alliance_id').eq('id', userId).single();
             const statsReq = supabase.from('user_stats').select('*').eq('id', userId).single();
 
             // Create a timeout promise
@@ -86,10 +86,12 @@ export function GameProvider({ children }) {
 
             console.log('[refreshUserData] Core fetch complete')
 
-            // 1. Process Admin Status
+            // 1. Process Admin Status & Profile Data
+            let profileData = {};
             if (profileResponse.data) {
                 setIsAdmin(profileResponse.data.is_admin)
                 setDesktopLayout(profileResponse.data.desktop_layout || {})
+                profileData = profileResponse.data;
             } else if (profileResponse.error) {
                 console.error('[refreshUserData] Profile fetch error:', profileResponse.error)
             }
@@ -117,7 +119,12 @@ export function GameProvider({ children }) {
 
             // 3. Update State with Core Data IMMEDIATELY
             if (userStats) {
-                const initialStats = { ...defaultStats, ...userStats }
+                const initialStats = {
+                    ...defaultStats,
+                    ...userStats,
+                    avatar_id: profileData.avatar_id,
+                    alliance_id: profileData.alliance_id // Add alliance_id
+                }
                 setStats(prev => ({ ...prev, ...initialStats })) // Merge to keep existing data if any
                 console.log('[refreshUserData] Core stats updated')
 

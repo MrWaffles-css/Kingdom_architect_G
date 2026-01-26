@@ -15,9 +15,11 @@ import PatchNotes from '../components/PatchNotes';
 import About from '../components/About';
 import Help from '../components/Help';
 import HallOfFame from '../components/HallOfFame';
+import Alliance from '../components/Alliance';
 
 export const desktopFeatures = [
     { id: 'recycle', title: 'Recycle Bin', icon: 'https://win98icons.alexmeub.com/icons/png/recycle_bin_empty-0.png', isImage: true, component: RecycleBin, defaultWidth: 400 },
+    { id: 'alliance', title: 'Alliance', icon: '/alliance_icon.png', isImage: true, component: Alliance, defaultWidth: 700 },
     { id: 'kingdom', title: 'Kingdom', icon: '/kingdom_icon.png', isImage: true, component: Kingdom, defaultWidth: 600 },
     { id: 'barracks', title: 'Barracks', icon: '/barracks_icon.png', isImage: true, component: Barracks, defaultWidth: 650, iconClassName: 'w-12 h-12' },
     { id: 'battle', title: 'Battle Field', icon: '/battlefield_icon.png', isImage: true, component: Battle, defaultWidth: 800, iconClassName: 'w-12 h-12' },
