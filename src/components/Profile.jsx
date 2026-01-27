@@ -433,7 +433,7 @@ export default function Profile({ userId, isOwnProfile, session, onNavigate, onA
 
     // 2. MILITARY TAB
     const renderMilitaryTab = () => {
-        const s = statsSource;
+        const s = statsSource || {};
         const lvl = viewerSpyLevel;
 
         const units = [
@@ -528,7 +528,7 @@ export default function Profile({ userId, isOwnProfile, session, onNavigate, onA
 
     // 3. TECHNOLOGY TAB
     const renderTechTab = () => {
-        const s = statsSource;
+        const s = statsSource || {};
         const lvl = viewerSpyLevel;
 
         const researches = [
