@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { supabase } from '../supabase';
-import { GAME_COSTS, UNIT_STATS } from '../gameConfig';
+import { GAME_COSTS, UNIT_STATS, BARRACKS_LEVELS } from '../gameConfig';
 
 export default function Barracks({ userStats, onUpdate }) {
     const [loading, setLoading] = useState(false);
@@ -14,6 +14,26 @@ export default function Barracks({ userStats, onUpdate }) {
     });
 
     if (!userStats) return <div className="p-4 text-center">Loading barracks...</div>;
+
+    const barracksLevel = userStats.barracks_level || 1;
+    const currentLevelData = BARRACKS_LEVELS.find(l => l.level === barracksLevel) || BARRACKS_LEVELS[0];
+    const nextLevelData = BARRACKS_LEVELS.find(l => l.level === barracksLevel + 1);
+
+    const handleUpgrade = async () => {
+        setLoading(true);
+        setError(null);
+        setSuccessMsg(null);
+        try {
+            const { data, error } = await supabase.rpc('upgrade_barracks', { p_target_level: barracksLevel + 1 });
+            if (error) throw error;
+            onUpdate(data);
+            setSuccessMsg(`Barracks upgraded to Level ${barracksLevel + 1}! Unit strength increased.`);
+        } catch (err) {
+            setError(err.message || 'Upgrade failed');
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const UNIT_TYPES = [
         { id: 'attack', name: 'Attack Soldier', icon: '⚔️', description: 'Increases Attack strength.', stat: 'Attack' },
@@ -70,9 +90,33 @@ export default function Barracks({ userStats, onUpdate }) {
                 />
             </div>
 
-            {/* Header Info */}
-            <div className="border-b-2 border-gray-400 pb-2 mb-4 text-center">
-                <h1 className="text-[1.25em] font-bold">Barracks</h1>
+
+
+            {/* Upgrade Section */}
+            <div className="bg-white border-2 border-gray-500 p-3 mb-4 flex items-center justify-between shadow-sm">
+                <div>
+                    <h2 className="font-bold text-lg flex items-center gap-2">
+                        🏰 Barracks Level {barracksLevel}
+                    </h2>
+                </div>
+                <div>
+                    {nextLevelData ? (
+                        <div className="flex flex-col items-end gap-1">
+                            <div className="text-xs text-green-700 font-bold uppercase">Next: {nextLevelData.stats_per_unit} Strength/unit</div>
+                            <button
+                                onClick={handleUpgrade}
+                                disabled={loading || availableGold < nextLevelData.cost}
+                                className="px-4 py-2 bg-[#d4d0c8] border-2 border-white border-r-gray-800 border-b-gray-800 active:border-gray-800 active:border-r-white active:border-b-white text-black font-bold disabled:text-gray-500 disabled:active:border-white disabled:active:border-r-gray-800 disabled:active:border-b-gray-800 text-sm"
+                            >
+                                Upgrade ({parseInt(nextLevelData.cost).toLocaleString()} G)
+                            </button>
+                        </div>
+                    ) : (
+                        <div className="px-3 py-1 bg-yellow-100 border border-yellow-400 text-yellow-800 font-bold rounded shadow-inner">
+                            MAX LEVEL
+                        </div>
+                    )}
+                </div>
             </div>
 
             {/* Status Messages */}

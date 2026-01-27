@@ -36,9 +36,25 @@ export default function Battle({ userStats, onNavigate, onAction, onViewProfile 
 
             if (error) throw error;
 
-            if (error) throw error;
-            setPlayers(data || []);
-            setTotalPlayers((data || []).length);
+            let finalPlayers = data || [];
+
+            // TUTORIAL: Inject Fake Clippy if on Step 9 (Spy) or 12 (Attack)
+            if (userStats && (userStats.tutorial_step === 9 || userStats.tutorial_step === 12)) {
+                const fakeClippy = {
+                    id: 'clippy-tutorial',
+                    username: 'Clippy',
+                    alliance: 'Tutorial',
+                    gold: 20000,
+                    overall_rank: 1, // Pin to top
+                    defense: 0,
+                    sentry: 0,
+                    last_spied_at: null
+                };
+                finalPlayers = [fakeClippy, ...finalPlayers];
+            }
+
+            setPlayers(finalPlayers);
+            setTotalPlayers(finalPlayers.length);
         } catch (error) {
             console.error('Error fetching players:', error);
             setErrorMsg(error.message);
@@ -77,6 +93,28 @@ export default function Battle({ userStats, onNavigate, onAction, onViewProfile 
 
         setActionLoading(targetId);
         try {
+            // TUTORIAL CLIPPY ATTACK
+            if (targetId === 'clippy-tutorial') {
+                const { data, error } = await supabase.rpc('perform_tutorial_attack');
+                if (error) throw error;
+
+                setAttackResult({
+                    success: data.success,
+                    message: data.message,
+                    gold_stolen: data.gold_stolen,
+                    casualties: data.casualties,
+                    opponent: targetName,
+                    report_id: data.report_id // Use the generated report ID
+                });
+
+                if (data.success) {
+                    if (onAction) onAction(); // Refresh user stats (gold/xp/tutorial step)
+                    fetchPlayers(); // Refresh list to remove Clippy (as step changes)
+                }
+                return;
+            }
+
+            // NORMAL ATTACK
             const { data, error } = await supabase.rpc('attack_player', { target_id: targetId });
             if (error) throw error;
 
@@ -114,6 +152,43 @@ export default function Battle({ userStats, onNavigate, onAction, onViewProfile 
     const handleSpy = async (targetId, targetName) => {
         setActionLoading(targetId);
         try {
+            // TUTORIAL CLIPPY SPY
+            if (targetId === 'clippy-tutorial') {
+                // Advance tutorial step 9 -> 10
+                const { data: advData, error: advError } = await supabase.rpc('advance_tutorial', { expected_step: 9 });
+                if (advError) console.error('Error advancing tutorial:', advError);
+
+                if (onAction) onAction(); // Refresh to catch step update
+
+                // Fake Report Data
+                const fakeReport = {
+                    name: 'Clippy',
+                    gold: 20000,
+                    citizens: 100,
+                    kingdom_level: 1,
+                    gold_mine_level: 1,
+                    attack: 0,
+                    defense: 0,
+                    spy: 0,
+                    sentry: 0,
+                    attack_soldiers: 0,
+                    defense_soldiers: 0,
+                    spies: 0,
+                    sentries: 0,
+                    miners: 5,
+                    hostages: 0,
+                    vault: 0,
+                    weapons_data: []
+                };
+
+                if (onNavigate) {
+                    onNavigate('SpyReport', { spyReport: fakeReport });
+                }
+
+                return;
+            }
+
+            // NORMAL SPY
             const { data, error } = await supabase.rpc('spy_player', { target_id: targetId });
             if (error) throw error;
 

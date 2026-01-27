@@ -152,9 +152,56 @@ const RewardPopup = ({ rewards, onClose }) => {
     );
 };
 
-export default function Clippy({ stats, openWindows, onAdvance }) {
+export default function Clippy({ stats, openWindows, onAdvance, onNavigate }) {
     const [loading, setLoading] = useState(false);
     const [step, setStep] = useState(stats?.tutorial_step || 0);
+
+    // ... (keep state)
+
+    // Helper to render clickable keywords
+    const renderContent = (text) => {
+        if (!text) return null;
+
+        const keywords = {
+            "Profile": "profile",
+            "Kingdom": "kingdom",
+            "Gold Mine": "goldmine",
+            "Library": "library",
+            "Barracks": "barracks",
+            "Battlefield": "battle",
+            "Armoury": "armoury",
+            "Reports": "reports",
+            "Vault": "vault"
+        };
+
+        // Create a regex pattern from keys, ensuring longer keys match first (e.g. "Gold Mine" before "Gold" - though we don't have "Gold" as a link)
+        const pattern = new RegExp(`(${Object.keys(keywords).join('|')})`, 'g');
+
+        // Split text by regex, capture groups will be included in the array
+        const parts = text.split(pattern);
+
+        return parts.map((part, index) => {
+            if (keywords[part]) {
+                const targetId = keywords[part];
+                return (
+                    <span
+                        key={index}
+                        onClick={() => onNavigate && onNavigate(targetId)}
+                        className="text-blue-800 underline cursor-pointer hover:text-blue-600 font-bold"
+                        title={`Open ${part}`}
+                    >
+                        {part}
+                    </span>
+                );
+            }
+            return <span key={index}>{part}</span>;
+        });
+    };
+
+    // ... (keep rest of logic)
+
+    // Scroll down to find the render part
+
 
 
 
@@ -348,71 +395,7 @@ export default function Clippy({ stats, openWindows, onAdvance }) {
         }
     }, [openWindows, step, stats]);
 
-    // Poll for Spy/Attack success on Step 9 & 12
-    useEffect(() => {
-        if (step !== 9 && step !== 12) return;
-
-        const checkMissionCompletion = async () => {
-            try {
-                const { data: { user } } = await supabase.auth.getUser();
-                if (!user) return;
-
-                // Step 9: Check for Spy Report against Clippy
-                if (step === 9) {
-                    console.log('Clippy Step 9: Checking for spy reports...');
-
-                    // 1. Get Clippy's ID
-                    const { data: clippyData } = await supabase
-                        .from('profiles')
-                        .select('id')
-                        .ilike('username', 'Clippy')
-                        .single();
-
-                    if (clippyData) {
-                        // 2. Check spy_reports table
-                        const { count: reportCount, error } = await supabase
-                            .from('spy_reports')
-                            .select('id', { count: 'exact', head: true })
-                            .eq('attacker_id', user.id)
-                            .eq('defender_id', clippyData.id);
-
-                        if (error) {
-                            console.error('Clippy Step 9 Error:', error);
-                        } else {
-                            console.log('Clippy Step 9: Reports found:', reportCount);
-                            if ((reportCount || 0) > 0) {
-                                console.log('Clippy Step 9: Advancing!');
-                                handleAction();
-                            }
-                        }
-                    }
-                }
-
-                // Step 12: Check for Attack Win against Clippy
-                if (step === 12) {
-                    console.log('Checking for Clippy attack victory...');
-                    const { count, error } = await supabase
-                        .from('reports')
-                        .select('id', { count: 'exact', head: true })
-                        .eq('user_id', user.id)
-                        .ilike('title', '%Clippy%')
-                        .eq('type', 'attack_win'); // Ensure it is a win
-
-                    if (error) console.error('Error checking Clippy reports:', error);
-                    console.log('Clippy attack reports found:', count);
-
-                    if (count > 0) handleAction();
-                }
-            } catch (err) {
-                console.error("Error checking mission completion:", err);
-            }
-        };
-
-        const interval = setInterval(checkMissionCompletion, 3000);
-        checkMissionCompletion(); // Initial check
-
-        return () => clearInterval(interval);
-    }, [step]);
+    // Polling logic removed - Battle system triggers advances directly for Steps 9 & 12
 
     if (!stats) return null;
 
@@ -434,7 +417,7 @@ export default function Clippy({ stats, openWindows, onAdvance }) {
                 style={{ width: currentStepData.width }}
             >
                 <div className="font-bold mb-1">{currentStepData.title}</div>
-                <div className="mb-2 whitespace-pre-wrap">{currentStepData.content}</div>
+                <div className="mb-2 whitespace-pre-wrap">{renderContent(currentStepData.content)}</div>
 
                 {/* Reward Display */}
                 {currentStepData.rewardText && (

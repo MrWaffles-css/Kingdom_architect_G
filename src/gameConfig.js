@@ -27,6 +27,21 @@ for (let i = 1; i <= 100; i++) {
 
 export const KINGDOM_LEVELS = levels;
 
+// Barracks Levels Configuration
+const barracksLevels = [
+    { level: 1, cost: 0, stats_per_unit: 1 },
+    { level: 2, cost: 10000, stats_per_unit: 3 },
+    { level: 3, cost: 25000, stats_per_unit: 6 },
+    { level: 4, cost: 50000, stats_per_unit: 10 },
+    { level: 5, cost: 100000, stats_per_unit: 15 },
+    { level: 6, cost: 250000, stats_per_unit: 21 },
+    { level: 7, cost: 500000, stats_per_unit: 28 },
+    { level: 8, cost: 1000000, stats_per_unit: 36 },
+    { level: 9, cost: 2500000, stats_per_unit: 45 },
+    { level: 10, cost: 5000000, stats_per_unit: 55 }
+];
+export const BARRACKS_LEVELS = barracksLevels;
+
 // Gold Mine Levels Configuration
 const goldMineLevels = [];
 for (let i = 0; i <= 25; i++) {

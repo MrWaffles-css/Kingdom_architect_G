@@ -10,7 +10,30 @@ const Taskbar = ({ openWindows, activeWindowId, onWindowClick, onStartClick, sta
 
     // Fallback to local time if context unavailable (for robust rendering)
     const [displayTime, setDisplayTime] = useState(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
-    const [showStats, setShowStats] = useState(false);
+    const [showStats, setShowStats] = useState(() => {
+        try {
+            return localStorage.getItem('taskbarShowStats') === 'true';
+        } catch {
+            return false;
+        }
+    });
+
+    useEffect(() => {
+        localStorage.setItem('taskbarShowStats', showStats);
+    }, [showStats]);
+
+    // Military Stats Toggle
+    const [showMilitaryStats, setShowMilitaryStats] = useState(() => {
+        try {
+            return localStorage.getItem('taskbarShowMilitary') === 'true';
+        } catch {
+            return false;
+        }
+    });
+
+    useEffect(() => {
+        localStorage.setItem('taskbarShowMilitary', showMilitaryStats);
+    }, [showMilitaryStats]);
 
     useEffect(() => {
         // Use the passed serverTime from context which is synced to the server clock
@@ -133,7 +156,16 @@ const Taskbar = ({ openWindows, activeWindowId, onWindowClick, onStartClick, sta
                 )}
 
 
-                {/* Stats Toggle Button */}
+                {/* Military Stats Toggle Button (Up Arrow) */}
+                <button
+                    onClick={() => setShowMilitaryStats(!showMilitaryStats)}
+                    className="w-4 h-4 hidden md:flex items-center justify-center text-[10px] hover:font-bold ml-1"
+                    aria-label="Toggle Military Stats"
+                >
+                    {showMilitaryStats ? '▼' : '▲'}
+                </button>
+
+                {/* Resource Stats Toggle Button */}
                 <button
                     onClick={() => setShowStats(!showStats)}
                     className="w-4 h-4 hidden md:flex items-center justify-center text-[10px] hover:font-bold"
@@ -142,7 +174,7 @@ const Taskbar = ({ openWindows, activeWindowId, onWindowClick, onStartClick, sta
                     {showStats ? '▶' : '◀'}
                 </button>
 
-                {/* Optional Stats Display */}
+                {/* Optional Resource Stats Display */}
                 {showStats && stats && (
                     <div className="flex items-center gap-3 px-2 border-r border-gray-400 mr-2">
                         <div className="flex items-center gap-1" title="Gold">
@@ -169,6 +201,62 @@ const Taskbar = ({ openWindows, activeWindowId, onWindowClick, onStartClick, sta
                     {displayTime}
                 </div>
             </div>
+
+            {/* Floating Military Stats Panel - Pops UP from taskbar */}
+            {showMilitaryStats && stats && (
+                <div className="absolute bottom-[42px] right-2 bg-[#c0c0c0] border-2 border-white border-r-black border-b-black shadow-xl p-2 z-[60] min-w-[200px] animate-slide-up">
+                    <div className="text-xs font-bold mb-2 pb-1 border-b border-gray-500 text-gray-700">Military Overview</div>
+                    <div className="flex flex-col gap-1">
+                        <div className="flex justify-between items-center px-1 hover:bg-[#000080] hover:text-white group cursor-default">
+                            <div className="flex items-center gap-2">
+                                <span>🏆</span>
+                                <span>Overall Rank</span>
+                            </div>
+                            <span className="font-mono font-bold">#{stats.overall_rank || stats.rank || '-'}</span>
+                        </div>
+                        <div className="flex justify-between items-center px-1 hover:bg-[#000080] hover:text-white group cursor-default pt-1 border-t border-gray-400/50 mt-1">
+                            <div className="flex items-center gap-2">
+                                <span>⚔️</span>
+                                <span>Attack</span>
+                            </div>
+                            <div className="flex flex-col items-end leading-none">
+                                <span className="font-mono">{stats.attack?.toLocaleString()}</span>
+                                <span className="text-[10px] opacity-70">#{stats.rank_attack || '-'}</span>
+                            </div>
+                        </div>
+                        <div className="flex justify-between items-center px-1 hover:bg-[#000080] hover:text-white group cursor-default">
+                            <div className="flex items-center gap-2">
+                                <span>🛡️</span>
+                                <span>Defense</span>
+                            </div>
+                            <div className="flex flex-col items-end leading-none">
+                                <span className="font-mono">{stats.defense?.toLocaleString()}</span>
+                                <span className="text-[10px] opacity-70">#{stats.rank_defense || '-'}</span>
+                            </div>
+                        </div>
+                        <div className="flex justify-between items-center px-1 hover:bg-[#000080] hover:text-white group cursor-default">
+                            <div className="flex items-center gap-2">
+                                <span>🕵️</span>
+                                <span>Spy</span>
+                            </div>
+                            <div className="flex flex-col items-end leading-none">
+                                <span className="font-mono">{stats.spy?.toLocaleString()}</span>
+                                <span className="text-[10px] opacity-70">#{stats.rank_spy || '-'}</span>
+                            </div>
+                        </div>
+                        <div className="flex justify-between items-center px-1 hover:bg-[#000080] hover:text-white group cursor-default">
+                            <div className="flex items-center gap-2">
+                                <span>👁️</span>
+                                <span>Sentry</span>
+                            </div>
+                            <div className="flex flex-col items-end leading-none">
+                                <span className="font-mono">{stats.sentry?.toLocaleString()}</span>
+                                <span className="text-[10px] opacity-70">#{stats.rank_sentry || '-'}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

@@ -35,8 +35,8 @@ export default function Profile({ userId, isOwnProfile, session, onNavigate, onA
 
     // Determine the data source for stats
     // Own Profile: liveStats directly
-    // Other Profile: spyReport (snapshot)
-    const statsSource = viewingOwnProfile ? liveStats : (spyReport || {});
+    // Other Profile: spyReport (snapshot) -> fallback to profileData (e.g. public rank/xp)
+    const statsSource = viewingOwnProfile ? liveStats : { ...(profileData || {}), ...(spyReport || {}) };
 
     // Determine Viewer's Spy Level
     // Own Profile: Level 5 (Max)
@@ -90,7 +90,12 @@ export default function Profile({ userId, isOwnProfile, session, onNavigate, onA
     const fetchProfileData = async () => {
         try {
             // Prepared Promises
-            const statsPromise = supabase.from('user_stats').select('*').eq('id', targetUserId).single();
+            // SECURITY FIX: Only fetch full user_stats for OWN profile. 
+            // For others, rely on Leaderboard (public) + Spy Report (private status).
+            const statsPromise = viewingOwnProfile
+                ? supabase.from('user_stats').select('*').eq('id', targetUserId).single()
+                : Promise.resolve({ data: {} });
+
             const rankPromise = supabase.from('leaderboard').select('*').eq('id', targetUserId).single();
 
             // Profile Fetch with fallback logic for robustness
@@ -351,32 +356,118 @@ export default function Profile({ userId, isOwnProfile, session, onNavigate, onA
 
     // -------------- RENDERERS --------------
 
-    // 1. EMPIRE TAB (Economy & Infrastructure)
-    const renderEmpireTab = () => {
+    // 0. GENERAL TAB
+    const renderGeneralTab = () => {
+        const s = statsSource || {};
+        const lvl = viewerSpyLevel;
+        return (
+            <div className="space-y-4">
+                <fieldset className="border-2 border-white border-l-gray-500 border-t-gray-500 p-2">
+                    <legend className="px-1 text-sm font-bold">Kingdom Resources</legend>
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div className="bg-white p-2 border border-gray-400">
+                            <div className="text-xs text-gray-500 uppercase font-bold">Gold</div>
+                            <div className="text-lg font-bold flex items-center gap-2">
+                                <span>💰</span>
+                                <SpyCheck level={lvl} required={0}>{formatNumber(s.gold)}</SpyCheck>
+                            </div>
+                        </div>
+                        <div className="bg-white p-2 border border-gray-400">
+                            <div className="text-xs text-gray-500 uppercase font-bold">Vault</div>
+                            <div className="text-lg font-bold flex items-center gap-2">
+                                <span>🏦</span>
+                                <SpyCheck level={lvl} required={3}>{formatNumber(s.vault)}</SpyCheck>
+                            </div>
+                        </div>
+                        <div className="bg-white p-2 border border-gray-400">
+                            <div className="text-xs text-gray-500 uppercase font-bold">Turns</div>
+                            <div className="text-lg font-bold flex items-center gap-2">
+                                <span>⏳</span>
+                                <SpyCheck level={lvl} required={0}>{formatNumber(s.turns)}</SpyCheck>
+                            </div>
+                        </div>
+                        <div className="bg-white p-2 border border-gray-400">
+                            <div className="text-xs text-gray-500 uppercase font-bold">Experience</div>
+                            <div className="text-lg font-bold flex items-center gap-2">
+                                <span>⭐</span>
+                                <SpyCheck level={lvl} required={0}>{formatNumber(s.experience)}</SpyCheck>
+                            </div>
+                        </div>
+                    </div>
+                </fieldset>
+
+                {/* Combat Strength Overview */}
+                <fieldset className="border-2 border-white border-l-gray-500 border-t-gray-500 p-2">
+                    <legend className="px-1 text-sm font-bold">Combat Strength Overview</legend>
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                        {[
+                            { label: 'Attack', val: s.attack, icon: '⚔️', rank: s.rank_attack },
+                            { label: 'Defense', val: s.defense, icon: '🛡️', rank: s.rank_defense },
+                            { label: 'Spy Network', val: s.spy, icon: '🕵️', rank: s.rank_spy },
+                            { label: 'Sentry Guard', val: s.sentry, icon: '👁️', rank: s.rank_sentry },
+                        ].map((stat, i) => (
+                            <div key={i} className="bg-white p-2 border border-gray-400 flex justify-between items-center">
+                                <div>
+                                    <div className="text-xs text-gray-500 uppercase font-bold">{stat.label}</div>
+                                    <div className="font-bold flex items-center gap-1">
+                                        <span>{stat.icon}</span>
+                                        <SpyCheck level={lvl} required={0}>{formatNumber(stat.val)}</SpyCheck>
+                                    </div>
+                                </div>
+                                <div className="text-right">
+                                    <div className="text-[10px] text-gray-400 uppercase">Rank</div>
+                                    <div className="text-xs font-bold text-gray-600">
+                                        <SpyCheck level={lvl} required={0}>#{stat.rank || '-'}</SpyCheck>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </fieldset>
+            </div>
+        );
+    };
+
+    // 1. ECONOMY TAB
+    const renderEconomyTab = () => {
         const s = statsSource || {};
         const lvl = viewerSpyLevel;
 
-        const netGold = (() => {
-            const citizensVal = s.citizens || 0;
-            const miners = s.miners || 0;
-            const kingdomLevel = s.kingdom_level || 0;
-            const goldMineLevel = s.gold_mine_level || 1;
+        // --- CALCULATION LOGIC (Matching generate_resources.sql) ---
+        const citizenCount = s.citizens || 0;
+        const citizenRate = 1;
+        const citizenIncome = citizenCount * citizenRate;
 
-            // Just estimating for display (using Logic from Profile/Stats)
-            const untrainedGold = citizensVal; // 1 per citizen
-            const trainedCount = (s.attack_soldiers || 0) + (s.defense_soldiers || 0) + (s.spies || 0) + (s.sentries || 0); // These are lvl 1 protected so might be 0 if hidden
-            const trainedGold = Math.floor(trainedCount * 0.5);
-            const minerRate = 2 + Math.max(0, goldMineLevel - 1);
-            const minerGold = miners * minerRate;
-            return untrainedGold + trainedGold + minerGold;
-        })();
+        // Trained Units (Attack + Defense + Spy + Sentry)
+        const trainedCount = (s.attack_soldiers || 0) + (s.defense_soldiers || 0) + (s.spies || 0) + (s.sentries || 0);
+        const trainedRate = 0.5;
+        const trainedIncome = Math.floor(trainedCount * trainedRate);
+
+        // Miners
+        const minerCount = s.miners || 0;
+        const goldMineLevel = s.gold_mine_level || 1;
+        const minerRate = 2 + Math.max(0, goldMineLevel - 1);
+        const minerIncome = minerCount * minerRate;
+
+        // Base Gold Income (Subtotal)
+        const baseGoldIncome = citizenIncome + trainedIncome + minerIncome;
+
+        // Vault Interest (Bonus)
+        const vaultLevel = s.vault_level || 0;
+        const interestRate = Math.min(0.50, vaultLevel * 0.05); // 5% per level, max 50%
+        const vaultIncome = Math.floor(baseGoldIncome * interestRate);
+
+        const totalIncome = baseGoldIncome; // Vault income goes to Vault, not Treasury directly, but is part of "Earnings"
+
+        const getHourly = (val) => val * 60;
+        const getDaily = (val) => val * 60 * 24;
 
         return (
             <div className="space-y-4">
                 {/* Economy Overview */}
                 <fieldset className="border-2 border-white border-l-gray-500 border-t-gray-500 p-2">
-                    <legend className="px-1 text-sm font-bold">Economy</legend>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                    <legend className="px-1 text-sm font-bold">Financial Status</legend>
+                    <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
                         <div className="bg-white p-2 border border-gray-400">
                             <div className="text-xs text-gray-500 uppercase font-bold">Treasury</div>
                             <div className="text-lg font-bold flex items-center gap-2">
@@ -384,43 +475,170 @@ export default function Profile({ userId, isOwnProfile, session, onNavigate, onA
                                 <SpyCheck level={lvl} required={0}>{formatNumber(s.gold)}</SpyCheck>
                             </div>
                         </div>
+
                         <div className="bg-white p-2 border border-gray-400">
-                            <div className="text-xs text-gray-500 uppercase font-bold">Gold / Min</div>
+                            <div className="text-xs text-gray-500 uppercase font-bold">Vault</div>
                             <div className="text-lg font-bold flex items-center gap-2">
-                                <span>📈</span>
-                                <SpyCheck level={lvl} required={2} fallback="?">+{formatNumber(netGold)}/m</SpyCheck>
+                                <span>🏦</span>
+                                <SpyCheck level={lvl} required={3}>{formatNumber(s.vault)}</SpyCheck>
                             </div>
                         </div>
 
                         <div className="bg-white p-2 border border-gray-400">
-                            <div className="text-xs text-gray-500 uppercase font-bold">Citizens</div>
-                            <div className="text-lg font-bold flex items-center gap-2">
-                                <span>👥</span>
-                                <SpyCheck level={lvl} required={1}>{formatNumber(s.citizens)}</SpyCheck>
+                            <div className="text-xs text-gray-500 uppercase font-bold">Net Income</div>
+                            <div className="text-lg font-bold flex items-center gap-2 text-green-700">
+                                <span>📈</span>
+                                <SpyCheck level={lvl} required={2} fallback="?">+{formatNumber(totalIncome)}/m</SpyCheck>
                             </div>
                         </div>
                     </div>
                 </fieldset>
 
-                {/* Infrastructure */}
+                {/* Income Breakdown Table */}
                 <fieldset className="border-2 border-white border-l-gray-500 border-t-gray-500 p-2">
-                    <legend className="px-1 text-sm font-bold">Infrastructure</legend>
+                    <legend className="px-1 text-sm font-bold">Income Breakdown</legend>
+                    <div className="bg-white border border-gray-400 overflow-x-auto">
+                        <table className="w-full text-sm text-left">
+                            <thead className="bg-gray-200 border-b border-gray-400">
+                                <tr>
+                                    <th className="p-2 border-r border-gray-400">Source</th>
+                                    <th className="p-2 border-r border-gray-400 text-right">Units</th>
+                                    <th className="p-2 border-r border-gray-400 text-right hidden sm:table-cell">Rate</th>
+                                    <th className="p-2 border-r border-gray-400 text-right">Per Minute</th>
+                                    <th className="p-2 border-r border-gray-400 text-right hidden sm:table-cell">Per Hour</th>
+                                    <th className="p-2 text-right">Per Day</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-200">
+                                {/* Citizens */}
+                                <tr className="hover:bg-blue-50">
+                                    <td className="p-2 border-r border-gray-400 flex items-center gap-2">
+                                        <span>👥</span> Citizens
+                                    </td>
+                                    <td className="p-2 border-r border-gray-400 text-right font-mono">
+                                        <SpyCheck level={lvl} required={1}>{formatNumber(citizenCount)}</SpyCheck>
+                                    </td>
+                                    <td className="p-2 border-r border-gray-400 text-right font-mono text-gray-500 hidden sm:table-cell">1.0</td>
+                                    <td className="p-2 border-r border-gray-400 text-right font-mono font-bold text-green-700">
+                                        <SpyCheck level={lvl} required={2}>+{formatNumber(citizenIncome)}</SpyCheck>
+                                    </td>
+                                    <td className="p-2 border-r border-gray-400 text-right font-mono hidden sm:table-cell">
+                                        <SpyCheck level={lvl} required={2}>+{formatNumber(getHourly(citizenIncome))}</SpyCheck>
+                                    </td>
+                                    <td className="p-2 text-right font-mono">
+                                        <SpyCheck level={lvl} required={2}>+{formatNumber(getDaily(citizenIncome))}</SpyCheck>
+                                    </td>
+                                </tr>
+
+                                {/* Military */}
+                                <tr className="hover:bg-blue-50">
+                                    <td className="p-2 border-r border-gray-400 flex items-center gap-2">
+                                        <span>⚔️</span> Military
+                                    </td>
+                                    <td className="p-2 border-r border-gray-400 text-right font-mono">
+                                        <SpyCheck level={lvl} required={2}>{formatNumber(trainedCount)}</SpyCheck>
+                                    </td>
+                                    <td className="p-2 border-r border-gray-400 text-right font-mono text-gray-500 hidden sm:table-cell">0.5</td>
+                                    <td className="p-2 border-r border-gray-400 text-right font-mono font-bold text-green-700">
+                                        <SpyCheck level={lvl} required={2}>+{formatNumber(trainedIncome)}</SpyCheck>
+                                    </td>
+                                    <td className="p-2 border-r border-gray-400 text-right font-mono hidden sm:table-cell">
+                                        <SpyCheck level={lvl} required={2}>+{formatNumber(getHourly(trainedIncome))}</SpyCheck>
+                                    </td>
+                                    <td className="p-2 text-right font-mono">
+                                        <SpyCheck level={lvl} required={2}>+{formatNumber(getDaily(trainedIncome))}</SpyCheck>
+                                    </td>
+                                </tr>
+
+                                {/* Miners */}
+                                <tr className="hover:bg-blue-50">
+                                    <td className="p-2 border-r border-gray-400 flex items-center gap-2">
+                                        <span>⛏️</span> Gold Miners
+                                    </td>
+                                    <td className="p-2 border-r border-gray-400 text-right font-mono">
+                                        <SpyCheck level={lvl} required={2}>{formatNumber(minerCount)}</SpyCheck>
+                                    </td>
+                                    <td className="p-2 border-r border-gray-400 text-right font-mono text-gray-500 hidden sm:table-cell">{minerRate.toFixed(1)}</td>
+                                    <td className="p-2 border-r border-gray-400 text-right font-mono font-bold text-green-700">
+                                        <SpyCheck level={lvl} required={2}>+{formatNumber(minerIncome)}</SpyCheck>
+                                    </td>
+                                    <td className="p-2 border-r border-gray-400 text-right font-mono hidden sm:table-cell">
+                                        <SpyCheck level={lvl} required={2}>+{formatNumber(getHourly(minerIncome))}</SpyCheck>
+                                    </td>
+                                    <td className="p-2 text-right font-mono">
+                                        <SpyCheck level={lvl} required={2}>+{formatNumber(getDaily(minerIncome))}</SpyCheck>
+                                    </td>
+                                </tr>
+
+                                {/* Vault Bonus */}
+                                <tr className="bg-yellow-50 hover:bg-yellow-100 border-t border-gray-300">
+                                    <td className="p-2 border-r border-gray-400 flex items-center gap-2 italic">
+                                        <span>🏦</span> Vault Interest (Savings)
+                                    </td>
+                                    <td className="p-2 border-r border-gray-400 text-right font-mono italic text-gray-600">
+                                        <SpyCheck level={lvl} required={3}>Lvl {vaultLevel}</SpyCheck>
+                                    </td>
+                                    <td className="p-2 border-r border-gray-400 text-right font-mono text-gray-500 hidden sm:table-cell">{(interestRate * 100).toFixed(0)}%</td>
+                                    <td className="p-2 border-r border-gray-400 text-right font-mono font-bold text-blue-700">
+                                        <SpyCheck level={lvl} required={3}>+{formatNumber(vaultIncome)}</SpyCheck>
+                                    </td>
+                                    <td className="p-2 border-r border-gray-400 text-right font-mono hidden sm:table-cell text-blue-700">
+                                        <SpyCheck level={lvl} required={3}>+{formatNumber(getHourly(vaultIncome))}</SpyCheck>
+                                    </td>
+                                    <td className="p-2 text-right font-mono text-blue-700">
+                                        <SpyCheck level={lvl} required={3}>+{formatNumber(getDaily(vaultIncome))}</SpyCheck>
+                                    </td>
+                                </tr>
+
+                                {/* TOTAL */}
+                                <tr className="bg-gray-100 border-t-2 border-gray-400 font-bold">
+                                    <td className="p-2 border-r border-gray-400 text-right" colSpan={3}>TOTAL GROSS INCOME</td>
+                                    <td className="p-2 border-r border-gray-400 text-right font-mono text-lg text-green-800">
+                                        <SpyCheck level={lvl} required={2}>+{formatNumber(totalIncome + vaultIncome)}</SpyCheck>
+                                    </td>
+                                    <td className="p-2 border-r border-gray-400 text-right font-mono hidden sm:table-cell text-green-800">
+                                        <SpyCheck level={lvl} required={2}>+{formatNumber(getHourly(totalIncome + vaultIncome))}</SpyCheck>
+                                    </td>
+                                    <td className="p-2 text-right font-mono text-green-800">
+                                        <SpyCheck level={lvl} required={2}>+{formatNumber(getDaily(totalIncome + vaultIncome))}</SpyCheck>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </fieldset>
+            </div>
+        );
+    };
+
+    // 2. STRUCTURES TAB (Renamed from Infrastructure logic)
+    const renderStructuresTab = () => {
+        const s = statsSource || {};
+        const lvl = viewerSpyLevel;
+
+        return (
+            <div className="space-y-4">
+                <fieldset className="border-2 border-white border-l-gray-500 border-t-gray-500 p-2">
+                    <legend className="px-1 text-sm font-bold">Kingdom Infrastructure</legend>
                     <div className="space-y-1">
                         {[
-                            { name: 'Kingdom', level: s.kingdom_level, req: 2, icon: '🏰', nav: 'Kingdom' },
-                            { name: 'Gold Mine', level: s.gold_mine_level, req: 2, icon: '⛏️', nav: 'GoldMine' },
-                            { name: 'Barracks', level: s.barracks_level, req: 2, icon: '⚔️', nav: 'Barracks' }, // Lvl 2 implied for military base
-                            { name: 'Library', level: s.library_level, req: 4, icon: '📚', nav: 'Library' },
-                            { name: 'Vault', level: s.vault_level, req: 5, icon: '🏦', nav: 'Vault' },
+                            { name: 'Kingdom', level: s.kingdom_level, req: 2, icon: '🏰', nav: 'Kingdom', desc: 'Increases citizen cap and defense.' },
+                            { name: 'Gold Mine', level: s.gold_mine_level, req: 2, icon: '⛏️', nav: 'GoldMine', desc: 'Increases gold production rate per miner.' },
+                            { name: 'Barracks', level: s.barracks_level, req: 2, icon: '⚔️', nav: 'Barracks', desc: 'Training ground for soldiers.' },
+                            { name: 'Library', level: s.library_level, req: 4, icon: '📚', nav: 'Library', desc: 'Generates experience.' },
+                            { name: 'Vault', level: s.vault_level, req: 5, icon: '🏦', nav: 'Vault', desc: 'Protects gold and generates interest.' },
                         ].map((b, i) => (
-                            <div key={i} className="flex items-center justify-between bg-white px-2 py-1 border border-gray-300">
-                                <div className="flex items-center gap-2">
-                                    <span className="text-lg">{b.icon}</span>
-                                    <span className={`font-bold text-sm ${viewingOwnProfile ? 'cursor-pointer hover:underline' : ''}`} onClick={() => viewingOwnProfile && onNavigate(b.nav)}>
-                                        {b.name}
-                                    </span>
+                            <div key={i} className="flex items-center justify-between bg-white px-3 py-2 border border-gray-300 hover:bg-gray-50 group">
+                                <div className="flex items-center gap-3">
+                                    <span className="text-2xl filter drop-shadow-sm">{b.icon}</span>
+                                    <div className="flex flex-col">
+                                        <span className={`font-bold text-sm ${viewingOwnProfile ? 'cursor-pointer hover:underline text-blue-900' : ''}`} onClick={() => viewingOwnProfile && onNavigate(b.nav)}>
+                                            {b.name}
+                                        </span>
+                                        <span className="text-[10px] text-gray-500">{b.desc}</span>
+                                    </div>
                                 </div>
-                                <div className="font-mono font-bold">
+                                <div className="font-mono font-bold text-lg bg-gray-100 px-3 py-1 border border-gray-300 rounded shadow-inner">
                                     <SpyCheck level={lvl} required={b.req}>Lvl {b.level || 0}</SpyCheck>
                                 </div>
                             </div>
@@ -563,6 +781,68 @@ export default function Profile({ userId, isOwnProfile, session, onNavigate, onA
                     ) : (
                         <div className="text-center py-8 text-gray-500 italic">
                             Research Data Classified.<br />Requires Spy Level 4.
+                        </div>
+                    )}
+                </div>
+            </div>
+        );
+    };
+
+    // 5. ACHIEVEMENTS TAB
+    const renderAchievementsTab = () => {
+        return (
+            <div className="bg-white border-2 border-gray-400 p-2 min-h-full">
+                {achievements.length === 0 ? (
+                    <div className="text-center text-gray-500 mt-10">No achievements earned yet.</div>
+                ) : (
+                    <div className="grid grid-cols-1 gap-1">
+                        {achievements.map((ach, i) => (
+                            <div key={i} className="flex items-center gap-2 p-2 border-b border-gray-200 hover:bg-yellow-50">
+                                <div className="text-2xl">{ach.icon}</div>
+                                <div>
+                                    <div className="font-bold text-sm">{ach.achievement_name}</div>
+                                    <div className="text-[10px] text-gray-500 uppercase font-bold">{ach.rarity}</div>
+                                    <div className="text-xs text-gray-600">{ach.description || 'Achievement Unlocked'}</div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+        );
+    };
+
+    // 6. HISTORY TAB
+    const renderHistoryTab = () => {
+        return (
+            <div className="space-y-2">
+                <div className="bg-white border-2 border-gray-400 p-2">
+                    <h3 className="font-bold border-b border-gray-300 mb-2">Battle & Spy Log</h3>
+                    {battleHistory.length === 0 ? (
+                        <div className="text-center text-gray-500 mt-10">No recent activity reported.</div>
+                    ) : (
+                        <div className="space-y-1">
+                            {battleHistory.map((battle, i) => {
+                                const isAttacker = battle.attacker_id === session.user.id;
+                                const won = isAttacker ? battle.success : !battle.success;
+                                return (
+                                    <div key={i} className={`p-2 border ${battle.is_spy ? 'bg-yellow-50 border-yellow-200' : (won ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200')} text-xs flex justify-between items-center`}>
+                                        <div>
+                                            <div className="font-bold">
+                                                {battle.is_spy ? (
+                                                    <span>🕵️ Spied on {battle.defender_name}</span>
+                                                ) : (
+                                                    <span>{isAttacker ? 'You attacked' : 'Attacked by'} {isAttacker ? battle.defender_name : battle.attacker_name}</span>
+                                                )}
+                                            </div>
+                                            <div className="text-[10px] text-gray-500">{new Date(battle.created_at).toLocaleString()}</div>
+                                        </div>
+                                        <div className={`font-bold px-2 py-0.5 rounded ${battle.is_spy ? 'bg-yellow-200 text-yellow-800' : (won ? 'bg-green-200 text-green-800' : 'bg-red-200 text-red-800')}`}>
+                                            {battle.is_spy ? 'REPORT' : (won ? 'VICTORY' : 'DEFEAT')}
+                                        </div>
+                                    </div>
+                                );
+                            })}
                         </div>
                     )}
                 </div>
@@ -743,7 +1023,9 @@ export default function Profile({ userId, isOwnProfile, session, onNavigate, onA
             {/* Navigation Tabs */}
             <div className="flex gap-1 border-b border-white pr-2 pl-2 overflow-x-auto no-scrollbar whitespace-nowrap">
                 {[
-                    { id: 'empire', label: 'Empire' },
+                    { id: 'general', label: 'General' },
+                    { id: 'economy', label: 'Economy' },
+                    { id: 'structures', label: 'Structures' },
                     { id: 'military', label: 'Military' },
                     { id: 'tech', label: 'Technology' },
                     { id: 'achievements', label: 'Achievements' },
@@ -764,61 +1046,13 @@ export default function Profile({ userId, isOwnProfile, session, onNavigate, onA
 
             {/* Tab Content Container */}
             <div className="p-4 border-2 border-white border-l-gray-600 border-t-gray-600 bg-[#c0c0c0] min-h-[350px] overflow-y-auto">
-                {activeTab === 'empire' && renderEmpireTab()}
+                {activeTab === 'general' && renderGeneralTab()}
+                {(activeTab === 'economy' || activeTab === 'empire') && renderEconomyTab()}
+                {activeTab === 'structures' && renderStructuresTab()}
                 {activeTab === 'military' && renderMilitaryTab()}
                 {activeTab === 'tech' && renderTechTab()}
-
-                {activeTab === 'achievements' && (
-                    <div className="bg-white border-2 border-gray-600 border-r-white border-b-white h-full min-h-[200px] overflow-y-auto p-1">
-                        {achievements.length === 0 ? (
-                            <div className="text-center text-gray-500 mt-10">No achievements earned yet.</div>
-                        ) : (
-                            <div className="grid grid-cols-1 gap-1">
-                                {achievements.map((ach, i) => (
-                                    <div key={i} className="flex items-center gap-2 p-1 border-b border-gray-200 hover:bg-yellow-50">
-                                        <div className="text-2xl">{ach.icon}</div>
-                                        <div>
-                                            <div className="font-bold text-xs">{ach.achievement_name}</div>
-                                            <div className="text-[10px] text-gray-500 uppercase">{ach.rarity}</div>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                )}
-
-                {activeTab === 'history' && !viewingOwnProfile && (
-                    <div className="bg-white border-2 border-gray-600 border-r-white border-b-white h-full min-h-[200px] overflow-y-auto p-1">
-                        {battleHistory.length === 0 ? (
-                            <div className="text-center text-gray-500 mt-10">No recent battles reported by spies.</div>
-                        ) : (
-                            <div className="space-y-1">
-                                {battleHistory.map((battle, i) => {
-                                    const isAttacker = battle.attacker_id === session.user.id;
-                                    const won = isAttacker ? battle.success : !battle.success;
-                                    return (
-                                        <div key={i} className={`p-2 border ${battle.is_spy ? 'bg-yellow-50 border-yellow-200' : (won ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200')} text-xs flex justify-between items-center`}>
-                                            <div>
-                                                <div className="font-bold">
-                                                    {battle.is_spy ? (
-                                                        <span>🕵️ Spied on {battle.defender_name}</span>
-                                                    ) : (
-                                                        <span>{isAttacker ? 'You attacked' : 'Attacked by'} {isAttacker ? battle.defender_name : battle.attacker_name}</span>
-                                                    )}
-                                                </div>
-                                                <div className="text-[10px] text-gray-500">{new Date(battle.created_at).toLocaleString()}</div>
-                                            </div>
-                                            <div className={`font-bold px-2 py-0.5 rounded ${battle.is_spy ? 'bg-yellow-200 text-yellow-800' : (won ? 'bg-green-200 text-green-800' : 'bg-red-200 text-red-800')}`}>
-                                                {battle.is_spy ? 'REPORT' : (won ? 'VICTORY' : 'DEFEAT')}
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        )}
-                    </div>
-                )}
+                {activeTab === 'achievements' && renderAchievementsTab()}
+                {activeTab === 'history' && renderHistoryTab()}
             </div>
         </div>
     );

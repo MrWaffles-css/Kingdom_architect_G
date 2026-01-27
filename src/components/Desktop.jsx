@@ -37,7 +37,52 @@ const Desktop = ({
     isAdmin,
     profileUpdateTrigger // Added prop
 }) => {
-    const [openWindows, setOpenWindows] = useState([]);
+    const [openWindows, setOpenWindows] = useState(() => {
+        try {
+            const saved = localStorage.getItem('openWindowsPersistence');
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                // We need to re-read windowStates from local storage here since state isn't ready
+                const savedStates = JSON.parse(localStorage.getItem('windowStates') || '{}');
+                const isMobileInit = window.innerWidth < 768;
+
+                return parsed.map((w, index) => {
+                    const feature = features.find(f => f.id === w.id);
+                    if (!feature) return null;
+
+                    const savedState = savedStates[w.id];
+                    const defaultStartY = isMobileInit ? 60 : 50;
+                    // Fallback position if not saved, staggered
+                    const initialPos = savedState?.position || { x: 50 + (index * 30), y: defaultStartY + (index * 30) };
+
+                    return {
+                        id: w.id,
+                        title: feature.title,
+                        icon: feature.isImage ? <img src={feature.icon} alt="" className="w-4 h-4" /> : feature.icon,
+                        component: feature.component,
+                        position: initialPos,
+                        size: savedState?.size,
+                        isMinimized: w.isMinimized || false,
+                        defaultWidth: feature.defaultWidth || 400,
+                        extraProps: w.extraProps || {}
+                    };
+                }).filter(Boolean);
+            }
+        } catch (e) {
+            console.error('Failed to load open windows:', e);
+        }
+        return [];
+    });
+
+    // Persist open windows
+    useEffect(() => {
+        const windowsToSave = openWindows.map(w => ({
+            id: w.id,
+            extraProps: w.extraProps,
+            isMinimized: w.isMinimized
+        }));
+        localStorage.setItem('openWindowsPersistence', JSON.stringify(windowsToSave));
+    }, [openWindows]);
     const [activeWindowId, setActiveWindowId] = useState(null);
     const [startMenuOpen, setStartMenuOpen] = useState(false);
     const [activeSubmenu, setActiveSubmenu] = useState(null);
@@ -730,6 +775,7 @@ const Desktop = ({
             <Clippy
                 stats={stats}
                 openWindows={openWindows}
+                onNavigate={(id) => openWindow(id)}
                 onAdvance={(updates) => {
                     if (updates) {
                         setStats(prev => ({ ...prev, ...updates }));

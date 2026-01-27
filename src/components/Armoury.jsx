@@ -37,6 +37,8 @@ const WEAPON_DATA = {
 };
 
 export default function Armoury({ userStats, onUpdate }) {
+    if (!userStats) return <div className="text-center p-4">Loading stats...</div>;
+
     const [activeTab, setActiveTab] = useState('attack');
     const [userWeapons, setUserWeapons] = useState([]);
     const [loading, setLoading] = useState(false);
