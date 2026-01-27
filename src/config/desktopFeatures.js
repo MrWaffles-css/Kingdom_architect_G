@@ -22,7 +22,7 @@ export const desktopFeatures = [
     { id: 'alliance', title: 'Alliance', icon: '/alliance_icon.png', isImage: true, component: Alliance, defaultWidth: 700 },
     { id: 'kingdom', title: 'Kingdom', icon: '/kingdom_icon.png', isImage: true, component: Kingdom, defaultWidth: 600 },
     { id: 'barracks', title: 'Barracks', icon: '/barracks_icon.png', isImage: true, component: Barracks, defaultWidth: 650, iconClassName: 'w-12 h-12' },
-    { id: 'battle', title: 'Battle Field', icon: '/battlefield_icon.png', isImage: true, component: Battle, defaultWidth: 800, iconClassName: 'w-12 h-12' },
+    { id: 'battle', title: 'Battlefield', icon: '/battlefield_icon.png', isImage: true, component: Battle, defaultWidth: 800, iconClassName: 'w-12 h-12' },
     { id: 'goldmine', title: 'Gold Mine', icon: '/goldmine_icon.png', isImage: true, component: GoldMine, defaultWidth: 500, iconClassName: 'w-12 h-12' },
     { id: 'vault', title: 'Vault', icon: '/vault_icon.png', isImage: true, component: Vault, defaultWidth: 500, iconClassName: 'w-12 h-12' },
     { id: 'armoury', title: 'Armoury', icon: '/armoury_icon.png', isImage: true, component: Armoury, defaultWidth: 650, iconClassName: 'w-12 h-12' },

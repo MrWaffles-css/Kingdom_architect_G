@@ -207,12 +207,10 @@ const Window = ({ title, isOpen, onClose, onMinimize, isActive, onFocus, childre
 
             {/* Window Body */}
             <div
-                className="flex-1 bg-[#c0c0c0] text-black overflow-hidden relative"
+                className="flex-1 bg-[#c0c0c0] text-black overflow-auto relative min-h-0 w-full"
                 style={{ fontSize: `${fontScale}em` }}
             >
-                <div className="h-full w-full overflow-auto">
-                    {children}
-                </div>
+                {children}
             </div>
 
             {/* Resize Handle */}

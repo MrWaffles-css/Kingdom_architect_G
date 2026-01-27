@@ -143,9 +143,16 @@ export default function App() {
     };
 
     const handleLogout = async () => {
-        await supabase.auth.signOut()
-        setShowAdmin(false)
-        setViewingUserId(null)
+        try {
+            await supabase.auth.signOut()
+        } catch (error) {
+            console.error('Logout error:', error)
+        } finally {
+            setShowAdmin(false)
+            setViewingUserId(null)
+            // Force reload to ensure clean state
+            window.location.reload()
+        }
     }
 
     // Loading State - Removed per user request

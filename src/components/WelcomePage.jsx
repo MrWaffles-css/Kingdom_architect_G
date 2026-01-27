@@ -74,13 +74,13 @@ export default function WelcomePage({ onLogin }) {
     };
 
     const desktopIcons = [
-        { id: 'login', label: 'Login', icon: '🔑', action: () => openWindow('login') },
-        { id: 'register', label: 'Register', icon: '📝', action: () => openWindow('register') },
-        { id: 'news', label: 'News', icon: '📰', action: () => openWindow('news') },
-        { id: 'patch', label: 'Patch Notes', icon: '📋', action: () => openWindow('patch') },
-        { id: 'about', label: 'About', icon: 'ℹ️', action: () => openWindow('about') },
-        { id: 'help', label: 'Help', icon: '❓', action: () => openWindow('help') },
-        { id: 'halloffame', label: 'Hall of Fame', icon: '🏆', action: () => openWindow('halloffame') },
+        { id: 'login', label: 'Login', icon: <img src="https://win98icons.alexmeub.com/icons/png/keys-0.png" alt="Login" className="w-8 h-8" />, action: () => openWindow('login') },
+        { id: 'register', label: 'Register', icon: <img src="https://win98icons.alexmeub.com/icons/png/write_wordpad-0.png" alt="Register" className="w-8 h-8" />, action: () => openWindow('register') },
+        { id: 'news', label: 'News', icon: <img src="https://win98icons.alexmeub.com/icons/png/write_wordpad-1.png" alt="News" className="w-8 h-8" />, action: () => openWindow('news') },
+        { id: 'patch', label: 'Patch Notes', icon: <img src="https://win98icons.alexmeub.com/icons/png/notepad-0.png" alt="Patch Notes" className="w-8 h-8" />, action: () => openWindow('patch') },
+        { id: 'about', label: 'About', icon: <img src="https://win98icons.alexmeub.com/icons/png/msg_information-0.png" alt="About" className="w-8 h-8" />, action: () => openWindow('about') },
+        { id: 'help', label: 'Help', icon: <img src="https://win98icons.alexmeub.com/icons/png/help_question_mark-0.png" alt="Help" className="w-8 h-8" />, action: () => openWindow('help') },
+        { id: 'halloffame', label: 'Hall of Fame', icon: <img src="https://win98icons.alexmeub.com/icons/png/certificate-0.png" alt="Hall of Fame" className="w-8 h-8" />, action: () => openWindow('halloffame') },
     ];
 
     return (
@@ -135,7 +135,8 @@ export default function WelcomePage({ onLogin }) {
                                 onClick={() => openWindow('login')}
                                 className="mx-auto mt-8 px-6 py-2 bg-[#c0c0c0] border-2 border-white border-r-black border-b-black text-black font-bold text-lg active:border-t-black active:border-l-black active:border-r-white active:border-b-white shadow-[1px_1px_0px_#000] active:shadow-none active:translate-y-[1px] flex items-center gap-2"
                             >
-                                <span className="text-xl">🔑</span> Login to Kingdom
+                                <img src="https://win98icons.alexmeub.com/icons/png/key_win-0.png" onError={(e) => e.target.src = 'https://win98icons.alexmeub.com/icons/png/keys-0.png'} alt="" className="w-6 h-6" />
+                                <span>Login to Kingdom</span>
                             </button>
                         )}
                     </div>
@@ -206,14 +207,14 @@ export default function WelcomePage({ onLogin }) {
                             className="text-left px-2 py-2 hover:bg-[#000080] hover:text-white flex items-center gap-2"
                             onClick={() => openWindow('login')}
                         >
-                            <span className="text-xl">🔑</span>
+                            <img src="https://win98icons.alexmeub.com/icons/png/keys-0.png" alt="" className="w-8 h-8" />
                             <span className="font-bold">Login</span>
                         </button>
                         <button
                             className="text-left px-2 py-2 hover:bg-[#000080] hover:text-white flex items-center gap-2"
                             onClick={() => openWindow('register')}
                         >
-                            <span className="text-xl">📝</span>
+                            <img src="https://win98icons.alexmeub.com/icons/png/write_wordpad-0.png" alt="" className="w-8 h-8" />
                             <span className="font-bold">Register</span>
                         </button>
                         <hr className="border-t border-white border-b-[#808080] my-1" />
@@ -221,25 +222,29 @@ export default function WelcomePage({ onLogin }) {
                             className="text-left px-2 py-2 hover:bg-[#000080] hover:text-white flex items-center gap-2"
                             onClick={() => openWindow('news')}
                         >
-                            📰 News
+                            <img src="https://win98icons.alexmeub.com/icons/png/write_wordpad-1.png" alt="" className="w-6 h-6" />
+                            <span className="text-sm">News</span>
                         </button>
                         <button
                             className="text-left px-2 py-2 hover:bg-[#000080] hover:text-white flex items-center gap-2"
                             onClick={() => openWindow('patch')}
                         >
-                            📋 Patch Notes
+                            <img src="https://win98icons.alexmeub.com/icons/png/notepad-0.png" alt="" className="w-6 h-6" />
+                            <span className="text-sm">Patch Notes</span>
                         </button>
                         <button
                             className="text-left px-2 py-2 hover:bg-[#000080] hover:text-white flex items-center gap-2"
                             onClick={() => openWindow('about')}
                         >
-                            ℹ️ About
+                            <img src="https://win98icons.alexmeub.com/icons/png/msg_information-0.png" alt="" className="w-6 h-6" />
+                            <span className="text-sm">About</span>
                         </button>
                         <button
                             className="text-left px-2 py-2 hover:bg-[#000080] hover:text-white flex items-center gap-2"
                             onClick={() => openWindow('help')}
                         >
-                            ❓ Help
+                            <img src="https://win98icons.alexmeub.com/icons/png/help_question_mark-0.png" alt="" className="w-6 h-6" />
+                            <span className="text-sm">Help</span>
                         </button>
                     </div>
                 </div>

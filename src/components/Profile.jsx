@@ -89,17 +89,49 @@ export default function Profile({ userId, isOwnProfile, session, onNavigate, onA
 
     const fetchProfileData = async () => {
         try {
-            const { data: stats } = await supabase.from('user_stats').select('*').eq('id', targetUserId).single();
-            const { data: rankData } = await supabase.from('leaderboard').select('*').eq('id', targetUserId).single();
+            // Prepared Promises
+            const statsPromise = supabase.from('user_stats').select('*').eq('id', targetUserId).single();
+            const rankPromise = supabase.from('leaderboard').select('*').eq('id', targetUserId).single();
 
-            // Attempt to fetch with avatar_id
-            let { data: profile, error } = await supabase.from('profiles').select('username, created_at, avatar_id').eq('id', targetUserId).single();
+            // Profile Fetch with fallback logic for robustness
+            const profilePromise = (async () => {
+                const { data, error } = await supabase
+                    .from('profiles')
+                    .select('username, created_at, avatar_id, alliance_id')
+                    .eq('id', targetUserId)
+                    .single();
 
-            // If that fails (likely due to missing column), fetch without it
-            if (error || !profile) {
-                console.warn('Fetching profile with avatar_id failed, retrying without it.', error);
-                const { data: fallbackProfile } = await supabase.from('profiles').select('username, created_at').eq('id', targetUserId).single();
-                profile = fallbackProfile;
+                if (error || !data) {
+                    // Fallback retry without new columns if needed
+                    const { data: fallback } = await supabase
+                        .from('profiles')
+                        .select('username, created_at')
+                        .eq('id', targetUserId)
+                        .single();
+                    return fallback;
+                }
+                return data;
+            })();
+
+            // Execute parallel fetch
+            const [statsResult, rankResult, profile] = await Promise.all([
+                statsPromise,
+                rankPromise,
+                profilePromise
+            ]);
+
+            const stats = statsResult.data;
+            const rankData = rankResult.data;
+
+            // Fetch Alliance Name if applicable
+            let allianceName = 'None';
+            if (profile?.alliance_id) {
+                const { data: alliance } = await supabase
+                    .from('alliances')
+                    .select('name')
+                    .eq('id', profile.alliance_id)
+                    .single();
+                if (alliance) allianceName = alliance.name;
             }
 
             setProfileData({
@@ -107,7 +139,8 @@ export default function Profile({ userId, isOwnProfile, session, onNavigate, onA
                 ...rankData,
                 username: profile?.username || 'Unknown Player',
                 created_at: profile?.created_at,
-                avatar_id: profile?.avatar_id
+                avatar_id: profile?.avatar_id,
+                alliance: allianceName
             });
 
             if (onTitleChange && profile?.username) {

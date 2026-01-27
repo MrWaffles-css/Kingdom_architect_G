@@ -37,10 +37,8 @@ export default function Battle({ userStats, onNavigate, onAction, onViewProfile 
             if (error) throw error;
 
             if (error) throw error;
-            // Filter out Clippy from display and count
-            const filteredData = (data || []).filter(p => p.username !== 'Clippy');
-            setPlayers(filteredData);
-            setTotalPlayers(filteredData.length);
+            setPlayers(data || []);
+            setTotalPlayers((data || []).length);
         } catch (error) {
             console.error('Error fetching players:', error);
             setErrorMsg(error.message);
