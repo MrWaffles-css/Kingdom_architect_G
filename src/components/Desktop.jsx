@@ -88,6 +88,16 @@ const Desktop = ({
     const [activeSubmenu, setActiveSubmenu] = useState(null);
     const [unreadMailCount, setUnreadMailCount] = useState(0);
     const [viewingUserName, setViewingUserName] = useState(null);
+    const [hasUnreadPatchNotes, setHasUnreadPatchNotes] = useState(false);
+    const LATEST_PATCH_VERSION = '1.5';
+
+    // Check for new patch notes
+    useEffect(() => {
+        const seenVersion = localStorage.getItem('seen_patch_version');
+        if (seenVersion !== LATEST_PATCH_VERSION) {
+            setHasUnreadPatchNotes(true);
+        }
+    }, []);
 
     const updateWindowTitle = (id, newTitle) => {
         setOpenWindows(prev => prev.map(w => w.id === id ? { ...w, title: newTitle } : w));
@@ -234,6 +244,11 @@ const Desktop = ({
     };
 
     const openWindow = (featureId, extraProps = {}) => {
+        if (featureId === 'patch') {
+            setHasUnreadPatchNotes(false);
+            localStorage.setItem('seen_patch_version', LATEST_PATCH_VERSION);
+        }
+
         const existingWindow = openWindows.find(w => w.id === featureId);
         if (existingWindow) {
             if (existingWindow.isMinimized) {
@@ -428,7 +443,7 @@ const Desktop = ({
                                     openWindow(feature.id);
                                 }
                             }}
-                            badge={feature.id === 'mail' ? unreadMailCount : 0}
+                            badge={feature.id === 'mail' ? unreadMailCount : (feature.id === 'patch' && hasUnreadPatchNotes ? 1 : 0)}
                             style={{ left: position.x, top: displayY }}
                             onMouseDown={(e) => handleIconDragStart(e, feature.id)}
                             className="absolute"

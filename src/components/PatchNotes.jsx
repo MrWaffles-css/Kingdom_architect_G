@@ -7,20 +7,27 @@ export default function PatchNotes() {
 
             <div className="space-y-4">
                 <div className="border-2 border-gray-400 p-3 bg-gray-50">
-                    <h3 className="font-bold text-blue-800 mb-2">Version 1.0.0 - Launch</h3>
+                    <h3 className="font-bold text-blue-800 mb-2">Version 1.5 - Economy &amp; QoL</h3>
                     <div className="text-sm space-y-1">
-                        <p className="font-bold text-green-700">✨ New Features:</p>
+                        <p className="font-bold text-green-700">✨ New Features &amp; Fixes:</p>
+                        <ul className="list-disc list-inside ml-2 space-y-1">
+                            <li><strong>Economy Fixes:</strong> Vault gold can now be used for all upgrades (Mine, Armoury, Vault).</li>
+                            <li><strong>Gold Generation:</strong> Fixed an issue where passive gold generation was paused.</li>
+                            <li><strong>Boss Raids:</strong> Added "Defeated" counter to track boss kills.</li>
+                            <li><strong>Armoury:</strong> Added summary bar to see equipped/unequipped soldiers at a glance.</li>
+                            <li><strong>Stats:</strong> Fixed instant stat updates when buying weapons.</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div className="border-2 border-gray-400 p-3 bg-gray-50 opacity-75">
+                    <h3 className="font-bold text-gray-700 mb-2">Version 1.0.0 - Launch</h3>
+                    <div className="text-sm space-y-1">
+                        <p className="font-bold text-gray-600">✨ Launch Features:</p>
                         <ul className="list-disc list-inside ml-2 space-y-1">
                             <li>Kingdom building and upgrading system</li>
-                            <li>Gold Mine with 25 levels of progression</li>
-                            <li>Barracks for training attack, defense, spy, and sentry units</li>
-                            <li>Battle system with espionage mechanics</li>
-                            <li>Vault storage for protecting resources</li>
-                            <li>Armoury for weapon upgrades</li>
-                            <li>Library for research and upgrades</li>
-                            <li>Seasonal competition system</li>
-                            <li>Real-time chat and messaging</li>
-                            <li>Admin panel for game management</li>
+                            <li>Gold Mine, Barracks, Vault, Armoury, Library</li>
+                            <li>Battlefield, Espionage, Seasons, Chat</li>
                         </ul>
                     </div>
                 </div>
