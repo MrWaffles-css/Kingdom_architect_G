@@ -283,10 +283,14 @@ export function GameProvider({ children }) {
         }
     }, [refreshUserData])
 
+    const isGenerating = useRef(false);
+
     const generateResources = useCallback(async () => {
         if (!session?.user?.id) return
+        if (isGenerating.current) return; // Prevent overlapping calls
 
         try {
+            isGenerating.current = true;
             // "Lazy Evaluation": Call RPC to calculate and grant pending resources
             const { data, error } = await supabase.rpc('generate_resources')
 
@@ -306,6 +310,8 @@ export function GameProvider({ children }) {
             }
         } catch (err) {
             console.error('Resource generation failed:', err)
+        } finally {
+            isGenerating.current = false;
         }
     }, [session])
 
@@ -355,6 +361,23 @@ export function GameProvider({ children }) {
             supabase.removeChannel(channel)
         }
     }, [session])
+
+    // Handle Tab Visibility Changes (Force sync when user returns)
+    useEffect(() => {
+        const handleVisibilityChange = async () => {
+            if (document.visibilityState === 'visible' && session?.user?.id) {
+                console.log('[GameContext] Tab became visible, syncing resources...');
+
+                // 1. Generate Resources (Updates stats locally via return value)
+                // This returns the full user_stats object, so we don't need to fetch it again immediately.
+                // This prevents network congestion (queueing) which was causing distinct delays for subsequent button clicks.
+                await generateResources();
+            }
+        };
+
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+    }, [session, generateResources, refreshUserData]);
 
 
 
