@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { supabase } from '../supabase';
 import GuideArrow from './GuideArrow';
+import { useGame } from '../contexts/GameContext';
 
 export default function Library({ userStats, onUpdate }) {
+    const { showNotification } = useGame();
     const [loading, setLoading] = useState(false);
-    const [error, setError] = useState(null);
-    const [successMsg, setSuccessMsg] = useState(null);
     const [activeTab, setActiveTab] = useState('economy');
 
     if (!userStats) return <div className="p-4">Loading Library...</div>;
@@ -31,18 +31,16 @@ export default function Library({ userStats, onUpdate }) {
 
     const handleUpgrade = async () => {
         setLoading(true);
-        setError(null);
-        setSuccessMsg(null);
 
         try {
             const { data, error } = await supabase.rpc('upgrade_library');
             if (error) throw error;
 
             onUpdate(data);
-            setSuccessMsg('Library upgraded successfully!');
+            showNotification('Library upgraded successfully!');
         } catch (err) {
             console.error('Upgrade error:', err);
-            setError(err.message || 'Failed to upgrade Library');
+            showNotification(err.message || 'Failed to upgrade Library');
         } finally {
             setLoading(false);
         }
@@ -168,8 +166,6 @@ export default function Library({ userStats, onUpdate }) {
 
     const handleResearchUpgrade = async (researchName) => {
         setLoading(true);
-        setError(null);
-        setSuccessMsg(null);
 
         try {
             let rpcName = '';
@@ -201,10 +197,10 @@ export default function Library({ userStats, onUpdate }) {
             if (error) throw error;
 
             onUpdate(data);
-            setSuccessMsg(`${researchName} upgraded successfully!`);
+            showNotification(`${researchName} upgraded successfully!`);
         } catch (err) {
             console.error('Research upgrade error:', err);
-            setError(err.message || 'Failed to upgrade research');
+            showNotification(err.message || 'Failed to upgrade research');
         } finally {
             setLoading(false);
         }
@@ -382,19 +378,7 @@ export default function Library({ userStats, onUpdate }) {
                 </div>
             </div>
 
-            {/* Status Messages */}
-            {error && (
-                <div className="bg-white border text-red-600 px-4 py-2 border-red-500 mb-4" role="alert">
-                    <strong className="font-bold">Error: </strong>
-                    <span className="block sm:inline">{error}</span>
-                </div>
-            )}
-            {successMsg && (
-                <div className="bg-white border text-green-700 px-4 py-2 border-green-600 mb-4" role="alert">
-                    <strong className="font-bold">Success: </strong>
-                    <span className="block sm:inline">{successMsg}</span>
-                </div>
-            )}
+
 
             {/* Building Stats & Upgrade */}
             <fieldset className="border-2 border-white border-l-gray-500 border-t-gray-500 p-4 mb-4">

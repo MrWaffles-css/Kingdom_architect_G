@@ -17,6 +17,7 @@ export function GameProvider({ children }) {
     const [isAdmin, setIsAdmin] = useState(false)
     const [desktopLayout, setDesktopLayout] = useState({})
     const [isMaintenanceMode, setIsMaintenanceMode] = useState(false)
+    const [notification, setNotification] = useState(null)
 
 
     // Default stats structure
@@ -415,7 +416,17 @@ export function GameProvider({ children }) {
                 console.error("Failed to save desktop layout:", err);
             }
         },
-        generateResources
+        generateResources,
+        notification,
+        showNotification: useCallback((message, duration = 5000) => {
+            const id = Date.now();
+            setNotification({ id, message });
+            if (duration > 0) {
+                setTimeout(() => {
+                    setNotification(current => current && current.id === id ? null : current);
+                }, duration);
+            }
+        }, [])
     };
 
     return (

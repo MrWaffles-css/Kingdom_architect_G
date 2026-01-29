@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
+import { useGame } from '../contexts/GameContext';
 
 const WEAPON_DATA = {
     attack: [
@@ -39,12 +40,11 @@ const WEAPON_DATA = {
 export default function Armoury({ userStats, onUpdate }) {
     if (!userStats) return <div className="text-center p-4">Loading stats...</div>;
 
+    const { showNotification } = useGame();
     const [activeTab, setActiveTab] = useState('attack');
     const [userWeapons, setUserWeapons] = useState([]);
     const [loading, setLoading] = useState(false);
     const [actionLoading, setActionLoading] = useState(null); // 'buy-tier-0'
-    const [error, setError] = useState(null);
-    const [successMsg, setSuccessMsg] = useState(null);
     const [quantities, setQuantities] = useState({}); // { 'attack-0': 10 }
 
     const researchLevel = userStats.research_weapons || 0;
@@ -88,8 +88,6 @@ export default function Armoury({ userStats, onUpdate }) {
         if (qty <= 0) return;
 
         setActionLoading(`buy-${type}-${tier}`);
-        setError(null);
-        setSuccessMsg(null);
 
         try {
             const { data, error } = await supabase.rpc('buy_weapon', {
@@ -102,10 +100,10 @@ export default function Armoury({ userStats, onUpdate }) {
 
             onUpdate(data); // Update gold
             await fetchWeapons(); // Refresh inventory
-            setSuccessMsg(`Successfully bought ${qty} weapons!`);
+            showNotification(`Successfully bought ${qty} weapons!`);
             setQuantities(prev => ({ ...prev, [`${type}-${tier}`]: '' }));
         } catch (err) {
-            setError(err.message);
+            showNotification(err.message);
         } finally {
             setActionLoading(null);
         }
@@ -116,8 +114,6 @@ export default function Armoury({ userStats, onUpdate }) {
         if (qty <= 0) return;
 
         setActionLoading(`sell-${type}-${tier}`);
-        setError(null);
-        setSuccessMsg(null);
 
         try {
             const { data, error } = await supabase.rpc('sell_weapon', {
@@ -130,10 +126,10 @@ export default function Armoury({ userStats, onUpdate }) {
 
             onUpdate(data); // Update vault
             await fetchWeapons(); // Refresh inventory
-            setSuccessMsg(`Successfully sold ${qty} weapons!`);
+            showNotification(`Successfully sold ${qty} weapons!`);
             setQuantities(prev => ({ ...prev, [`${type}-${tier}`]: '' }));
         } catch (err) {
-            setError(err.message);
+            showNotification(err.message);
         } finally {
             setActionLoading(null);
         }
@@ -162,19 +158,7 @@ export default function Armoury({ userStats, onUpdate }) {
                 </div>
             </div>
 
-            {/* Status Messages */}
-            {error && (
-                <div className="bg-white border text-red-600 px-4 py-2 border-red-500 mb-4" role="alert">
-                    <strong className="font-bold">Error: </strong>
-                    <span className="block sm:inline">{error}</span>
-                </div>
-            )}
-            {successMsg && (
-                <div className="bg-white border text-green-700 px-4 py-2 border-green-600 mb-4" role="alert">
-                    <strong className="font-bold">Success: </strong>
-                    <span className="block sm:inline">{successMsg}</span>
-                </div>
-            )}
+
 
             {/* Weapon/Soldier Ratio Warning */}
             {(() => {

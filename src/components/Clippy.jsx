@@ -152,7 +152,10 @@ const RewardPopup = ({ rewards, onClose }) => {
     );
 };
 
+import { useGame } from '../contexts/GameContext';
+
 export default function Clippy({ stats, openWindows, onAdvance, onNavigate }) {
+    const { notification } = useGame();
     const [loading, setLoading] = useState(false);
     const [step, setStep] = useState(stats?.tutorial_step || 0);
 
@@ -228,7 +231,12 @@ export default function Clippy({ stats, openWindows, onAdvance, onNavigate }) {
         return () => window.removeEventListener('resize', handleResize);
     }, []);
 
-    const currentStepData = STEPS.find(s => s.id === step);
+    const currentStepData = notification ? {
+        title: "Notification",
+        content: notification.message,
+        width: 300,
+        // No default action/reward for generic notifications
+    } : STEPS.find(s => s.id === step);
 
     // Drag Logic
     const handleStart = (clientX, clientY) => {
