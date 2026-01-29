@@ -8,6 +8,7 @@ export default function Bosses({ session }) {
     const [loading, setLoading] = useState(true);
     const [selectedTarget, setSelectedTarget] = useState({}); // { bossId: 1 } (1, 10, 100, 999999)
     const [processing, setProcessing] = useState(false);
+    const processingRef = useRef(false); // Ref to track processing state synchronously in closures
     const [timeLeft, setTimeLeft] = useState(0);
     const [bossKills, setBossKills] = useState({});
 
@@ -78,8 +79,10 @@ export default function Bosses({ session }) {
             setTimeLeft(Math.max(0, diff));
 
             if (diff <= 0) {
-                // Trigger processor
-                await processFight();
+                // Trigger processor (Check Ref to prevent parallel execution)
+                if (!processingRef.current) {
+                    await processFight();
+                }
             }
         }, 1000);
 
@@ -97,8 +100,11 @@ export default function Bosses({ session }) {
     }, [lastReward]);
 
     const processFight = async () => {
-        if (processing) return;
+        if (processingRef.current) return;
+
+        processingRef.current = true;
         setProcessing(true);
+
         try {
             const { data, error } = await supabase.rpc('process_boss_fight');
             if (error) throw error;
@@ -121,12 +127,17 @@ export default function Bosses({ session }) {
         } catch (err) {
             console.error('Process error:', err);
         } finally {
+            processingRef.current = false;
             setProcessing(false);
         }
     };
 
     const handleStart = async (bossId) => {
+        if (processingRef.current) return;
+
+        processingRef.current = true;
         setProcessing(true);
+
         try {
             const target = selectedTarget[bossId] || 1;
             const { data, error } = await supabase.rpc('start_boss_fight', {
@@ -144,13 +155,18 @@ export default function Bosses({ session }) {
             console.error('Start error:', err);
             alert(err.message);
         } finally {
+            processingRef.current = false;
             setProcessing(false);
         }
     };
 
     const handleCancel = async () => {
         if (!window.confirm('Are you sure? Turns spent on the current incomplete fight will be lost.')) return;
+
+        if (processingRef.current) return;
+        processingRef.current = true;
         setProcessing(true);
+
         try {
             const { data, error } = await supabase.rpc('cancel_boss_fight');
             if (error) throw error;
@@ -159,6 +175,7 @@ export default function Bosses({ session }) {
         } catch (err) {
             console.error('Cancel error:', err);
         } finally {
+            processingRef.current = false;
             setProcessing(false);
         }
     };

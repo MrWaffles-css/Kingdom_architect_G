@@ -8,7 +8,6 @@ export default function Battle({ userStats, onNavigate, onAction, onViewProfile 
     const [errorMsg, setErrorMsg] = useState(null);
     const [attackResult, setAttackResult] = useState(null);
     const [actionLoading, setActionLoading] = useState(null);
-    const [isRefreshing, setIsRefreshing] = useState(false);
 
 
 
@@ -25,12 +24,7 @@ export default function Battle({ userStats, onNavigate, onAction, onViewProfile 
     }, []);
 
     const fetchPlayers = async () => {
-        // Silent refresh: Only show full loader if we have no data
-        if (players.length === 0) {
-            setLoading(true);
-        } else {
-            setIsRefreshing(true);
-        }
+        setLoading(true);
         setErrorMsg(null);
         try {
             // Get all players via RPC (handles passive spy gold reveal)
@@ -66,7 +60,6 @@ export default function Battle({ userStats, onNavigate, onAction, onViewProfile 
             setErrorMsg(error.message);
         } finally {
             setLoading(false);
-            setIsRefreshing(false);
         }
     };
 
@@ -299,10 +292,10 @@ export default function Battle({ userStats, onNavigate, onAction, onViewProfile 
                 />
                 <button
                     onClick={fetchPlayers}
-                    disabled={loading || isRefreshing}
+                    disabled={loading}
                     className="absolute bottom-2 right-2 px-3 py-1 bg-[#c0c0c0] border-2 border-white border-r-gray-800 border-b-gray-800 active:border-gray-800 active:border-r-white active:border-b-white text-black font-bold text-[0.75em]"
                 >
-                    {loading || isRefreshing ? '...' : 'Refresh'}
+                    {loading ? '...' : 'Refresh'}
                 </button>
             </div>
 

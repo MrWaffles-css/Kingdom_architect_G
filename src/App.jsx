@@ -118,6 +118,19 @@ export default function App() {
         }
     }, [loading, error, session, isAdmin, isMaintenanceMode]);
 
+    // Refresh data immediately when tab becomes visible (Fix for "frozen" feel after inactivity)
+    useEffect(() => {
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible' && session?.user?.id) {
+                console.log('Tab became visible: Refreshing user data...');
+                refreshUserData(session.user.id);
+            }
+        };
+
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+    }, [session, refreshUserData]);
+
 
 
 
