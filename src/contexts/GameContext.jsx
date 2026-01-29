@@ -125,7 +125,30 @@ export function GameProvider({ children }) {
                     avatar_id: profileData.avatar_id,
                     alliance_id: profileData.alliance_id // Add alliance_id
                 }
-                setStats(prev => ({ ...prev, ...initialStats })) // Merge to keep existing data if any
+
+                setStats(prev => {
+                    // Timestamp Guard: Prevent overwriting newer data with stale fetch results
+                    // This handles race conditions where an optimistic update (via RPC) is newer than a slow fetch
+                    if (prev?.updated_at && userStats.updated_at) {
+                        const prevTime = new Date(prev.updated_at).getTime();
+                        const newTime = new Date(userStats.updated_at).getTime();
+
+                        // If the fetched data is older than what we have, ignore the user_stats portion
+                        // We still want to merge in profile data if possible, but usually that's stable.
+                        if (newTime < prevTime) {
+                            console.warn('[refreshUserData] Ignored stale user_stats (preserved newer local state)', { newTime, prevTime });
+                            // We still merge profile data just in case, but keep stats from prev
+                            return {
+                                ...prev,
+                                is_admin: isAdmin, // profile/admin data is separate
+                                desktop_layout: desktopLayout, // separate state but synced here just in case? No, separate state.
+                                // Don't revert other stats
+                            };
+                        }
+                    }
+
+                    return { ...prev, ...initialStats };
+                })
                 console.log('[refreshUserData] Core stats updated')
 
                 // Sync time
@@ -391,8 +414,9 @@ export function GameProvider({ children }) {
             } catch (err) {
                 console.error("Failed to save desktop layout:", err);
             }
-        }
-    }
+        },
+        generateResources
+    };
 
     return (
         <GameContext.Provider value={value}>

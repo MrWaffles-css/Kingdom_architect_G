@@ -12,6 +12,10 @@ export default function Vault({ userStats, onUpdate }) {
     const useVaultGold = user?.use_vault_gold || false;
     const gold = user?.gold || 0;
 
+    const availableGold = useVaultGold
+        ? (gold + vaultGold)
+        : gold;
+
     // Level Data
     const getLevelData = (level) => {
         if (level === 0) return { cost: 0, interest: 0, capacity: 0 };
@@ -113,8 +117,8 @@ export default function Vault({ userStats, onUpdate }) {
                     <div>
                         <button
                             onClick={handleUpgrade}
-                            disabled={loading || gold < 5000}
-                            className={`px-4 py-1 border-2 border-white border-r-gray-800 border-b-gray-800 bg-[#c0c0c0] active:border-gray-800 active:border-r-white active:border-b-white font-bold ${gold < 5000 ? 'text-gray-500' : 'text-black'}`}
+                            disabled={loading || availableGold < 5000}
+                            className={`px-4 py-1 border-2 border-white border-r-gray-800 border-b-gray-800 bg-[#c0c0c0] active:border-gray-800 active:border-r-white active:border-b-white font-bold ${availableGold < 5000 ? 'text-gray-500' : 'text-black'}`}
                         >
                             {loading ? 'Constructing...' : 'Construct Vault'}
                         </button>
@@ -273,14 +277,14 @@ export default function Vault({ userStats, onUpdate }) {
                             <div className="border-t border-gray-400 pt-4">
                                 <div className="flex justify-between items-center mb-4">
                                     <span className="text-sm">Upgrade Cost:</span>
-                                    <span className={`font-bold ${gold >= nextStats.cost ? 'text-black' : 'text-red-600'}`}>
+                                    <span className={`font-bold ${availableGold >= nextStats.cost ? 'text-black' : 'text-red-600'}`}>
                                         {formatNumber(nextStats.cost)} Gold
                                     </span>
                                 </div>
                                 <button
                                     onClick={handleUpgrade}
-                                    disabled={loading || gold < nextStats.cost}
-                                    className={`w-full py-1 border-2 border-white border-r-gray-800 border-b-gray-800 bg-[#c0c0c0] active:border-gray-800 active:border-r-white active:border-b-white font-bold ${gold < nextStats.cost ? 'text-gray-500' : 'text-black'}`}
+                                    disabled={loading || availableGold < nextStats.cost}
+                                    className={`w-full py-1 border-2 border-white border-r-gray-800 border-b-gray-800 bg-[#c0c0c0] active:border-gray-800 active:border-r-white active:border-b-white font-bold ${availableGold < nextStats.cost ? 'text-gray-500' : 'text-black'}`}
                                 >
                                     {loading ? 'Upgrading...' : `Upgrade to Level ${vaultLevel + 1}`}
                                 </button>

@@ -9,6 +9,7 @@ export default function Bosses({ session }) {
     const [selectedTarget, setSelectedTarget] = useState({}); // { bossId: 1 } (1, 10, 100, 999999)
     const [processing, setProcessing] = useState(false);
     const [timeLeft, setTimeLeft] = useState(0);
+    const [bossKills, setBossKills] = useState({});
 
     // Fetch Initial Data
     const fetchData = async () => {
@@ -28,6 +29,22 @@ export default function Bosses({ session }) {
                 .maybeSingle(); // Use maybeSingle to avoid 406 on empty
             if (fightError && fightError.code !== 'PGRST116') throw fightError;
             setActiveFight(fight);
+
+            // Fetch Boss Kills
+            const { data: kills, error: killsError } = await supabase
+                .from('user_boss_kills')
+                .select('boss_id, kill_count')
+                .eq('user_id', session.user.id);
+
+            if (killsError) console.error('Error fetching kills:', killsError);
+
+            const killsMap = {};
+            if (kills) {
+                kills.forEach(k => {
+                    killsMap[k.boss_id] = k.kill_count;
+                });
+            }
+            setBossKills(killsMap);
 
         } catch (error) {
             console.error('Error fetching boss data:', error);
@@ -275,7 +292,12 @@ export default function Bosses({ session }) {
 
                             {/* Header */}
                             <div className="flex justify-between items-start mb-2">
-                                <h3 className="font-bold text-lg">{boss.id}. {boss.name}</h3>
+                                <div>
+                                    <h3 className="font-bold text-lg">{boss.id}. {boss.name}</h3>
+                                    <div className="text-[10px] text-gray-600 font-bold uppercase">
+                                        Defeated: {formatNumber(bossKills[boss.id] || 0)} times
+                                    </div>
+                                </div>
                                 <div className="text-xs bg-gray-700 text-white px-2 py-1 rounded">
                                     {formatTime(boss.duration_seconds * 1000)}
                                 </div>

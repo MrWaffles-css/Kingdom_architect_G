@@ -46,6 +46,7 @@ export default function AdminPanel({ onClose, onWorldReset, onUserUpdate }) {
             if (updates.experience !== undefined) statsUpdates.experience = updates.experience;
             if (updates.turns !== undefined) statsUpdates.turns = updates.turns;
             if (updates.kingdom_level !== undefined) statsUpdates.kingdom_level = updates.kingdom_level;
+            if (updates.vault !== undefined) statsUpdates.vault = updates.vault;
 
             if (Object.keys(profileUpdates).length > 0) {
                 const { error } = await supabase.from('profiles').update(profileUpdates).eq('id', userId);
@@ -163,6 +164,7 @@ export default function AdminPanel({ onClose, onWorldReset, onUserUpdate }) {
                                             <th className="p-2 text-right border-r border-gray-300">Lvl</th>
                                             <th className="p-2 text-right border-r border-gray-300">Pop</th>
                                             <th className="p-2 text-right border-r border-gray-300">Gold</th>
+                                            <th className="p-2 text-right border-r border-gray-300">Vault</th>
                                             <th className="p-2 text-right border-r border-gray-300">Turns</th>
                                             <th className="p-2 text-right border-r border-gray-300">EXP</th>
                                             <th className="p-2 text-center">Act</th>
@@ -472,6 +474,7 @@ function UserRow({ user, isEditing, onEdit, onCancel, onSave }) {
         is_admin: user.is_admin,
         kingdom_level: user.kingdom_level || 0,
         gold: user.gold || 0,
+        vault: user.vault || 0,
         citizens: user.citizens || 0,
         turns: user.turns || 0,
         experience: user.experience || 0
@@ -492,6 +495,7 @@ function UserRow({ user, isEditing, onEdit, onCancel, onSave }) {
                 <td className="p-2 text-right border-b border-gray-200 border-r font-mono">{user.kingdom_level}</td>
                 <td className="p-2 text-right border-b border-gray-200 border-r font-mono">{user.citizens?.toLocaleString()}</td>
                 <td className="p-2 text-right border-b border-gray-200 border-r font-mono">{user.gold?.toLocaleString()}</td>
+                <td className="p-2 text-right border-b border-gray-200 border-r font-mono">{user.vault?.toLocaleString()}</td>
                 <td className="p-2 text-right border-b border-gray-200 border-r font-mono">{user.turns?.toLocaleString()}</td>
                 <td className="p-2 text-right border-b border-gray-200 border-r font-mono">{user.experience?.toLocaleString()}</td>
                 <td className="p-2 text-center border-b border-gray-200">
@@ -512,6 +516,7 @@ function UserRow({ user, isEditing, onEdit, onCancel, onSave }) {
             <td className="p-2 border-b border-gray-200 border-r"><input type="number" value={formData.kingdom_level} onChange={e => setFormData({ ...formData, kingdom_level: parseInt(e.target.value) || 0 })} className={inputClass} /></td>
             <td className="p-2 border-b border-gray-200 border-r"><input type="number" value={formData.citizens} onChange={e => setFormData({ ...formData, citizens: parseInt(e.target.value) || 0 })} className={inputClass} /></td>
             <td className="p-2 border-b border-gray-200 border-r"><input type="number" value={formData.gold} onChange={e => setFormData({ ...formData, gold: parseInt(e.target.value) || 0 })} className={inputClass} /></td>
+            <td className="p-2 border-b border-gray-200 border-r"><input type="number" value={formData.vault} onChange={e => setFormData({ ...formData, vault: parseInt(e.target.value) || 0 })} className={inputClass} /></td>
             <td className="p-2 border-b border-gray-200 border-r"><input type="number" value={formData.turns} onChange={e => setFormData({ ...formData, turns: parseInt(e.target.value) || 0 })} className={inputClass} /></td>
             <td className="p-2 border-b border-gray-200 border-r"><input type="number" value={formData.experience} onChange={e => setFormData({ ...formData, experience: parseInt(e.target.value) || 0 })} className={inputClass} /></td>
             <td className="p-2 text-center border-b border-gray-200 flex gap-1 justify-center">

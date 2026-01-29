@@ -12,6 +12,10 @@ export default function GoldMine({ userStats, onUpdate }) {
     const mineLevel = userStats?.gold_mine_level || 0;
     const miners = userStats?.miners || 0;
 
+    const availableGold = userStats?.use_vault_gold
+        ? (gold + (userStats?.vault || 0))
+        : gold;
+
     const [trainQty, setTrainQty] = useState('');
 
     const currentStats = GOLD_MINE_LEVELS.find(l => l.level === mineLevel) || { cost: 0, production_rate: 1 };
@@ -26,7 +30,7 @@ export default function GoldMine({ userStats, onUpdate }) {
     // Calculate real max trainable using the fixed cost
     let maxTrainable = 0;
     if (citizens > 0) {
-        maxTrainable = Math.floor(gold / 2000);
+        maxTrainable = Math.floor(availableGold / 2000);
         // Cap at available citizens
         if (maxTrainable > citizens) maxTrainable = citizens;
     }
@@ -56,8 +60,8 @@ export default function GoldMine({ userStats, onUpdate }) {
 
         // Final Client-side check
         const estimatedCost = calculateTotalCost(qty);
-        if (gold < estimatedCost) {
-            setError(`Not enough gold! Need ${estimatedCost}, have ${gold}`);
+        if (availableGold < estimatedCost) {
+            setError(`Not enough gold! Need ${estimatedCost}, have ${availableGold}`);
             return;
         }
 
@@ -116,8 +120,8 @@ export default function GoldMine({ userStats, onUpdate }) {
 
                             <button
                                 onClick={handleUpgrade}
-                                disabled={loading || gold < currentStats.upgrade_cost}
-                                className={`w-full py-2 border-2 border-white border-r-black border-b-black font-bold relative ${gold >= currentStats.upgrade_cost ? 'bg-[#c0c0c0] active:border-black active:border-r-white active:border-b-white' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}
+                                disabled={loading || availableGold < currentStats.upgrade_cost}
+                                className={`w-full py-2 border-2 border-white border-r-black border-b-black font-bold relative ${availableGold >= currentStats.upgrade_cost ? 'bg-[#c0c0c0] active:border-black active:border-r-white active:border-b-white' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}
                             >
                                 {mineLevel === 0 ? 'Build Mine' : 'Upgrade Mine'} ({currentStats.upgrade_cost.toLocaleString()} Gold)
                                 {userStats?.tutorial_step === 4 && mineLevel === 0 && <GuideArrow direction="down" className="top-[-40px] left-1/2 -translate-x-1/2" />}
@@ -178,8 +182,8 @@ export default function GoldMine({ userStats, onUpdate }) {
                                 </button>
                                 <button
                                     onClick={handleTrainInput}
-                                    disabled={loading || gold < trainCost || citizens < 1 || (parseInt(trainQty) > maxTrainable)}
-                                    className={`flex-1 py-1 border-2 border-white border-r-black border-b-black font-bold relative ${gold >= trainCost && citizens >= 1 ? 'bg-[#c0c0c0] active:border-black active:border-r-white active:border-b-white' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}
+                                    disabled={loading || availableGold < trainCost || citizens < 1 || (parseInt(trainQty) > maxTrainable)}
+                                    className={`flex-1 py-1 border-2 border-white border-r-black border-b-black font-bold relative ${availableGold >= trainCost && citizens >= 1 ? 'bg-[#c0c0c0] active:border-black active:border-r-white active:border-b-white' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}
                                 >
                                     Train
                                     {userStats?.tutorial_step === 5 && mineLevel > 0 && miners < 5 && <GuideArrow direction="down" className="top-[-40px] left-1/2 -translate-x-1/2" />}

@@ -9,7 +9,7 @@ export function useGameTime() {
 }
 
 export function TimeProvider({ children }) {
-    const { session, refreshUserData, setLoading, setError, setStats } = useGame();
+    const { session, refreshUserData, setLoading, setError, setStats, generateResources } = useGame();
     const [serverTime, setServerTime] = useState(new Date());
     const [lastProcessedTime, setLastProcessedTime] = useState(Date.now());
 
@@ -47,15 +47,21 @@ export function TimeProvider({ children }) {
             const currentSecond = now.getSeconds();
 
             if (currentSecond === 1 && lastRefreshedMinute.current !== currentMinute && session?.user?.id) {
-                console.log('[TimeContext] Top of minute: Refreshing data...');
+                console.log('[TimeContext] Top of minute: Refreshing data & Generating Resources...');
+
+                // Trigger passive generation
+                generateResources();
+
+                // Refresh data (stats will be updated via generateResources return or next fetch)
                 refreshUserData(session.user.id);
+
                 lastRefreshedMinute.current = currentMinute;
             }
 
         }, 1000);
 
         return () => clearInterval(timer);
-    }, [session, refreshUserData]);
+    }, [session, refreshUserData, generateResources]);
 
     const value = {
         serverTime

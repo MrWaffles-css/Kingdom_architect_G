@@ -70,6 +70,10 @@ export default function Armoury({ userStats, onUpdate }) {
         }
     };
 
+    const availableGold = userStats.use_vault_gold
+        ? (userStats.gold || 0) + (userStats.vault || 0)
+        : (userStats.gold || 0);
+
     const getOwnedQuantity = (type, tier) => {
         const weapon = userWeapons.find(w => w.weapon_type === type && w.tier === tier);
         return weapon ? weapon.quantity : 0;
@@ -172,6 +176,36 @@ export default function Armoury({ userStats, onUpdate }) {
                 </div>
             )}
 
+            {/* Weapon/Soldier Ratio Warning */}
+            {(() => {
+                const soldierCount = (() => {
+                    switch (activeTab) {
+                        case 'attack': return userStats.attack_soldiers || 0;
+                        case 'defense': return userStats.defense_soldiers || 0;
+                        case 'spy': return userStats.spies || 0;
+                        case 'sentry': return userStats.sentries || 0;
+                        default: return 0;
+                    }
+                })();
+
+                // Calculate total weapons owned in this category
+                const totalWeapons = WEAPON_DATA[activeTab].reduce((sum, w) => sum + getOwnedQuantity(activeTab, w.tier), 0);
+
+                if (totalWeapons > soldierCount) {
+                    return (
+                        <div className="bg-yellow-100 border text-yellow-800 px-4 py-2 border-yellow-600 mb-4 flex items-center gap-2 text-xs" role="alert">
+                            <span className="text-xl">⚠️</span>
+                            <div>
+                                <strong className="font-bold block">Excess Weapons!</strong>
+                                <span>You have {totalWeapons} {activeTab} weapons but only {soldierCount} units. <br />
+                                    {totalWeapons - soldierCount} weapons are currently unused and providing no stat bonus. Train more units in the Barracks!</span>
+                            </div>
+                        </div>
+                    );
+                }
+                return null;
+            })()}
+
             {/* Wrapper for Tabs and Content */}
             <div className="border border-gray-400 p-1">
                 {/* Tabs */}
@@ -189,6 +223,52 @@ export default function Armoury({ userStats, onUpdate }) {
                         </button>
                     ))}
                 </div>
+
+                {/* Tab Summary Bar */}
+                {(() => {
+                    const soldierCount = (() => {
+                        switch (activeTab) {
+                            case 'attack': return userStats.attack_soldiers || 0;
+                            case 'defense': return userStats.defense_soldiers || 0;
+                            case 'spy': return userStats.spies || 0;
+                            case 'sentry': return userStats.sentries || 0;
+                            default: return 0;
+                        }
+                    })();
+
+                    const totalWeapons = WEAPON_DATA[activeTab].reduce((sum, w) => sum + getOwnedQuantity(activeTab, w.tier), 0);
+                    const equipped = Math.min(soldierCount, totalWeapons);
+                    const unequipped = Math.max(0, soldierCount - totalWeapons);
+                    const excess = Math.max(0, totalWeapons - soldierCount);
+
+                    return (
+                        <div className="bg-gray-100 border-b border-gray-400 p-2 text-xs flex justify-around items-center text-gray-800">
+                            <div className="text-center">
+                                <div className="font-bold text-lg text-blue-900">{soldierCount.toLocaleString()}</div>
+                                <div className="text-[10px] uppercase text-gray-500">Total Soldiers</div>
+                            </div>
+                            <div className="text-gray-400 font-light text-2xl">/</div>
+                            <div className="text-center">
+                                <div className="font-bold text-lg text-green-700">{equipped.toLocaleString()}</div>
+                                <div className="text-[10px] uppercase text-gray-500">Equipped</div>
+                            </div>
+                            <div className="text-gray-400 font-light text-2xl">/</div>
+                            <div className="text-center">
+                                <div className={`font-bold text-lg ${unequipped > 0 ? 'text-red-600' : 'text-gray-400'}`}>{unequipped.toLocaleString()}</div>
+                                <div className="text-[10px] uppercase text-gray-500">Unequipped</div>
+                            </div>
+                            {excess > 0 && (
+                                <>
+                                    <div className="text-gray-400 font-light text-2xl">/</div>
+                                    <div className="text-center">
+                                        <div className="font-bold text-lg text-yellow-600">{excess.toLocaleString()}</div>
+                                        <div className="text-[10px] uppercase text-gray-500">Spare Weapons</div>
+                                    </div>
+                                </>
+                            )}
+                        </div>
+                    );
+                })()}
 
                 {/* Weapons Grid */}
                 <div className="p-4 bg-white border-2 border-gray-600 border-t-white border-l-white">
@@ -243,7 +323,7 @@ export default function Armoury({ userStats, onUpdate }) {
                                             />
                                             <button
                                                 onClick={() => handleBuy(activeTab, weapon.tier)}
-                                                disabled={isLocked || actionLoading === `buy-${key}` || !inputQty}
+                                                disabled={isLocked || actionLoading === `buy-${key}` || !inputQty || availableGold < (parseInt(inputQty) * weapon.cost)}
                                                 className="flex-1 bg-[#c0c0c0] border-2 border-white border-r-gray-800 border-b-gray-800 active:border-gray-800 active:border-r-white active:border-b-white text-xs font-bold uppercase disabled:text-gray-500"
                                             >
                                                 {actionLoading === `buy-${key}` ? '...' : 'Buy'}

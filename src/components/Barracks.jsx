@@ -147,8 +147,8 @@ export default function Barracks({ userStats, onUpdate }) {
                                     <div>
                                         <h3 className="font-bold text-[1.125em] flex items-center gap-2">
                                             {unit.name}
-                                            <span className="text-[0.75em] font-normal text-gray-600">
-                                                (+{UNIT_STATS.BASE_STRENGTH} {unit.stat})
+                                            <span className="text-[0.75em] font-normal text-gray-600 bg-gray-100 px-1 border border-gray-400 rounded">
+                                                +{Math.floor((barracksLevel * (barracksLevel + 1)) / 2).toLocaleString()} {unit.stat}
                                             </span>
                                         </h3>
                                         <p className="text-[0.75em] text-gray-600">{unit.description}</p>
