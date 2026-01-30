@@ -215,7 +215,7 @@ export default function App() {
                         {/* Left Banner */}
                         <div className="w-[140px] bg-[#000080] p-4 flex flex-col justify-between text-yellow-300 relative overflow-hidden">
                             <div className="font-bold text-xl italic z-10 font-serif leading-tight">
-                                New Era<br />Setup
+                                New Season<br />Setup
                             </div>
                             <div className="absolute top-10 left-[-10px] text-[100px] opacity-20 rotate-12 select-none">🏗️</div>
                             <div className="absolute bottom-10 right-[-10px] text-[80px] opacity-20 -rotate-12 select-none">⚔️</div>
@@ -226,19 +226,29 @@ export default function App() {
 
                         {/* Right Content Area */}
                         <div className="flex-1 p-6 flex flex-col text-sm relative">
-                            <h2 className="font-bold text-lg mb-4">The previous Era has concluded</h2>
+                            <h2 className="font-bold text-lg mb-4">The previous Season has concluded</h2>
 
                             <p className="mb-4">
                                 The Kingdom Architect server is currently transitioning to the next Season.
-                                A new Era is being generated and prepared for your arrival.
+                                A new Season is being generated and prepared for your arrival.
                             </p>
 
                             <p className="mb-2">Setup will continue automatically. Please check back shortly.</p>
 
                             {nextSeasonStart && (
                                 <div className="mb-4 bg-blue-100 border border-blue-400 p-2 text-center shadow-inner">
-                                    <div className="font-bold text-blue-900 text-xs uppercase mb-1">New Era Starts In</div>
-                                    <div className="font-mono text-xl font-bold text-blue-800">{timeLeftToStart || '--:--:--'}</div>
+                                    <div className="font-bold text-blue-900 text-xs uppercase mb-1">New Season Starts In</div>
+                                    <div className="font-mono text-xl font-bold text-blue-800 mb-1">{timeLeftToStart || '--:--:--'}</div>
+                                    <div className="text-[10px] text-blue-700 font-bold">
+                                        {nextSeasonStart.toLocaleString(undefined, {
+                                            weekday: 'short',
+                                            year: 'numeric',
+                                            month: 'short',
+                                            day: 'numeric',
+                                            hour: 'numeric',
+                                            minute: '2-digit'
+                                        })}
+                                    </div>
                                 </div>
                             )}
 
@@ -246,7 +256,7 @@ export default function App() {
                             <div className="mt-auto mb-4">
                                 <div className="text-xs mb-1 font-bold">Current Action:</div>
                                 <div className="border inset-border p-1 h-6 flex items-center bg-white whitespace-nowrap overflow-hidden text-xs font-mono">
-                                    {["Initializing terrain generation...", "Compiling user statistics...", "Archiving previous era data...", "Reticulating splines...", "Polishing gold coins...", "Constructing new castles...", "Summoning Clippy...", "Allocating server resources..."][statusIndex]}
+                                    {["Initializing terrain generation...", "Compiling user statistics...", "Archiving previous season data...", "Reticulating splines...", "Polishing gold coins...", "Constructing new castles...", "Summoning Clippy...", "Allocating server resources..."][statusIndex]}
                                 </div>
                             </div>
 
