@@ -13,7 +13,7 @@ const WEAPON_NAMES = {
     sentry: ['Wooden Torch', 'Signal Horn', 'Watchtower Lens', 'Guard Dog', 'Mystic Ward', 'All-Seeing Eye']
 };
 
-export default function SpyReport({ spyReport, userStats, onClose, session }) {
+export default function SpyReport({ spyReport, userStats = {}, onClose, session }) {
     const [showShareModal, setShowShareModal] = useState(false);
     const [shareType, setShareType] = useState('alliance');
     const [allianceMembers, setAllianceMembers] = useState([]);

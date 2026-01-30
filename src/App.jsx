@@ -187,6 +187,12 @@ export default function App() {
         return <WelcomePage onLogin={() => { }} />;
     }
 
+    // Safety Guard: Ensure stats are loaded before rendering Desktop
+    // This prevents "Cannot read properties of null" errors in sub-components
+    if (!stats && !loading && !error) {
+        return <LoadingScreen />;
+    }
+
     // Maintenance Mode Check (Between Seasons)
     // const { isMaintenanceMode } = useGame(); // Removed duplicate call
 

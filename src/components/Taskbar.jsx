@@ -50,28 +50,17 @@ const Taskbar = ({ openWindows, activeWindowId, onWindowClick, onStartClick, sta
     }, [serverTime]);
 
     // Season Countdown Logic
-    const [seasonEndTime, setSeasonEndTime] = useState(null);
+    const { systemStatus } = useGame();
     const [timeLeft, setTimeLeft] = useState(null);
     const [isUrgent, setIsUrgent] = useState(false);
 
     useEffect(() => {
-        // Fetch initially
-        fetchSeasonEnd();
+        const seasonEndTime = systemStatus?.end_time ? new Date(systemStatus.end_time) : null;
 
-        // Refresh schedule occasionally (e.g., every minute) in case it changes
-        const scheduleInterval = setInterval(fetchSeasonEnd, 60000);
-        return () => clearInterval(scheduleInterval);
-    }, []);
-
-    const fetchSeasonEnd = async () => {
-        const { data, error } = await supabase.rpc('get_season_end_time');
-        if (!error && data) {
-            setSeasonEndTime(new Date(data));
+        if (!seasonEndTime) {
+            setTimeLeft(null);
+            return;
         }
-    };
-
-    useEffect(() => {
-        if (!seasonEndTime) return;
 
         const updateTimer = () => {
             const now = new Date();
@@ -80,22 +69,26 @@ const Taskbar = ({ openWindows, activeWindowId, onWindowClick, onStartClick, sta
             setIsUrgent(diff < 24 * 60 * 60 * 1000);
 
             if (diff <= 0) {
-                setTimeLeft(null);
+                setTimeLeft('Ended'); // Show "Ended" instead of removing it immediately if desired, or null
+                // User requirement: "see the end of season timer". If it ended, maybe just show 00:00:00?
+                // Original logic was setTimeLeft(null). Let's stick to null if it's truly over, 
+                // but usually the app redirects to "Season Ended" screen. 
+                // However, if we are still on desktop, seeing 00:00:00 is better than disappearing.
+                // improved:
+                setTimeLeft('00:00:00');
             } else {
                 const days = Math.floor(diff / (1000 * 60 * 60 * 24));
                 const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
                 const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
                 const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-
                 const pad = (n) => n.toString().padStart(2, '0');
 
                 let timeString = '';
                 if (days > 0) {
-                    timeString = `${days}:${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
+                    timeString = `${days}d ${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
                 } else {
                     timeString = `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
                 }
-
                 setTimeLeft(timeString);
             }
         };
@@ -103,7 +96,7 @@ const Taskbar = ({ openWindows, activeWindowId, onWindowClick, onStartClick, sta
         updateTimer();
         const interval = setInterval(updateTimer, 1000);
         return () => clearInterval(interval);
-    }, [seasonEndTime]);
+    }, [systemStatus]);
 
 
     return (

@@ -73,7 +73,9 @@ export default function HallOfFame() {
                         }}
                     >
                         {seasons.map(s => (
-                            <option key={s.id} value={s.id}>Season {s.season_number}</option>
+                            <option key={s.id} value={s.id}>
+                                Season {s.season_number} {s.is_beta ? '(BETA)' : ''}
+                            </option>
                         ))}
                     </select>
                 </div>
@@ -122,16 +124,16 @@ export default function HallOfFame() {
                                             {entry.username}
                                         </td>
                                         <td className={`p-2 border-r border-gray-200 text-right font-mono ${sortBy === 'rank_attack' ? 'bg-yellow-100 font-bold' : ''}`}>
-                                            #{entry.rank_attack}
+                                            #{entry.rank_attack} <span className="text-[10px] text-gray-500 font-normal block md:inline">({entry.attack?.toLocaleString()})</span>
                                         </td>
                                         <td className={`p-2 border-r border-gray-200 text-right font-mono ${sortBy === 'rank_defense' ? 'bg-yellow-100 font-bold' : ''}`}>
-                                            #{entry.rank_defense}
+                                            #{entry.rank_defense} <span className="text-[10px] text-gray-500 font-normal block md:inline">({entry.defense?.toLocaleString()})</span>
                                         </td>
                                         <td className={`p-2 border-r border-gray-200 text-right font-mono ${sortBy === 'rank_spy' ? 'bg-yellow-100 font-bold' : ''}`}>
-                                            #{entry.rank_spy}
+                                            #{entry.rank_spy} <span className="text-[10px] text-gray-500 font-normal block md:inline">({entry.spy?.toLocaleString()})</span>
                                         </td>
                                         <td className={`p-2 border-gray-200 text-right font-mono ${sortBy === 'rank_sentry' ? 'bg-yellow-100 font-bold' : ''}`}>
-                                            #{entry.rank_sentry}
+                                            #{entry.rank_sentry} <span className="text-[10px] text-gray-500 font-normal block md:inline">({entry.sentry?.toLocaleString()})</span>
                                         </td>
                                     </tr>
                                 ))

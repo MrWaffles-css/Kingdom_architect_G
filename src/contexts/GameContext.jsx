@@ -81,7 +81,7 @@ export function GameProvider({ children }) {
             setError(null)
 
             // Parallel Fetching: Get Core Data First
-            const profileReq = supabase.from('profiles').select('is_admin, desktop_layout, avatar_id, alliance_id').eq('id', userId).single();
+            const profileReq = supabase.from('profiles').select('is_admin, desktop_layout, avatar_id, alliance_id, last_active_at').eq('id', userId).single();
             const statsReq = supabase.from('user_stats').select('*').eq('id', userId).single();
 
             // Create a timeout promise
@@ -134,7 +134,8 @@ export function GameProvider({ children }) {
                     ...defaultStats,
                     ...userStats,
                     avatar_id: profileData.avatar_id,
-                    alliance_id: profileData.alliance_id // Add alliance_id
+                    alliance_id: profileData.alliance_id, // Add alliance_id
+                    last_active_at: profileData.last_active_at // Add last_active_at from profile
                 }
 
                 setStats(prev => {
@@ -231,6 +232,8 @@ export function GameProvider({ children }) {
                     if (error) throw error;
                     if (data.session) {
                         setSession(data.session);
+                        // Update Last Active Timestamp
+                        supabase.rpc('update_last_active');
                         await refreshUserData(data.session.user.id);
                     }
                     return data.session;
