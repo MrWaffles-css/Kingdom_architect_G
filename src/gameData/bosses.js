@@ -1,5 +1,5 @@
 export const BOSSES = [
-    { id: 1, name: 'Rat King', req_total_stats: 100, cost_turns: 1, duration_seconds: 10, reward_xp: 1, reward_gold: 10, reward_citizens: 1 },
+    { id: 1, name: 'Rat King', req_total_stats: 50, cost_turns: 1, duration_seconds: 10, reward_xp: 1, reward_gold: 10, reward_citizens: 1 },
     { id: 2, name: 'Goblin Chief', req_total_stats: 1000, cost_turns: 2, duration_seconds: 20, reward_xp: 2, reward_gold: 100, reward_citizens: 2 },
     { id: 3, name: 'Bandit Leader', req_total_stats: 10000, cost_turns: 3, duration_seconds: 30, reward_xp: 3, reward_gold: 1000, reward_citizens: 3 },
     { id: 4, name: 'Orc Warlord', req_total_stats: 30000, cost_turns: 4, duration_seconds: 40, reward_xp: 4, reward_gold: 3000, reward_citizens: 4 },
