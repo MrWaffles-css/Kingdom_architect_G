@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from './supabase'
 import { useGame } from './contexts/GameContext'
+import LoadingScreen from './components/LoadingScreen'
 import WelcomePage from './components/WelcomePage'
 import Desktop from './components/Desktop'
 import ErrorBoundary from './components/ErrorBoundary'
@@ -192,8 +193,10 @@ export default function App() {
         }
     }
 
-    // Loading State - Removed per user request
-    // if (loading) { ... }
+    // Loading State
+    if (loading) {
+        return <LoadingScreen />
+    }
 
     // Auth State
     if (!session) {
