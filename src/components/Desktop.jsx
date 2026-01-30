@@ -99,6 +99,41 @@ const Desktop = ({
         }
     }, []);
 
+    // Handle Escape Key Global Listener
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape') {
+                // Priority 0: Start Menu
+                if (startMenuOpen) {
+                    setStartMenuOpen(false);
+                    return;
+                }
+
+                // Priority 1: User Profile Modal
+                if (viewingUserId) {
+                    setViewingUserId(null);
+                    setViewingUserName(null);
+                    return;
+                }
+
+                // Priority 2: Admin Panel Modal
+                if (showAdmin) {
+                    setShowAdmin(false);
+                    return;
+                }
+
+                // Priority 3: Active Window
+                if (activeWindowId) {
+                    closeWindow(activeWindowId);
+                    return;
+                }
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [viewingUserId, showAdmin, activeWindowId, openWindows, startMenuOpen]); // Dependencies ensure we have fresh state
+
     const updateWindowTitle = (id, newTitle) => {
         setOpenWindows(prev => prev.map(w => w.id === id ? { ...w, title: newTitle } : w));
     };
