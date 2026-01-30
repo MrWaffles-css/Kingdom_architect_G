@@ -11,6 +11,7 @@ export default function Bosses({ session }) {
     const processingRef = useRef(false); // Ref to track processing state synchronously in closures
     const [timeLeft, setTimeLeft] = useState(0);
     const [bossKills, setBossKills] = useState({});
+    const [showCancelConfirmation, setShowCancelConfirmation] = useState(false);
 
     // Fetch Initial Data
     const fetchData = async () => {
@@ -160,8 +161,15 @@ export default function Bosses({ session }) {
         }
     };
 
-    const handleCancel = async () => {
-        if (!window.confirm('Are you sure? Turns spent on the current incomplete fight will be lost.')) return;
+    const handleCancelClick = () => {
+        setShowCancelConfirmation(true);
+    };
+
+    const confirmCancel = async () => {
+        // if (!window.confirm('Are you sure? Turns spent on the current incomplete fight will be lost.')) return;
+
+        setShowCancelConfirmation(false);
+
 
         if (processingRef.current) return;
         processingRef.current = true;
@@ -271,7 +279,7 @@ export default function Bosses({ session }) {
                                     </div>
                                 </div>
                                 <button
-                                    onClick={handleCancel}
+                                    onClick={handleCancelClick}
                                     className="bg-red-600 text-white px-4 py-2 border-2 border-red-800 hover:bg-red-700 font-bold text-xs"
                                 >
                                     Cancel Fight
@@ -279,6 +287,44 @@ export default function Bosses({ session }) {
                             </div>
                         );
                     })()}
+                </div>
+            )}
+
+            {/* Custom Confirmation Modal */}
+            {showCancelConfirmation && (
+                <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50">
+                    <div className="bg-[#c0c0c0] border-2 border-white border-r-gray-800 border-b-gray-800 p-1 shadow-xl max-w-sm w-full animate-fade-in-up">
+                        <div className="px-2 py-1 text-white font-bold flex justify-between items-center bg-[#000080]">
+                            <span>Confirm Cancellation</span>
+                            <button
+                                onClick={() => setShowCancelConfirmation(false)}
+                                className="bg-[#c0c0c0] text-black w-5 h-4 text-xs flex items-center justify-center border border-white border-r-black border-b-black font-bold hover:bg-red-500 hover:text-white"
+                            >
+                                ✕
+                            </button>
+                        </div>
+                        <div className="p-4 text-center space-y-4">
+                            <div className="flex justify-center text-4xl">⚠️</div>
+                            <p className="text-sm font-bold">Are you sure you want to cancel?</p>
+                            <p className="text-xs text-green-700 font-bold">Any turns spent on the current incomplete fight will be refunded.</p>
+
+                            <div className="flex justify-center gap-4 mt-4">
+                                <button
+                                    onClick={confirmCancel}
+                                    disabled={processing}
+                                    className="px-6 py-1 bg-[#c0c0c0] border-2 border-white border-r-gray-800 border-b-gray-800 active:border-gray-800 active:border-r-white active:border-b-white font-bold text-black text-sm min-w-[80px] hover:bg-gray-100"
+                                >
+                                    Yes
+                                </button>
+                                <button
+                                    onClick={() => setShowCancelConfirmation(false)}
+                                    className="px-6 py-1 bg-[#c0c0c0] border-2 border-white border-r-gray-800 border-b-gray-800 active:border-gray-800 active:border-r-white active:border-b-white font-bold text-black text-sm min-w-[80px] hover:bg-gray-100"
+                                >
+                                    No
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             )}
 

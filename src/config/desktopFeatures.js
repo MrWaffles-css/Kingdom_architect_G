@@ -12,7 +12,7 @@ import Profile from '../components/Profile';
 import SpyReport from '../components/SpyReport';
 import News from '../components/News';
 import PatchNotes from '../components/PatchNotes';
-import About from '../components/About';
+
 import Help from '../components/Help';
 import HallOfFame from '../components/HallOfFame';
 import Alliance from '../components/Alliance';
@@ -29,13 +29,13 @@ export const desktopFeatures = [
     { id: 'vault', title: 'Vault', icon: '/vault_icon.png', isImage: true, component: Vault, defaultWidth: 500, iconClassName: 'w-12 h-12' },
     { id: 'armoury', title: 'Armoury', icon: '/armoury_icon.png', isImage: true, component: Armoury, defaultWidth: 650, iconClassName: 'w-12 h-12' },
     { id: 'library', title: 'Library', icon: '/library_icon.png', isImage: true, component: Library, defaultWidth: 500, iconClassName: 'w-12 h-12' },
-    { id: 'reports', title: 'Reports', icon: 'https://win98icons.alexmeub.com/icons/png/envelope_closed-0.png', isImage: true, component: Reports, defaultWidth: 600 },
-    { id: 'mail', title: 'Mail', icon: 'https://win98icons.alexmeub.com/icons/png/outlook_express-0.png', isImage: true, component: Mail, defaultWidth: 550 },
+    { id: 'reports', title: 'Reports', icon: '/reports_icon.png', isImage: true, component: Reports, defaultWidth: 600, iconClassName: 'w-12 h-12' },
+    { id: 'mail', title: 'Mail', icon: '/mail_icon.png', isImage: true, component: Mail, defaultWidth: 550, iconClassName: 'w-12 h-12' },
     { id: 'profile', title: 'Profile', icon: 'https://win98icons.alexmeub.com/icons/png/users-1.png', isImage: true, component: Profile, defaultWidth: 700 },
     { id: 'spy_report', title: 'Spy Report', icon: 'https://win98icons.alexmeub.com/icons/png/keys-0.png', isImage: true, component: SpyReport, defaultWidth: 500, hidden: true },
-    { id: 'news', title: 'News', icon: 'https://win98icons.alexmeub.com/icons/png/write_wordpad-1.png', isImage: true, component: News, defaultWidth: 500 },
+    { id: 'news', title: 'News', icon: '/news_icon.png', isImage: true, component: News, defaultWidth: 500, iconClassName: 'w-12 h-12' },
     { id: 'patch', title: 'Patch Notes', icon: 'https://win98icons.alexmeub.com/icons/png/notepad-0.png', isImage: true, component: PatchNotes, defaultWidth: 400 },
-    { id: 'about', title: 'About', icon: 'https://win98icons.alexmeub.com/icons/png/msg_information-0.png', isImage: true, component: About, defaultWidth: 400 },
+
     { id: 'help', title: 'Help', icon: 'https://win98icons.alexmeub.com/icons/png/help_question_mark-0.png', isImage: true, component: Help, defaultWidth: 400 },
     { id: 'halloffame', title: 'Hall of Fame', icon: '/hall_of_fame_icon.png', isImage: true, component: HallOfFame, defaultWidth: 600, iconClassName: 'w-12 h-12' },
 ];
