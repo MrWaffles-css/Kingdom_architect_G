@@ -9,8 +9,22 @@ export default function ChatBubbles({ session }) {
 
     useEffect(() => {
         if (session) {
-            fetchConversations();
-            subscribeToConversations();
+            // Defer fetch to avoid initial request storm
+            const timer = setTimeout(() => {
+                fetchConversations();
+            }, 3000);
+
+            // Defer subscription as well
+            let cleanupSub = null;
+            const subTimer = setTimeout(() => {
+                cleanupSub = subscribeToConversations();
+            }, 3000);
+
+            return () => {
+                clearTimeout(timer);
+                clearTimeout(subTimer);
+                if (cleanupSub) cleanupSub();
+            };
         }
     }, [session]);
 

@@ -212,30 +212,36 @@ export function GameProvider({ children }) {
 
         const init = async () => {
             try {
-                // Parallelize initial critical checks
-                const [
-                    { data: maintenanceData, error: maintenanceError },
-                    { data: { session: initialSession }, error: sessionError }
-                ] = await Promise.all([
-                    supabase.rpc('get_maintenance_mode'),
-                    supabase.auth.getSession()
+                // Parallelize initial checks with independent execution chains
+                // Chain 1: Maintenance Check
+                const maintenancePromise = supabase.rpc('get_maintenance_mode');
+
+                // Chain 2: Session Check -> Then User Data (without waiting for maintenance)
+                const sessionChain = supabase.auth.getSession().then(async ({ data, error }) => {
+                    if (error) throw error;
+                    if (data.session) {
+                        setSession(data.session);
+                        await refreshUserData(data.session.user.id);
+                    }
+                    return data.session;
+                });
+
+                // Wait for both chains to complete
+                const [{ data: maintenanceData, error: maintenanceError }, initialSession] = await Promise.all([
+                    maintenancePromise,
+                    sessionChain
                 ]);
 
                 if (!maintenanceError) {
                     setIsMaintenanceMode(maintenanceData);
                 }
 
-                if (sessionError) {
-                    console.error('Session error:', sessionError)
-                    await supabase.auth.signOut()
-                    throw sessionError
-                }
+                // Session error handling is done inside the chain via throw, 
+                // but usually getSession doesn't throw on 'no session', it just returns null data.
+                // The throw above is for actual errors.
 
                 if (mounted) {
-                    setSession(initialSession)
-                    if (initialSession) {
-                        await refreshUserData(initialSession.user.id)
-                    }
+                    // Session and Data are already set by the chain if successful
                     setLoading(false)
                 }
             } catch (err) {

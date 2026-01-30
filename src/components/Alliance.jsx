@@ -32,17 +32,31 @@ const Alliance = ({ stats: rawStats, session, onUpdate, onClose, onNavigate }) =
     const [modal, setModal] = useState({ show: false, type: '', message: '', onConfirm: null });
 
     const chatEndRef = useRef(null);
+    const [unreadCount, setUnreadCount] = useState(0);
+    const activeTabRef = useRef(activeTab);
+
+    // Sync ref for subscriptions
+    useEffect(() => {
+        activeTabRef.current = activeTab;
+        if (activeTab === 'chat' && stats.alliance_id) {
+            setUnreadCount(0);
+            setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+        }
+    }, [activeTab, stats.alliance_id]);
 
     useEffect(() => {
         if (stats.alliance_id) {
             console.log('[Alliance] User has alliance_id:', stats.alliance_id);
             // Default to 'home' if initial load
             if (activeTab === 'browse' || !activeTab) setActiveTab('home');
-            fetchMyAllianceData();
+            fetchAllianceDetails();
+            // Subscribe logic moved to tab effects or kept global?
+            // Chat subscription should probably be global if we want unread counts, 
+            // but fetching history can be lazy.
             subscribeToChat();
+            // Shared reports subscription also global for notifications/logs?
+            // Maybe keep subscriptions global for real-time consistency, but initial fetch lazy.
             subscribeToSharedReports();
-            console.log('[Alliance] About to fetch shared reports...');
-            fetchSharedReports();
         } else {
             console.log('[Alliance] No alliance_id, showing browse mode');
             if (['home', 'overview', 'chat', 'requests', 'diplomacy'].includes(activeTab)) {
@@ -52,51 +66,31 @@ const Alliance = ({ stats: rawStats, session, onUpdate, onClose, onNavigate }) =
         }
     }, [stats.alliance_id]);
 
-    const [unreadCount, setUnreadCount] = useState(0);
-    const activeTabRef = useRef(activeTab);
-
+    // Lazy Load Data based on Active Tab
     useEffect(() => {
-        activeTabRef.current = activeTab;
-        if (activeTab === 'chat' && stats.alliance_id) {
-            setUnreadCount(0);
-            setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+        if (!stats.alliance_id) return;
+
+        if (activeTab === 'home') {
+            if (members.length === 0) fetchMembers();
+            if (leaderboard.length === 0) fetchGlobalLeaderboard();
         }
-        if (activeTab === 'requests') {
-            fetchJoinRequests();
+        if (activeTab === 'overview') {
+            if (members.length === 0) fetchMembers();
         }
-        if (activeTab === 'diplomacy') {
-            fetchDiplomacy();
+        if (activeTab === 'chat') {
+            // Always fetch latest chat on tab enter? Or only if empty?
+            // Realtime keeps it up to date, but if we switched tabs, we might have missed some?
+            // The subscription adds to state, so state persists.
+            // Only fetch if empty to initialize.
+            if (chatMessages.length === 0) fetchChatHistory();
+            if (sharedReports.length === 0) fetchSharedReports();
         }
-    }, [activeTab, chatMessages, stats.alliance_id]);
+    }, [activeTab, stats.alliance_id]);
 
-    const fetchAllianceList = async () => {
-        setLoading(true);
-        try {
-            const { data, error } = await supabase
-                .from('alliances')
-                .select('*')
-                .order('member_count', { ascending: false });
-
-            if (error) throw error;
-            setAllianceList(data || []);
-
-            const { data: reqs } = await supabase.rpc('get_my_requests');
-            setMyRequests(reqs ? reqs.map(r => r.alliance_id) : []);
-
-        } catch (err) {
-            console.error(err);
-            setError('Failed to load alliances.');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const fetchMyAllianceData = async () => {
+    const fetchAllianceDetails = async () => {
         if (!stats.alliance_id) return;
         setLoading(true);
-
         try {
-            // 1. Alliance Details
             const { data: allianceData, error: allianceError } = await supabase
                 .from('alliances')
                 .select('*')
@@ -105,8 +99,24 @@ const Alliance = ({ stats: rawStats, session, onUpdate, onClose, onNavigate }) =
             if (allianceError) throw allianceError;
             setMyAlliance(allianceData);
             setTempAnnouncement(allianceData.announcement || '');
+        } catch (err) {
+            console.error("Error fetching alliance details:", err);
+        } finally {
+            setLoading(false);
+        }
+    };
 
-            // 2. Members with overall_rank from leaderboard
+    const fetchGlobalLeaderboard = async () => {
+        try {
+            const { data: lbData, error: lbError2 } = await supabase.rpc('get_alliance_leaderboard');
+            if (!lbError2) setLeaderboard(lbData || []);
+        } catch (err) { console.error(err); }
+    };
+
+    const fetchMembers = async () => {
+        if (!stats.alliance_id) return;
+        try {
+            // Members with overall_rank from leaderboard
             const { data: membersData, error: membersError } = await supabase
                 .from('profiles')
                 .select(`
@@ -121,18 +131,13 @@ const Alliance = ({ stats: rawStats, session, onUpdate, onClose, onNavigate }) =
 
             // Get overall_rank for each member from leaderboard
             const memberIds = (membersData || []).map(m => m.id);
-            console.log('Fetching leaderboard data for member IDs:', memberIds);
 
             const { data: leaderboardData, error: lbError } = await supabase
                 .from('leaderboard')
                 .select('id, overall_rank')
                 .in('id', memberIds);
 
-            console.log('Leaderboard query result:', { leaderboardData, lbError });
-
-            if (lbError) {
-                console.error('Error fetching leaderboard data:', lbError);
-            }
+            if (lbError) console.error('Error fetching leaderboard data:', lbError);
 
             // Merge overall_rank into members data
             const rankMap = {};
@@ -140,16 +145,11 @@ const Alliance = ({ stats: rawStats, session, onUpdate, onClose, onNavigate }) =
                 leaderboardData.forEach(lb => {
                     rankMap[lb.id] = lb.overall_rank;
                 });
-                console.log('Rank map created:', rankMap);
-            } else {
-                console.warn('No leaderboard data returned for members');
             }
 
             membersData.forEach(m => {
                 m.overall_rank = rankMap[m.id] || 999999;
             });
-
-            console.log('Members with overall_rank:', membersData.map(m => ({ username: m.username, overall_rank: m.overall_rank })));
 
             // Sort members by overall_rank ASC (lower rank = better)
             const sortedMembers = (membersData || []).sort((a, b) => {
@@ -158,12 +158,14 @@ const Alliance = ({ stats: rawStats, session, onUpdate, onClose, onNavigate }) =
                 return rankA - rankB;
             });
             setMembers(sortedMembers);
+        } catch (err) {
+            console.error("Error fetching members:", err);
+        }
+    };
 
-            // 3. Global Leaderboard
-            const { data: lbData, error: lbError2 } = await supabase.rpc('get_alliance_leaderboard');
-            if (!lbError2) setLeaderboard(lbData || []);
-
-            // 4. Chat
+    const fetchChatHistory = async () => {
+        if (!stats.alliance_id) return;
+        try {
             const { data: msgs, error: chatError } = await supabase
                 .from('alliance_messages')
                 .select('*, sender:sender_id(username, avatar_id)')
@@ -173,13 +175,9 @@ const Alliance = ({ stats: rawStats, session, onUpdate, onClose, onNavigate }) =
 
             if (chatError) throw chatError;
             setChatMessages((msgs || []).reverse());
-
-        } catch (err) {
-            console.error("Error fetching alliance data:", err);
-        } finally {
-            setLoading(false);
-        }
+        } catch (err) { console.error(err); }
     };
+
 
     const fetchJoinRequests = async () => {
         try {

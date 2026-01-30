@@ -58,6 +58,32 @@ export default function Profile({ userId, isOwnProfile, session, onNavigate, onA
         }
     }, [targetUserId, updateTrigger]);
 
+    // Lazy Load Data based on Active Tab
+    useEffect(() => {
+        if (!targetUserId) return;
+
+        if (activeTab === 'empire' && !viewingOwnProfile && !spyReport) {
+            fetchSpyReport();
+            fetchCurrentUserStats(); // Need this for spy level check
+        }
+        if (activeTab === 'military' && !viewingOwnProfile && !spyReport) {
+            fetchSpyReport();
+        }
+        if (activeTab === 'achievements' && achievements.length === 0) {
+            fetchAchievements();
+        }
+        // Battle History is usually at the bottom or in a specific tab, 
+        // asking the user if they want to see it or lazy loading it might be better?
+        // For now, let's load it if we are on the 'military' tab or maybe a new 'history' tab?
+        // The original code didn't have a history tab shown in the render tabs list clearly above, 
+        // but let's assume it might be needed for context. 
+        // Use 'military' for history for now as it relates to battles.
+        if (activeTab === 'military' && battleHistory.length === 0 && !viewingOwnProfile) {
+            fetchBattleHistory();
+        }
+    }, [activeTab, targetUserId]);
+
+
     const [notification, setNotification] = useState(null);
 
     // Auto-clear notification
@@ -71,13 +97,8 @@ export default function Profile({ userId, isOwnProfile, session, onNavigate, onA
     const fetchData = async (isManualRefresh = false) => {
         setLoading(true);
         try {
-            await Promise.all([
-                fetchProfileData(),
-                fetchAchievements(),
-                !viewingOwnProfile && fetchCurrentUserStats(),
-                !viewingOwnProfile && fetchSpyReport(),
-                !viewingOwnProfile && fetchBattleHistory()
-            ].filter(Boolean));
+            // ONLY fetch core profile data initially.
+            await fetchProfileData();
 
             if (isManualRefresh) {
                 setNotification({ type: 'info', message: 'Profile data reloaded.' });
