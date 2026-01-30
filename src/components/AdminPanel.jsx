@@ -211,31 +211,47 @@ export default function AdminPanel({ onClose, onWorldReset, onUserUpdate }) {
 }
 
 function AdminSeasonPanel({ onSchedule }) {
-    const [scheduledDate, setScheduledDate] = useState('');
-    const [currentSchedule, setCurrentSchedule] = useState(null);
+    const [schedule, setSchedule] = useState({ start: '', end: '' });
+    const [loading, setLoading] = useState(false);
     const [seasonNumber, setSeasonNumber] = useState('');
     const [archiving, setArchiving] = useState(false);
+    const [systemStatus, setSystemStatus] = useState(null);
 
     useEffect(() => {
         fetchSchedule();
     }, []);
 
     const fetchSchedule = async () => {
-        const { data, error } = await supabase.rpc('get_season_end_time');
+        const { data, error } = await supabase.rpc('get_system_status');
         if (!error && data) {
-            setCurrentSchedule(new Date(data));
+            setSystemStatus(data);
+            setSchedule({
+                start: data.start_time ? new Date(data.start_time).toISOString().slice(0, 16) : '',
+                end: data.end_time ? new Date(data.end_time).toISOString().slice(0, 16) : ''
+            });
         }
     };
 
-    const handleSchedule = () => {
-        if (!scheduledDate) return;
-        const date = new Date(scheduledDate);
-        if (isNaN(date.getTime())) {
-            alert('Invalid date');
-            return;
+    const handleSaveSchedule = async () => {
+        setLoading(true);
+        try {
+            const startVal = schedule.start ? new Date(schedule.start).toISOString() : null;
+            const endVal = schedule.end ? new Date(schedule.end).toISOString() : null;
+
+            const { error } = await supabase.rpc('set_season_schedule', {
+                p_start_time: startVal,
+                p_end_time: endVal
+            });
+
+            if (error) throw error;
+            alert('Season schedule updated successfully!');
+            fetchSchedule(); // Refresh
+        } catch (err) {
+            console.error('Error saving sclude:', err);
+            alert('Failed to save schedule: ' + err.message);
+        } finally {
+            setLoading(false);
         }
-        onSchedule(date.toISOString());
-        setCurrentSchedule(date);
     };
 
     const handleArchive = async () => {
@@ -256,41 +272,78 @@ function AdminSeasonPanel({ onSchedule }) {
     };
 
     return (
-        <fieldset className="border-2 border-white border-l-gray-600 border-t-gray-600 p-4 h-full">
-            <legend className="font-bold px-1 text-sm">Season Scheduling</legend>
+        <fieldset className="border-2 border-white border-l-gray-600 border-t-gray-600 p-4 h-full overflow-auto">
+            <legend className="font-bold px-1 text-sm">Season Management</legend>
 
             <div className="space-y-6">
-                <div className="bg-white p-4 border border-gray-400">
-                    <h3 className="font-bold mb-2">Current End of Era:</h3>
-                    <p className="text-xl font-mono text-blue-800">
-                        {currentSchedule && new Date() < currentSchedule
-                            ? currentSchedule.toLocaleString()
-                            : 'No active era timer'}
-                    </p>
+
+                {/* Status Overview */}
+                <div className="bg-gray-100 p-4 border border-gray-400">
+                    <h3 className="font-bold mb-2">System Status:</h3>
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div className="flex flex-col">
+                            <span className="font-bold text-gray-600">Current State:</span>
+                            <span className={`font-mono font-bold uppercase ${systemStatus?.status === 'active' ? 'text-green-700' : 'text-orange-700'}`}>
+                                {systemStatus?.status || 'Loading...'}
+                            </span>
+                        </div>
+                        <div className="flex flex-col">
+                            <span className="font-bold text-gray-600">Server Time:</span>
+                            <span className="font-mono">{systemStatus?.server_time ? new Date(systemStatus.server_time).toLocaleString() : '...'}</span>
+                        </div>
+                    </div>
                 </div>
 
-                <div className="bg-gray-200 p-4 border border-gray-400">
-                    <h3 className="font-bold mb-2">Schedule New End Date:</h3>
-                    <div className="flex gap-2 items-center">
-                        <input
-                            type="datetime-local"
-                            value={scheduledDate}
-                            onChange={(e) => setScheduledDate(e.target.value)}
-                            className="border border-gray-400 p-1"
-                        />
+                {/* Unified Scheduler */}
+                <div className="bg-blue-50 p-4 border border-blue-300">
+                    <h3 className="font-bold mb-4 text-blue-900">Season Schedule</h3>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* Start Time */}
+                        <div className="flex flex-col gap-2">
+                            <label className="text-xs font-bold uppercase text-gray-600">Next Season Start</label>
+                            <input
+                                type="datetime-local"
+                                value={schedule.start}
+                                onChange={(e) => setSchedule(prev => ({ ...prev, start: e.target.value }))}
+                                className="border border-gray-400 p-1 font-mono text-sm"
+                            />
+                            <p className="text-[10px] text-gray-500">
+                                When this time is reached, the status becomes 'active' (if not ended).
+                                <br />Clearing this will result in immediate start if no other blocks exist.
+                            </p>
+                        </div>
+
+                        {/* End Time */}
+                        <div className="flex flex-col gap-2">
+                            <label className="text-xs font-bold uppercase text-gray-600">Current Season End</label>
+                            <input
+                                type="datetime-local"
+                                value={schedule.end}
+                                onChange={(e) => setSchedule(prev => ({ ...prev, end: e.target.value }))}
+                                className="border border-gray-400 p-1 font-mono text-sm"
+                            />
+                            <p className="text-[10px] text-gray-500">
+                                When this time is reached, the status becomes 'ended'.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="mt-4 flex justify-end">
                         <button
-                            onClick={handleSchedule}
-                            className="px-4 py-1 bg-[#c0c0c0] border-2 border-white border-r-gray-600 border-b-gray-600 active:border-gray-600 active:border-r-white active:border-b-white font-bold text-sm"
+                            onClick={handleSaveSchedule}
+                            disabled={loading}
+                            className="px-6 py-2 bg-[#c0c0c0] border-2 border-white border-r-gray-600 border-b-gray-600 font-bold text-sm active:translate-y-[1px] shadow-sm"
                         >
-                            Set Schedule
+                            {loading ? 'Saving...' : '💾 Save Scheculement'}
                         </button>
                     </div>
                 </div>
 
                 {/* Archive Hall of Fame */}
-                <div className="bg-yellow-100 p-4 border border-gray-400 mt-4">
-                    <h3 className="font-bold mb-2">Archive Current Rankings to Hall of Fame:</h3>
-                    <p className="text-sm mb-2 text-gray-700">This will take a snapshot of the current leaderboard and save it permanently as a Hall of Fame entry.</p>
+                <div className="bg-yellow-100 p-4 border border-gray-400">
+                    <h3 className="font-bold mb-2">Archive Current Rankings:</h3>
+                    <p className="text-sm mb-2 text-gray-700">Snapshot current leaderboard to Hall of Fame.</p>
                     <div className="flex gap-2 items-center">
                         <input
                             type="number"
@@ -385,88 +438,14 @@ function AdminSettingsPanel() {
                     </p>
                 </div>
 
-                {/* Next Season Scheduler */}
-                <div className="bg-gray-200 p-4 border border-gray-400">
-                    <h3 className="font-bold mb-2">Schedule Next Season Start:</h3>
-                    <NextSeasonScheduler />
-                </div>
+
             </div>
         </fieldset>
     );
 }
 
 
-function NextSeasonScheduler() {
-    const [date, setDate] = useState('');
-    const [savedDate, setSavedDate] = useState(null);
-    const [loading, setLoading] = useState(false);
 
-    useEffect(() => {
-        fetchNextStart();
-    }, []);
-
-    const fetchNextStart = async () => {
-        // Fetch specific setting key for next season start
-        const { data, error } = await supabase
-            .from('game_settings')
-            .select('value')
-            .eq('key', 'next_season_start')
-            .single();
-
-        if (!error && data && data.value) {
-            setSavedDate(new Date(data.value.start_time));
-        }
-    };
-
-    const handleSave = async () => {
-        if (!date) return;
-        setLoading(true);
-        try {
-            const dateObj = new Date(date);
-            const { error } = await supabase
-                .from('game_settings')
-                .upsert({
-                    key: 'next_season_start',
-                    value: { start_time: dateObj.toISOString() },
-                    updated_at: new Date().toISOString()
-                });
-
-            if (error) throw error;
-            setSavedDate(dateObj);
-            alert('Next season start time scheduled!');
-        } catch (err) {
-            alert('Error: ' + err.message);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    return (
-        <div className="flex flex-col gap-2">
-            <div className="text-sm mb-2">
-                {savedDate
-                    ? <span className="text-blue-800 font-bold">Planned Start: {savedDate.toLocaleString()}</span>
-                    : <span className="text-gray-500 italic">No start time scheduled.</span>
-                }
-            </div>
-            <div className="flex gap-2">
-                <input
-                    type="datetime-local"
-                    value={date}
-                    onChange={e => setDate(e.target.value)}
-                    className="border border-gray-400 p-1 flex-1"
-                />
-                <button
-                    onClick={handleSave}
-                    disabled={loading}
-                    className="px-4 py-1 bg-[#c0c0c0] border-2 border-white border-r-gray-600 border-b-gray-600 font-bold text-sm active:translate-y-[1px]"
-                >
-                    Set Time
-                </button>
-            </div>
-        </div>
-    );
-}
 
 function UserRow({ user, isEditing, onEdit, onCancel, onSave }) {
     const [formData, setFormData] = useState({

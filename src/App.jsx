@@ -17,7 +17,10 @@ export default function App() {
         refreshUserData,
         setStats,
         fixSession,
-        isMaintenanceMode
+
+        // New System Status
+        isSeasonActive,
+        systemStatus
     } = useGame()
 
     const [showAdmin, setShowAdmin] = useState(false)
@@ -35,44 +38,8 @@ export default function App() {
         // We can run this effect regardless, or just return early inside if inactive
         // IMPORTANT: If hooks are called conditionally, React breaks. 
         // This effect is now top-level safe.
-        // Run this effect if we are in maintenance mode and not an admin
-        // We still run hooks unconditionally, but the logic inside depends on state
-        // Checking 'session' in the condition might be redundant if the parent component already handles it, 
-        // but let's stick to the render condition: isMaintenanceMode && !isAdmin
-        if (isMaintenanceMode && !isAdmin) {
-            const statuses = [
-                "Initializing terrain generation...",
-                "Compiling user statistics...",
-                "Archiving previous era data...",
-                "Reticulating splines...",
-                "Polishing gold coins...",
-                "Constructing new castles...",
-                "Summoning Clippy...",
-                "Allocating server resources..."
-            ];
 
-            // Fetch Next Season Start and update constantly
-            const fetchNextSeasonStart = async () => {
-                try {
-                    const { data, error } = await supabase
-                        .from('game_settings')
-                        .select('value')
-                        .eq('key', 'next_season_start')
-                        .maybeSingle(); // Use maybeSingle to avoid 406 on zero rows
-
-                    if (error && error.code !== 'PGRST116') {
-                        console.warn("Error fetching next season start:", error);
-                        return;
-                    }
-
-                    if (data?.value?.start_time) {
-                        setNextSeasonStart(new Date(data.value.start_time));
-                    }
-                } catch (err) {
-                    console.warn("Exception fetching next season start:", err);
-                }
-            };
-            fetchNextSeasonStart();
+        if (!isSeasonActive && !isAdmin) {
 
             // Refetch occasionally in case admin changes it
             const scheduleRefetch = setInterval(fetchNextSeasonStart, 30000);
@@ -90,17 +57,22 @@ export default function App() {
 
             // Countdown Timer
             const timerInterval = setInterval(() => {
-                if (nextSeasonStart) {
+                // Determine target time based on status
+                let targetTime = null;
+
+                if (systemStatus.status === 'upcoming' && systemStatus.start_time) {
+                    targetTime = new Date(systemStatus.start_time);
+                }
+                // If ended, maybe we don't show a timer, or show "Ended X ago"
+
+                if (targetTime) {
                     const now = new Date();
-                    const diff = nextSeasonStart - now;
+                    const diff = targetTime - now;
                     if (diff <= 0) {
                         setTimeLeftToStart('Starting soon...');
-
-                        // User Request: Trigger server status online automatically
-                        // Call the RPC which now has the logic to auto-disable maintenance mode
-                        supabase.rpc('get_maintenance_mode').then(({ data }) => {
-                            if (data === false) {
-                                // If server says we are live, force a reload to clear the waiting page state cleanly
+                        // Auto-check system status to see if we went active
+                        supabase.rpc('get_system_status').then(({ data }) => {
+                            if (data && data.status === 'active') {
                                 console.log("Season started! Reloading...");
                                 window.location.reload();
                             }
@@ -118,6 +90,8 @@ export default function App() {
                         str += `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
                         setTimeLeftToStart(str);
                     }
+                } else {
+                    setTimeLeftToStart('');
                 }
             }, 1000);
 
@@ -125,10 +99,10 @@ export default function App() {
                 clearInterval(progressInterval);
                 clearInterval(statusInterval);
                 clearInterval(timerInterval);
-                clearInterval(scheduleRefetch);
+                // clearInterval(scheduleRefetch); // No longer needed as GameContext handles this
             };
         }
-    }, [loading, error, session, isAdmin, isMaintenanceMode]);
+    }, [loading, error, session, isAdmin, isSeasonActive, systemStatus]);
 
     // Refresh data immediately when tab becomes visible (Fix for "frozen" feel after inactivity)
     useEffect(() => {
@@ -208,7 +182,7 @@ export default function App() {
 
 
 
-    if (isMaintenanceMode && !isAdmin) {
+    if (!isSeasonActive && !isAdmin) {
         return (
             <div className="min-h-screen bg-[#008080] flex items-center justify-center font-sans p-2">
 
@@ -240,43 +214,59 @@ export default function App() {
 
                         {/* Right Content Area */}
                         <div className="flex-1 p-6 flex flex-col text-sm relative">
-                            <h2 className="font-bold text-lg mb-4">The previous Season has concluded</h2>
-
-                            <p className="mb-4">
-                                The Kingdom Architect server is currently transitioning to the next Season.
-                                A new Season is being generated and prepared for your arrival.
-                            </p>
-
-                            <p className="mb-2">Setup will continue automatically. Please check back shortly.</p>
-
-                            <div className="mb-4 bg-blue-100 border border-blue-400 p-2 text-center shadow-inner">
-                                <div className="font-bold text-blue-900 text-xs uppercase mb-1">New Season Starts In</div>
-                                {nextSeasonStart ? (
-                                    <>
-                                        <div className="font-mono text-xl font-bold text-blue-800 mb-1">{timeLeftToStart || '--:--:--'}</div>
-                                        {timeLeftToStart !== 'Starting soon...' && (
+                            {/* Dynamic Title based on logic */}
+                            {systemStatus.status === 'upcoming' && (
+                                <>
+                                    <h2 className="font-bold text-lg mb-4">The previous Season has concluded</h2>
+                                    <p className="mb-4">
+                                        The Kingdom Architect server is currently transitioning to the next Season.
+                                        A new Season is being generated and prepared for your arrival.
+                                    </p>
+                                    <div className="mb-4 bg-blue-100 border border-blue-400 p-2 text-center shadow-inner">
+                                        <div className="font-bold text-blue-900 text-xs uppercase mb-1">New Season Starts In</div>
+                                        <div className="font-mono text-xl font-bold text-blue-800 mb-1">{timeLeftToStart || 'Soon...'}</div>
+                                        {systemStatus.start_time && (
                                             <div className="text-[10px] text-blue-700 font-bold">
-                                                {nextSeasonStart.toLocaleString(undefined, {
-                                                    weekday: 'short',
-                                                    year: 'numeric',
-                                                    month: 'short',
-                                                    day: 'numeric',
-                                                    hour: 'numeric',
-                                                    minute: '2-digit'
+                                                {new Date(systemStatus.start_time).toLocaleString(undefined, {
+                                                    weekday: 'short', year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'
                                                 })}
                                             </div>
                                         )}
-                                    </>
-                                ) : (
-                                    <div className="font-mono text-xl font-bold text-blue-800">Starting Soon...</div>
-                                )}
-                            </div>
+                                    </div>
+                                </>
+                            )}
+
+                            {systemStatus.status === 'ended' && (
+                                <>
+                                    <h2 className="font-bold text-lg mb-4 text-red-800">Season Ended</h2>
+                                    <p className="mb-4">
+                                        The current season has officially ended. The Hall of Fame is being finalized.
+                                    </p>
+                                    <p className="mb-2">
+                                        Thank you for playing! Please wait for the next season announcement.
+                                    </p>
+                                </>
+                            )}
+
+                            {systemStatus.status === 'maintenance' && (
+                                <>
+                                    <h2 className="font-bold text-lg mb-4 text-orange-700">Server Maintenance</h2>
+                                    <p className="mb-4">
+                                        The server is currently offline for scheduled maintenance.
+                                    </p>
+                                    <p className="mb-2">
+                                        Please check back shortly.
+                                    </p>
+                                </>
+                            )}
 
                             {/* Status Box */}
                             <div className="mt-auto mb-4">
                                 <div className="text-xs mb-1 font-bold">Current Action:</div>
                                 <div className="border inset-border p-1 h-6 flex items-center bg-white whitespace-nowrap overflow-hidden text-xs font-mono">
-                                    {["Initializing terrain generation...", "Compiling user statistics...", "Archiving previous season data...", "Reticulating splines...", "Polishing gold coins...", "Constructing new castles...", "Summoning Clippy...", "Allocating server resources..."][statusIndex]}
+                                    {systemStatus.status === 'ended'
+                                        ? "Finalizing rankings..."
+                                        : ["Initializing terrain generation...", "Compiling user statistics...", "Archiving previous season data...", "Reticulating splines...", "Polishing gold coins...", "Constructing new castles...", "Summoning Clippy...", "Allocating server resources..."][statusIndex]}
                                 </div>
                             </div>
 

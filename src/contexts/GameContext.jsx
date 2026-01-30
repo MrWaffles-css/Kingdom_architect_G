@@ -16,8 +16,18 @@ export function GameProvider({ children }) {
 
     const [isAdmin, setIsAdmin] = useState(false)
     const [desktopLayout, setDesktopLayout] = useState({})
-    const [isMaintenanceMode, setIsMaintenanceMode] = useState(false)
+
+    // System Status State
+    const [systemStatus, setSystemStatus] = useState({
+        status: 'active', // active, upcoming, ended, maintenance
+        maintenance: false,
+        start_time: null,
+        end_time: null,
+        server_time: null
+    });
+
     const [notification, setNotification] = useState(null)
+
 
 
     // Default stats structure
@@ -213,8 +223,8 @@ export function GameProvider({ children }) {
         const init = async () => {
             try {
                 // Parallelize initial checks with independent execution chains
-                // Chain 1: Maintenance Check
-                const maintenancePromise = supabase.rpc('get_maintenance_mode');
+                // Chain 1: System Status Check (Replaces Maintenance Check)
+                const statusPromise = supabase.rpc('get_system_status');
 
                 // Chain 2: Session Check -> Then User Data (without waiting for maintenance)
                 const sessionChain = supabase.auth.getSession().then(async ({ data, error }) => {
@@ -227,18 +237,15 @@ export function GameProvider({ children }) {
                 });
 
                 // Wait for both chains to complete
-                const [{ data: maintenanceData, error: maintenanceError }, initialSession] = await Promise.all([
-                    maintenancePromise,
+                const [{ data: statusData, error: statusError }, initialSession] = await Promise.all([
+                    statusPromise,
                     sessionChain
                 ]);
 
-                if (!maintenanceError) {
-                    setIsMaintenanceMode(maintenanceData);
+                if (!statusError && statusData) {
+                    console.log('[GameContext] System Status:', statusData);
+                    setSystemStatus(statusData);
                 }
-
-                // Session error handling is done inside the chain via throw, 
-                // but usually getSession doesn't throw on 'no session', it just returns null data.
-                // The throw above is for actual errors.
 
                 if (mounted) {
                     // Session and Data are already set by the chain if successful
@@ -315,34 +322,39 @@ export function GameProvider({ children }) {
         }
     }, [session])
 
-    // Fetch Maintenance/Schedule State & Subscribe to Changes
+    // Fetch System Status & Subscribe to Changes
     useEffect(() => {
-        const fetchMaintenanceState = async () => {
+        const fetchSystemStatus = async () => {
             try {
-                // Fetch current state
-                const { data: maintenance, error: mError } = await supabase.rpc('get_maintenance_mode');
-                if (!mError) setIsMaintenanceMode(maintenance);
+                const { data, error } = await supabase.rpc('get_system_status');
+                if (!error && data) {
+                    console.log('[GameContext] Updated System Status:', data);
+                    setSystemStatus(data);
 
-                // Check for scheduled end time to set a local timer
-                const { data: endTimeData, error: tError } = await supabase.rpc('get_season_end_time');
-                if (!tError && endTimeData) {
-                    const endDate = new Date(endTimeData);
-                    const now = new Date();
-                    const msUntilEnd = endDate - now;
-
-                    if (msUntilEnd > 0) {
-                        console.log(`[GameContext] Season ends in ${msUntilEnd / 1000}s. Setting auto-logout timer.`);
-                        // Set a timeout to re-check status exactly when season ends
-                        // We strictly re-check RPC instead of just setting state to true, to be safe/atomic
-                        setTimeout(() => fetchMaintenanceState(), msUntilEnd + 1000);
+                    // Auto-refresh logic based on status
+                    if (data.status === 'upcoming' && data.start_time) {
+                        const startTime = new Date(data.start_time);
+                        const msUntilStart = startTime - new Date();
+                        if (msUntilStart > 0 && msUntilStart < 86400000) { // If within 24h
+                            // Set timeout to re-check right after start
+                            setTimeout(fetchSystemStatus, msUntilStart + 1000);
+                        }
+                    } else if (data.status === 'active' && data.end_time) {
+                        const endTime = new Date(data.end_time);
+                        const msUntilEnd = endTime - new Date();
+                        if (msUntilEnd > 0 && msUntilEnd < 86400000) {
+                            setTimeout(fetchSystemStatus, msUntilEnd + 1000);
+                        }
                     }
+                } else if (error) {
+                    console.error('[GameContext] get_system_status error:', error);
                 }
             } catch (err) {
-                console.error("Maintenance fetch error:", err);
+                console.error("System Status fetch error:", err);
             }
         };
 
-        fetchMaintenanceState();
+        fetchSystemStatus();
 
         // Realtime: Listen for global setting changes (Manual toggle or Schedule update)
         const channel = supabase
@@ -356,9 +368,7 @@ export function GameProvider({ children }) {
                 },
                 (payload) => {
                     console.log('[GameContext] Game settings changed:', payload);
-                    // If settings change, simply re-evaluate the full maintenance state
-                    // This covers both 'maintenance_mode' toggle AND 'season_end_time' updates
-                    fetchMaintenanceState();
+                    fetchSystemStatus();
                 }
             )
             .subscribe();
@@ -450,7 +460,13 @@ export function GameProvider({ children }) {
         loading,
         error,
         isAdmin,
-        isMaintenanceMode,
+        isAdmin,
+
+        systemStatus,
+        isMaintenanceMode: systemStatus.maintenance, // Bckward compact
+        isSeasonActive: systemStatus.status === 'active',
+        isSeasonEnded: systemStatus.status === 'ended',
+        isSeasonUpcoming: systemStatus.status === 'upcoming',
 
         refreshUserData,
         setStats, // Expose for optimistic updates from components
