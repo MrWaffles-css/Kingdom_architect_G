@@ -24,19 +24,19 @@ export default function GoldMine({ userStats, onUpdate }) {
     // Simplified: Flat fee of 2000 Gold per miner
     const calculateTotalCost = (quantity) => {
         if (quantity <= 0) return 0;
-        return quantity * 2000;
+        return quantity * 1000;
     };
 
     // Calculate real max trainable using the fixed cost
     let maxTrainable = 0;
     if (citizens > 0) {
-        maxTrainable = Math.floor(availableGold / 2000);
+        maxTrainable = Math.floor(availableGold / 1000);
         // Cap at available citizens
         if (maxTrainable > citizens) maxTrainable = citizens;
     }
 
     // Cost for next single miner (for display)
-    const trainCost = 2000;
+    const trainCost = 1000;
 
     const currentTotalCost = calculateTotalCost(parseInt(trainQty) || 0);
 

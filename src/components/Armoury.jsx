@@ -46,6 +46,7 @@ export default function Armoury({ userStats, onUpdate }) {
     const [loading, setLoading] = useState(false);
     const [actionLoading, setActionLoading] = useState(null); // 'buy-tier-0'
     const [quantities, setQuantities] = useState({}); // { 'attack-0': 10 }
+    const [sellModal, setSellModal] = useState(null); // { type, tier, qty, name, cost }
 
     const researchLevel = userStats.research_weapons || 0;
 
@@ -109,11 +110,19 @@ export default function Armoury({ userStats, onUpdate }) {
         }
     };
 
-    const handleSell = async (type, tier) => {
-        const qty = quantities[`${type}-${tier}`] || 1;
+    const initiateSell = (type, tier, name, cost) => {
+        const qty = parseInt(quantities[`${type}-${tier}`] || 0);
         if (qty <= 0) return;
+        setSellModal({ type, tier, qty, name, cost });
+    };
+
+    const executeSell = async () => {
+        if (!sellModal) return;
+        const { type, tier, qty } = sellModal;
 
         setActionLoading(`sell-${type}-${tier}`);
+        setSellModal(null); // Close modal immediately or wait? Better close and show loading on button or global? 
+        // Actually, let's keep it simple: Close modal, show global loading or re-use actionLoading logic which affects the buttons behind.
 
         try {
             const { data, error } = await supabase.rpc('sell_weapon', {
@@ -306,6 +315,14 @@ export default function Armoury({ userStats, onUpdate }) {
                                                 className="w-16 px-1 py-0.5 text-sm bg-white border-2 border-gray-600 border-r-white border-b-white shadow-[inset_1px_1px_2px_rgba(0,0,0,0.1)] outline-none"
                                             />
                                             <button
+                                                onClick={() => handleQuantityChange(key, Math.floor(availableGold / weapon.cost))}
+                                                disabled={isLocked || Math.floor(availableGold / weapon.cost) <= 0}
+                                                className="px-2 bg-[#c0c0c0] border-2 border-white border-r-gray-800 border-b-gray-800 active:border-gray-800 active:border-r-white active:border-b-white text-[10px] font-bold disabled:text-gray-500 whitespace-nowrap"
+                                                title={`Max: ${Math.floor(availableGold / weapon.cost).toLocaleString()}`}
+                                            >
+                                                MAX ({Math.floor(availableGold / weapon.cost).toLocaleString()})
+                                            </button>
+                                            <button
                                                 onClick={() => handleBuy(activeTab, weapon.tier)}
                                                 disabled={isLocked || actionLoading === `buy-${key}` || !inputQty || availableGold < (parseInt(inputQty) * weapon.cost)}
                                                 className="flex-1 bg-[#c0c0c0] border-2 border-white border-r-gray-800 border-b-gray-800 active:border-gray-800 active:border-r-white active:border-b-white text-xs font-bold uppercase disabled:text-gray-500"
@@ -313,7 +330,7 @@ export default function Armoury({ userStats, onUpdate }) {
                                                 {actionLoading === `buy-${key}` ? '...' : 'Buy'}
                                             </button>
                                             <button
-                                                onClick={() => handleSell(activeTab, weapon.tier)}
+                                                onClick={() => initiateSell(activeTab, weapon.tier, weapon.name, weapon.cost)}
                                                 disabled={isLocked || actionLoading === `sell-${key}` || !inputQty || owned < (parseInt(inputQty) || 1)}
                                                 className="flex-1 bg-[#c0c0c0] border-2 border-white border-r-gray-800 border-b-gray-800 active:border-gray-800 active:border-r-white active:border-b-white text-xs font-bold uppercase disabled:text-gray-500"
                                             >
@@ -330,6 +347,48 @@ export default function Armoury({ userStats, onUpdate }) {
                     </div>
                 </div>
             </div>
+
+            {/* Sell Confirmation Modal */}
+            {sellModal && (
+                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
+                    <div className="bg-[#c0c0c0] border-2 border-white border-r-black border-b-black p-1 shadow-xl w-80">
+                        <div className="bg-[#000080] text-white px-2 py-1 font-bold text-xs mb-4 flex justify-between items-center bg-gradient-to-r from-[#000080] to-[#1084d0]">
+                            <span>Confirm Sale</span>
+                            <button
+                                onClick={() => setSellModal(null)}
+                                className="w-4 h-4 bg-[#c0c0c0] border border-white border-r-black border-b-black text-black flex items-center justify-center leading-none active:border-r-white active:border-b-white active:border-black"
+                            >
+                                ×
+                            </button>
+                        </div>
+                        <div className="px-4 pb-4">
+                            <div className="flex gap-4 mb-4 items-start">
+                                <div className="text-3xl">⚠️</div>
+                                <div className="text-sm">
+                                    <p className="mb-2">Are you sure you want to sell <strong>{sellModal.qty} x {sellModal.name}</strong>?</p>
+                                    <p className="text-gray-700 text-xs">
+                                        You will receive <span className="font-bold text-yellow-800">{(sellModal.qty * sellModal.cost * 0.5).toLocaleString()} Gold</span> (50% value).
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="flex justify-end gap-2">
+                                <button
+                                    onClick={() => setSellModal(null)}
+                                    className="px-4 py-1 bg-[#c0c0c0] border-2 border-white border-r-black border-b-black active:border-black active:border-r-white active:border-b-white text-sm"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={executeSell}
+                                    className="px-4 py-1 bg-[#c0c0c0] border-2 border-white border-r-black border-b-black active:border-black active:border-r-white active:border-b-white text-sm font-bold"
+                                >
+                                    Sell Items
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
