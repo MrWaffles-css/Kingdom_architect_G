@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS bosses (
 -- 3. Seed Bosses Data (Upsert)
 INSERT INTO bosses (id, name, req_total_stats, cost_turns, duration_seconds, reward_xp, reward_gold, reward_citizens) VALUES
 (1, 'Rat King', 100, 1, 10, 1, 10, 1),
-(2, 'Goblin Chief', 1000, 2, 20, 2, 100, 2),
+(2, 'Goblin Chief', 250, 2, 20, 2, 100, 2),
 (3, 'Bandit Leader', 10000, 3, 30, 3, 1000, 3),
 (4, 'Orc Warlord', 30000, 4, 40, 4, 3000, 4),
 (5, 'Troll Berserker', 65000, 5, 50, 5, 6500, 5),
