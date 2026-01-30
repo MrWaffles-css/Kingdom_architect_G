@@ -94,7 +94,7 @@ export default function App() {
                     const now = new Date();
                     const diff = nextSeasonStart - now;
                     if (diff <= 0) {
-                        setTimeLeftToStart('Starting now...');
+                        setTimeLeftToStart('Starting soon...');
 
                         // User Request: Trigger server status online automatically
                         // Call the RPC which now has the logic to auto-disable maintenance mode
@@ -254,16 +254,18 @@ export default function App() {
                                 {nextSeasonStart ? (
                                     <>
                                         <div className="font-mono text-xl font-bold text-blue-800 mb-1">{timeLeftToStart || '--:--:--'}</div>
-                                        <div className="text-[10px] text-blue-700 font-bold">
-                                            {nextSeasonStart.toLocaleString(undefined, {
-                                                weekday: 'short',
-                                                year: 'numeric',
-                                                month: 'short',
-                                                day: 'numeric',
-                                                hour: 'numeric',
-                                                minute: '2-digit'
-                                            })}
-                                        </div>
+                                        {timeLeftToStart !== 'Starting soon...' && (
+                                            <div className="text-[10px] text-blue-700 font-bold">
+                                                {nextSeasonStart.toLocaleString(undefined, {
+                                                    weekday: 'short',
+                                                    year: 'numeric',
+                                                    month: 'short',
+                                                    day: 'numeric',
+                                                    hour: 'numeric',
+                                                    minute: '2-digit'
+                                                })}
+                                            </div>
+                                        )}
                                     </>
                                 ) : (
                                     <div className="font-mono text-xl font-bold text-blue-800">Starting Soon...</div>
