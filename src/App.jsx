@@ -94,6 +94,17 @@ export default function App() {
                     const diff = nextSeasonStart - now;
                     if (diff <= 0) {
                         setTimeLeftToStart('Starting now...');
+
+                        // User Request: Trigger server status online automatically
+                        // Call the RPC which now has the logic to auto-disable maintenance mode
+                        supabase.rpc('get_maintenance_mode').then(({ data }) => {
+                            if (data === false) {
+                                // If server says we are live, force a reload to clear the waiting page state cleanly
+                                console.log("Season started! Reloading...");
+                                window.location.reload();
+                            }
+                        });
+
                     } else {
                         const days = Math.floor(diff / (1000 * 60 * 60 * 24));
                         const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));

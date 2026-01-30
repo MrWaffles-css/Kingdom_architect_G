@@ -122,7 +122,7 @@ export default function WelcomePage({ onLogin }) {
                                     <span className="text-white font-bold text-xs pl-1">Season Countdown</span>
                                 </div>
                                 <div className="px-4 py-4 text-center">
-                                    <div className="text-xs mb-2 font-bold text-black">New Era Begins In:</div>
+                                    <div className="text-xs mb-2 font-bold text-black">New Season Begins In:</div>
                                     <div className="bg-black border-2 border-gray-500 border-b-white border-r-white p-2 shadow-inner">
                                         <span className="font-mono text-2xl text-[#00ff00] font-bold tracking-widest leading-none block">
                                             {timeLeftToStart}
