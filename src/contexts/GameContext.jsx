@@ -80,6 +80,15 @@ export function GameProvider({ children }) {
         try {
             setError(null)
 
+            // Update Last Active Timestamp (Fire and Forget)
+            if (userId) {
+                // Supabase builders are Thenables, not full Promises, so .catch might be missing depending on version. 
+                // Using .then handles both success and error result structure.
+                supabase.rpc('update_last_active').then(({ error }) => {
+                    if (error) console.error('Failed to update last active:', error);
+                });
+            }
+
             // Parallel Fetching: Get Core Data First
             const profileReq = supabase.from('profiles').select('is_admin, desktop_layout, avatar_id, alliance_id, last_active_at').eq('id', userId).single();
             const statsReq = supabase.from('user_stats').select('*').eq('id', userId).single();
@@ -233,7 +242,10 @@ export function GameProvider({ children }) {
                     if (data.session) {
                         setSession(data.session);
                         // Update Last Active Timestamp
-                        supabase.rpc('update_last_active');
+                        const { error: activeError } = await supabase.rpc('update_last_active');
+                        if (activeError) console.error('Failed to update last active:', activeError);
+                        else console.log('Last active timestamp updated');
+
                         await refreshUserData(data.session.user.id);
                     }
                     return data.session;

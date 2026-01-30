@@ -9,8 +9,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.39.0",
+    "@supabase/supabase-js": "^2.93.3",
     "98.css": "^0.1.21",
+    "dotenv": "^17.2.3",
     "react-datepicker": "^9.1.0",
     "three": "^0.160.0"
   },

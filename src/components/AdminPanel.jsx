@@ -537,6 +537,21 @@ function UserRow({ user, isEditing, onEdit, onCancel, onSave }) {
         experience: user.experience || 0
     });
 
+    const timeAgo = (dateString) => {
+        if (!dateString) return 'Never';
+        const date = new Date(dateString);
+        const now = new Date();
+        const seconds = Math.floor((now - date) / 1000);
+
+        if (seconds < 60) return 'Just now';
+        const minutes = Math.floor(seconds / 60);
+        if (minutes < 60) return `${minutes}m ago`;
+        const hours = Math.floor(minutes / 60);
+        if (hours < 24) return `${hours}h ago`;
+        const days = Math.floor(hours / 24);
+        return `${days}d ago`;
+    };
+
     const inputClass = "w-full bg-white border border-gray-400 px-1 outline-none text-right";
 
     if (!isEditing) {
@@ -546,8 +561,8 @@ function UserRow({ user, isEditing, onEdit, onCancel, onSave }) {
                     <div className="font-bold">{user.username}</div>
                     <div className="text-[10px] text-gray-500 font-mono">{user.email}</div>
                 </td>
-                <td className="p-2 border-b border-gray-200 border-r text-xs text-gray-600">
-                    {user.last_active_at ? new Date(user.last_active_at).toLocaleString() : 'Never'}
+                <td className="p-2 border-b border-gray-200 border-r text-xs text-gray-600" title={user.last_active_at ? new Date(user.last_active_at).toLocaleString() : ''}>
+                    {timeAgo(user.last_active_at)}
                 </td>
                 <td className="p-2 border-b border-gray-200 border-r text-center">
                     {user.is_admin ? <span className="font-bold text-red-800">ADMIN</span> : 'Player'}
@@ -571,7 +586,7 @@ function UserRow({ user, isEditing, onEdit, onCancel, onSave }) {
                 <input type="text" value={formData.username} onChange={e => setFormData({ ...formData, username: e.target.value })} className="w-full bg-white border border-gray-400 px-1" />
             </td>
             <td className="p-2 border-b border-gray-200 border-r text-xs text-gray-500">
-                {user.last_active_at ? new Date(user.last_active_at).toLocaleString() : '-'}
+                {timeAgo(user.last_active_at)}
             </td>
             <td className="p-2 border-b border-gray-200 border-r text-center">
                 <input type="checkbox" checked={formData.is_admin} onChange={e => setFormData({ ...formData, is_admin: e.target.checked })} />
