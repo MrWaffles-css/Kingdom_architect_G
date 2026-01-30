@@ -6,6 +6,17 @@ import WelcomePage from './components/WelcomePage'
 import Desktop from './components/Desktop'
 import ErrorBoundary from './components/ErrorBoundary'
 
+const statuses = [
+    "Initializing terrain generation...",
+    "Compiling user statistics...",
+    "Archiving previous season data...",
+    "Reticulating splines...",
+    "Polishing gold coins...",
+    "Constructing new castles...",
+    "Summoning Clippy...",
+    "Allocating server resources..."
+];
+
 export default function App() {
     const {
         session,
@@ -265,7 +276,7 @@ export default function App() {
                                 <div className="border inset-border p-1 h-6 flex items-center bg-white whitespace-nowrap overflow-hidden text-xs font-mono">
                                     {systemStatus.status === 'ended'
                                         ? "Finalizing rankings..."
-                                        : ["Initializing terrain generation...", "Compiling user statistics...", "Archiving previous season data...", "Reticulating splines...", "Polishing gold coins...", "Constructing new castles...", "Summoning Clippy...", "Allocating server resources..."][statusIndex]}
+                                        : statuses[statusIndex]}
                                 </div>
                             </div>
 
