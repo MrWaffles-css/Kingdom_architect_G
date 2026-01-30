@@ -37,5 +37,5 @@ export const desktopFeatures = [
     { id: 'patch', title: 'Patch Notes', icon: 'https://win98icons.alexmeub.com/icons/png/notepad-0.png', isImage: true, component: PatchNotes, defaultWidth: 400 },
     { id: 'about', title: 'About', icon: 'https://win98icons.alexmeub.com/icons/png/msg_information-0.png', isImage: true, component: About, defaultWidth: 400 },
     { id: 'help', title: 'Help', icon: 'https://win98icons.alexmeub.com/icons/png/help_question_mark-0.png', isImage: true, component: Help, defaultWidth: 400 },
-    { id: 'halloffame', title: 'Hall of Fame', icon: 'https://win98icons.alexmeub.com/icons/png/certificate-0.png', isImage: true, component: HallOfFame, defaultWidth: 600 },
+    { id: 'halloffame', title: 'Hall of Fame', icon: '/hall_of_fame_icon.png', isImage: true, component: HallOfFame, defaultWidth: 600, iconClassName: 'w-12 h-12' },
 ];
