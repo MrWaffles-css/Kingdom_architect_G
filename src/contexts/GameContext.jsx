@@ -460,7 +460,7 @@ export function GameProvider({ children }) {
         loading,
         error,
         isAdmin,
-        isAdmin,
+
 
         systemStatus,
         isMaintenanceMode: systemStatus.maintenance, // Bckward compact

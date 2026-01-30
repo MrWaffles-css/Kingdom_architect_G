@@ -41,8 +41,7 @@ export default function App() {
 
         if (!isSeasonActive && !isAdmin) {
 
-            // Refetch occasionally in case admin changes it
-            const scheduleRefetch = setInterval(fetchNextSeasonStart, 30000);
+            // Refetch logic is now handled in GameContext via Realtime subscription for 'game_settings'
 
             const progressInterval = setInterval(() => {
                 setProgress(prev => {
