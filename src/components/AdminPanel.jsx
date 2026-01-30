@@ -344,7 +344,7 @@ function AdminSettingsPanel() {
             }
 
             setIsMaintenance(newValue);
-            alert(`Maintenance mode turned ${newValue ? 'ON' : 'OFF'}`);
+            // alert(`Maintenance mode turned ${newValue ? 'ON' : 'OFF'}`);
             if (!newValue) window.location.reload(); // Reload to refresh the scheduler view
         } catch (err) {
             alert('Failed to update maintenance mode: ' + err.message);

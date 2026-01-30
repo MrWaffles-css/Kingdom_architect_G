@@ -246,22 +246,26 @@ export default function App() {
 
                             <p className="mb-2">Setup will continue automatically. Please check back shortly.</p>
 
-                            {nextSeasonStart && (
-                                <div className="mb-4 bg-blue-100 border border-blue-400 p-2 text-center shadow-inner">
-                                    <div className="font-bold text-blue-900 text-xs uppercase mb-1">New Season Starts In</div>
-                                    <div className="font-mono text-xl font-bold text-blue-800 mb-1">{timeLeftToStart || '--:--:--'}</div>
-                                    <div className="text-[10px] text-blue-700 font-bold">
-                                        {nextSeasonStart.toLocaleString(undefined, {
-                                            weekday: 'short',
-                                            year: 'numeric',
-                                            month: 'short',
-                                            day: 'numeric',
-                                            hour: 'numeric',
-                                            minute: '2-digit'
-                                        })}
-                                    </div>
-                                </div>
-                            )}
+                            <div className="mb-4 bg-blue-100 border border-blue-400 p-2 text-center shadow-inner">
+                                <div className="font-bold text-blue-900 text-xs uppercase mb-1">New Season Starts In</div>
+                                {nextSeasonStart ? (
+                                    <>
+                                        <div className="font-mono text-xl font-bold text-blue-800 mb-1">{timeLeftToStart || '--:--:--'}</div>
+                                        <div className="text-[10px] text-blue-700 font-bold">
+                                            {nextSeasonStart.toLocaleString(undefined, {
+                                                weekday: 'short',
+                                                year: 'numeric',
+                                                month: 'short',
+                                                day: 'numeric',
+                                                hour: 'numeric',
+                                                minute: '2-digit'
+                                            })}
+                                        </div>
+                                    </>
+                                ) : (
+                                    <div className="font-mono text-xl font-bold text-blue-800">Starting Soon...</div>
+                                )}
+                            </div>
 
                             {/* Status Box */}
                             <div className="mt-auto mb-4">
