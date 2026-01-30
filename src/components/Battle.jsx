@@ -7,6 +7,7 @@ export default function Battle({ userStats, onNavigate, onAction, onViewProfile 
     const [totalPlayers, setTotalPlayers] = useState(0);
     const [errorMsg, setErrorMsg] = useState(null);
     const [attackResult, setAttackResult] = useState(null);
+    const [spyResult, setSpyResult] = useState(null);
     const [actionLoading, setActionLoading] = useState(null);
 
 
@@ -204,11 +205,11 @@ export default function Battle({ userStats, onNavigate, onAction, onViewProfile 
                     onNavigate('SpyReport', { spyReport: { name: targetName, ...data.data } });
                 }
             } else {
-                alert(`SPY FAILED! \n\n${data.message}`);
+                setSpyResult({ success: false, message: data.message });
             }
         } catch (err) {
             console.error('Spy error:', err);
-            alert('Spy failed: ' + err.message);
+            setSpyResult({ success: false, message: 'Spy failed: ' + (err.message || 'Unknown error') });
         } finally {
             setActionLoading(null);
         }
@@ -283,6 +284,32 @@ export default function Battle({ userStats, onNavigate, onAction, onViewProfile 
 
 
             {/* Header Banner */}
+            {/* Spy Result Modal Window */}
+            {spyResult && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+                    <div className="bg-[#c0c0c0] border-2 border-white border-r-gray-800 border-b-gray-800 p-1 shadow-xl max-w-md w-full">
+                        <div className="px-2 py-1 text-white font-bold flex justify-between items-center bg-red-800">
+                            <span>SPY FAILED</span>
+                            <button onClick={() => setSpyResult(null)} className="bg-[#c0c0c0] text-black w-5 h-4 text-xs flex items-center justify-center border border-white border-r-black border-b-black font-bold">✕</button>
+                        </div>
+                        <div className="p-4 space-y-4 text-center">
+                            <div className="text-4xl">🕵️‍♂️🚫</div>
+                            <p className="font-bold text-red-800">Mission Compromised!</p>
+                            <p className="text-sm">{spyResult.message}</p>
+
+                            <div className="flex justify-center mt-4">
+                                <button
+                                    onClick={() => setSpyResult(null)}
+                                    className="px-6 py-1 bg-[#c0c0c0] border-2 border-white border-r-gray-800 border-b-gray-800 active:border-gray-800 active:border-r-white active:border-b-white font-bold text-black text-sm min-w-[100px]"
+                                >
+                                    Close
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Header Banner */}
             <div className="mb-4 border-2 border-white border-b-gray-500 border-r-gray-500 shadow-inner relative">
                 <img
