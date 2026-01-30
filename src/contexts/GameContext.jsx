@@ -309,6 +309,59 @@ export function GameProvider({ children }) {
         }
     }, [session])
 
+    // Fetch Maintenance/Schedule State & Subscribe to Changes
+    useEffect(() => {
+        const fetchMaintenanceState = async () => {
+            try {
+                // Fetch current state
+                const { data: maintenance, error: mError } = await supabase.rpc('get_maintenance_mode');
+                if (!mError) setIsMaintenanceMode(maintenance);
+
+                // Check for scheduled end time to set a local timer
+                const { data: endTimeData, error: tError } = await supabase.rpc('get_season_end_time');
+                if (!tError && endTimeData) {
+                    const endDate = new Date(endTimeData);
+                    const now = new Date();
+                    const msUntilEnd = endDate - now;
+
+                    if (msUntilEnd > 0) {
+                        console.log(`[GameContext] Season ends in ${msUntilEnd / 1000}s. Setting auto-logout timer.`);
+                        // Set a timeout to re-check status exactly when season ends
+                        // We strictly re-check RPC instead of just setting state to true, to be safe/atomic
+                        setTimeout(() => fetchMaintenanceState(), msUntilEnd + 1000);
+                    }
+                }
+            } catch (err) {
+                console.error("Maintenance fetch error:", err);
+            }
+        };
+
+        fetchMaintenanceState();
+
+        // Realtime: Listen for global setting changes (Manual toggle or Schedule update)
+        const channel = supabase
+            .channel('game_settings_changes')
+            .on(
+                'postgres_changes',
+                {
+                    event: '*',
+                    schema: 'public',
+                    table: 'game_settings'
+                },
+                (payload) => {
+                    console.log('[GameContext] Game settings changed:', payload);
+                    // If settings change, simply re-evaluate the full maintenance state
+                    // This covers both 'maintenance_mode' toggle AND 'season_end_time' updates
+                    fetchMaintenanceState();
+                }
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, []);
+
     // Realtime Subscription for Instant Updates
     useEffect(() => {
         if (!session?.user?.id) return

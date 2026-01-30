@@ -131,6 +131,19 @@ export default function App() {
         return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
     }, [session, refreshUserData]);
 
+    // Automatic Logout on Maintenance (if not admin)
+    // REMOVED: User request to show Waiting Page instead of logging out
+    /*
+    useEffect(() => {
+        if (!loading && isMaintenanceMode && !isAdmin && session) {
+            console.log("Maintenance mode activated: Logging out...");
+            // We use a small timeout to allow the MaintenanceView to render briefly if needed, 
+            // but immediate signout is requested.
+            handleLogout();
+        }
+    }, [isMaintenanceMode, isAdmin, session, loading]);
+    */
+
 
 
 
