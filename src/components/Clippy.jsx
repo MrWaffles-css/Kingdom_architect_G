@@ -334,9 +334,18 @@ export default function Clippy({ stats, openWindows, onAdvance, onNavigate }) {
         }
     };
 
-    const handleSkip = async () => {
+    // ... (keep logic)
+
+    const [showSkipConfirmation, setShowSkipConfirmation] = useState(false);
+
+    const handleSkipClick = () => {
+        setShowSkipConfirmation(true);
+    };
+
+    const confirmSkip = async () => {
         if (loading) return;
-        if (!window.confirm("Are you sure you want to skip the tutorial? You will instantly get all rewards.")) return;
+        setShowSkipConfirmation(false); // Close modal immediately or keep open until done? Better close to show loading elsewhere if needed, but existing logic shows loading state on button usually. 
+        // Actually, let's just run the logic.
 
         try {
             setLoading(true);
@@ -410,81 +419,127 @@ export default function Clippy({ stats, openWindows, onAdvance, onNavigate }) {
     if (!currentStepData) return null;
 
     return (
-        <div
-            ref={clippyRef}
-            className="fixed z-[9999] flex flex-col items-center gap-2"
-            style={{
-                left: position.x,
-                top: position.y,
-                cursor: isDragging ? 'grabbing' : 'grab'
-            }}
-        >
-            {/* Talk Bubble */}
+        <>
             <div
-                className="bg-[#ffffcc] border border-black rounded-lg p-3 text-sm text-black relative shadow-md pointer-events-auto"
-                style={{ width: currentStepData.width }}
+                ref={clippyRef}
+                className="fixed z-[9999] flex flex-col items-center gap-2"
+                style={{
+                    left: position.x,
+                    top: position.y,
+                    cursor: isDragging ? 'grabbing' : 'grab'
+                }}
             >
-                <div className="font-bold mb-1">{currentStepData.title}</div>
-                <div className="mb-2 whitespace-pre-wrap">{renderContent(currentStepData.content)}</div>
+                {/* Talk Bubble */}
+                <div
+                    className="bg-[#ffffcc] border border-black rounded-lg p-3 text-sm text-black relative shadow-md pointer-events-auto"
+                    style={{ width: currentStepData.width }}
+                >
+                    <div className="font-bold mb-1">{currentStepData.title}</div>
+                    <div className="mb-2 whitespace-pre-wrap">{renderContent(currentStepData.content)}</div>
 
-                {/* Reward Display */}
-                {currentStepData.rewardText && (
-                    <div className="mb-2 p-1 bg-green-100 border border-green-300 rounded text-xs text-green-800 font-bold flex items-center gap-1">
-                        🎁 {currentStepData.rewardText}
-                    </div>
-                )}
+                    {/* Reward Display */}
+                    {currentStepData.rewardText && (
+                        <div className="mb-2 p-1 bg-green-100 border border-green-300 rounded text-xs text-green-800 font-bold flex items-center gap-1">
+                            🎁 {currentStepData.rewardText}
+                        </div>
+                    )}
 
-                {currentStepData.target_window && !currentStepData.action && (
-                    <div className="text-xs text-gray-500 italic">
-                        {/* Custom hint for training steps vs opening window steps */}
-                        {(step === 4 || step === 5 || step === 6 || step === 8 || step === 9 || step === 10 || step === 11)
-                            ? "Waiting for completion..."
-                            : "Waiting for you to open window..."}
-                    </div>
-                )}
+                    {currentStepData.target_window && !currentStepData.action && (
+                        <div className="text-xs text-gray-500 italic">
+                            {/* Custom hint for training steps vs opening window steps */}
+                            {(step === 4 || step === 5 || step === 6 || step === 8 || step === 9 || step === 10 || step === 11)
+                                ? "Waiting for completion..."
+                                : "Waiting for you to open window..."}
+                        </div>
+                    )}
 
-                {currentStepData.action && (
-                    <div className="flex gap-2">
-                        <button
-                            onClick={handleAction}
-                            onMouseDown={(e) => e.stopPropagation()} // Prevent drag when clicking button
-                            disabled={loading}
-                            className="flex-1 bg-[#c0c0c0] border-2 border-white border-r-black border-b-black active:border-black active:border-r-white active:border-b-white px-2 py-1 font-bold text-xs hover:bg-white"
-                        >
-                            {loading ? 'Processing...' : currentStepData.action}
-                        </button>
-
-                        {/* SKIP BUTTON - Only on Step 0 */}
-                        {step === 0 && (
+                    {currentStepData.action && (
+                        <div className="flex gap-2">
                             <button
-                                onClick={handleSkip}
-                                onMouseDown={(e) => e.stopPropagation()}
+                                onClick={handleAction}
+                                onMouseDown={(e) => e.stopPropagation()} // Prevent drag when clicking button
                                 disabled={loading}
-                                className="bg-[#c0c0c0] border-2 border-white border-r-black border-b-black active:border-black active:border-r-white active:border-b-white px-2 py-1 font-bold text-xs hover:bg-red-100 text-red-800"
-                                title="Skip Tutorial & Get All Rewards"
+                                className="flex-1 bg-[#c0c0c0] border-2 border-white border-r-black border-b-black active:border-black active:border-r-white active:border-b-white px-2 py-1 font-bold text-xs hover:bg-white"
                             >
-                                Skip
+                                {loading ? 'Processing...' : currentStepData.action}
                             </button>
-                        )}
-                    </div>
-                )}
 
-                {/* Tail pointing down to Clippy */}
-                <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-[#ffffcc] border-r border-b border-black transform rotate-45"></div>
+                            {/* SKIP BUTTON - Only on Step 0 */}
+                            {step === 0 && (
+                                <button
+                                    onClick={handleSkipClick}
+                                    onMouseDown={(e) => e.stopPropagation()}
+                                    disabled={loading}
+                                    className="bg-[#c0c0c0] border-2 border-white border-r-black border-b-black active:border-black active:border-r-white active:border-b-white px-2 py-1 font-bold text-xs hover:bg-red-100 text-red-800"
+                                    title="Skip Tutorial & Get All Rewards"
+                                >
+                                    Skip
+                                </button>
+                            )}
+                        </div>
+                    )}
+
+                    {/* Tail pointing down to Clippy */}
+                    <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-[#ffffcc] border-r border-b border-black transform rotate-45"></div>
+                </div>
+
+                {/* Clippy Image - Made Bigger and Clickable for Drag */}
+                <img
+                    src="/assets/clippy_v3.png"
+                    alt="Clippy"
+                    onMouseDown={handleMouseDown}
+                    onTouchStart={handleTouchStart}
+                    className="w-40 h-40 object-contain drop-shadow-[2px_2px_0px_rgba(0,0,0,0.5)] animate-bounce-subtle pointer-events-auto hover:brightness-110 touch-none"
+                    draggable={false} // HTML5 drag disable
+                />
+
+                {/* Reward Animation Popup */}
+                {rewardPopup && <RewardPopup key={rewardId} rewards={rewardPopup} onClose={() => setRewardPopup(null)} />}
             </div>
 
-            {/* Clippy Image - Made Bigger and Clickable for Drag */}
-            <img
-                src="/assets/clippy_v3.png"
-                alt="Clippy"
-                onMouseDown={handleMouseDown}
-                onTouchStart={handleTouchStart}
-                className="w-40 h-40 object-contain drop-shadow-[2px_2px_0px_rgba(0,0,0,0.5)] animate-bounce-subtle pointer-events-auto hover:brightness-110 touch-none"
-                draggable={false} // HTML5 drag disable
-            />
+            {/* Custom Skip Confirmation Modal */}
+            {showSkipConfirmation && (
+                <div className="fixed inset-0 bg-black/50 z-[10000] flex items-center justify-center font-sans">
+                    <div className="w-[300px] bg-[#c0c0c0] border-2 border-white border-r-black border-b-black p-1 shadow-xl">
+                        {/* Title Bar */}
+                        <div className="bg-[#000080] text-white font-bold px-2 py-1 flex justify-between items-center mb-2">
+                            <span>Skip Tutorial?</span>
+                            <button
+                                onClick={() => setShowSkipConfirmation(false)}
+                                className="bg-[#c0c0c0] text-black w-4 h-4 flex items-center justify-center border border-white border-r-black border-b-black font-bold text-xs hover:bg-red-100 hover:text-red-900"
+                            >
+                                x
+                            </button>
+                        </div>
+                        {/* Content */}
+                        <div className="px-4 py-4 flex flex-col gap-4 text-sm text-center">
+                            <div className="flex flex-col items-center gap-2">
+                                <span className="text-3xl filter drop-shadow">🎁</span>
+                                <p className="leading-tight">
+                                    Are you sure you want to skip the tutorial?
+                                    <br /><br />
+                                    <span className="font-bold text-green-900">You will instantly get all rewards!</span>
+                                </p>
+                            </div>
 
-            {/* Reward Animation Popup */}
-            {rewardPopup && <RewardPopup key={rewardId} rewards={rewardPopup} onClose={() => setRewardPopup(null)} />}
-        </div>
+                            <div className="flex justify-center gap-4 mt-2">
+                                <button
+                                    onClick={confirmSkip}
+                                    className="px-6 py-1 bg-[#c0c0c0] border-2 border-white border-r-black border-b-black active:border-black active:border-r-white active:border-b-white font-bold hover:bg-green-100 min-w-[60px]"
+                                >
+                                    Yes
+                                </button>
+                                <button
+                                    onClick={() => setShowSkipConfirmation(false)}
+                                    className="px-6 py-1 bg-[#c0c0c0] border-2 border-white border-r-black border-b-black active:border-black active:border-r-white active:border-b-white font-bold hover:bg-red-100 min-w-[60px]"
+                                >
+                                    No
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </>
     );
 }
