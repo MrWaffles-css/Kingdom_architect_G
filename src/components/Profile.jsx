@@ -263,29 +263,6 @@ export default function Profile({ userId, isOwnProfile, session, onNavigate, onA
                 bestReport.hours_old = (new Date() - created) / (1000 * 60 * 60);
             }
 
-            // 4. Also check "Passive" Intel (Battlefield logic)
-            // This is "Live" checking if my spies are strong enough
-            const { data: passiveData } = await supabase.rpc('get_passive_intel', { target_id: targetUserId });
-
-            if (passiveData && passiveData.success) {
-                // If passive check succeeds, we know Gold is accessible
-                if (!bestReport) {
-                    bestReport = {
-                        hours_old: 0,
-                        gold: passiveData.gold,
-                        is_passive: true
-                    };
-                    reportSource = 'passive';
-                } else {
-                    // Augment existing report with live gold?
-                    // Only IF passive is fresh data. Passive is always live.
-                    // But if we have a detailed report from 1 min ago, maybe keep that structure.
-                    // Let's just update gold.
-                    bestReport.gold = passiveData.gold;
-                    bestReport.is_passive_augmented = true;
-                }
-            }
-
             setSpyReport(bestReport);
 
         } catch (error) { console.error('fetchSpyReport error:', error); }
@@ -1006,18 +983,16 @@ export default function Profile({ userId, isOwnProfile, session, onNavigate, onA
                             <div className="flex justify-between items-center">
                                 <span>
                                     <strong>
-                                        {spyReport.is_passive ? 'PASSIVE OBSERVATION' :
-                                            spyReport.is_shared ? `ALLIANCE INTEL (via ${spyReport.shared_by})` :
-                                                'INTELLIGENCE REPORT ACQUIRED'}
+                                        {spyReport.is_shared ? `ALLIANCE INTEL (via ${spyReport.shared_by})` :
+                                            'INTELLIGENCE REPORT ACQUIRED'}
                                     </strong>
-                                    ({spyReport.is_passive || spyReport.is_passive_augmented ? 'Live Gold' : (spyReport.hours_old < 1 ? 'Fresh' : `${Math.floor(spyReport.hours_old)}h old`)})
+                                    ({spyReport.hours_old < 1 ? 'Fresh' : `${Math.floor(spyReport.hours_old)}h old`})
                                 </span>
                                 <span className="font-mono bg-yellow-200 px-1 border border-yellow-500">Spy Level: {currentUserStats?.research_spy_report || 0}</span>
                             </div>
                             <div className="text-[10px] italic opacity-80">
-                                {spyReport.is_passive ? 'Your spies are passively monitoring this kingdom`s treasury.' :
-                                    spyReport.is_shared ? 'This report was shared by an alliance member.' :
-                                        'Some data may be redacted ("???") due to low Spy Report Level. Upgrade "Spy Tech" to reveal more.'}
+                                {spyReport.is_shared ? 'This report was shared by an alliance member.' :
+                                    'Some data may be redacted ("???") due to low Spy Report Level. Upgrade "Spy Tech" to reveal more.'}
                             </div>
                         </div>
                     ) : (

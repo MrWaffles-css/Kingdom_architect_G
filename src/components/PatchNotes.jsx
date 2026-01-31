@@ -11,6 +11,7 @@ export default function PatchNotes() {
                     <div className="text-sm space-y-1">
                         <p className="font-bold text-green-700">✨ New Features &amp; Fixes:</p>
                         <ul className="list-disc list-inside ml-2 space-y-1">
+                            <li><strong>Documentation:</strong> Enhanced Help section with detailed spy report breakdowns - now shows exactly what information is revealed at each research level (0-5).</li>
                             <li><strong>Balance:</strong> Bandit Leader stats reduced (10k → 1k).</li>
                             <li><strong>Economy:</strong> Miner training cost reduced (2000g → 1000g).</li>
                             <li><strong>Armoury:</strong> Added "MAX" buy button and Sell confirmation modal.</li>
@@ -19,6 +20,8 @@ export default function PatchNotes() {
                             <li><strong>Gold Generation:</strong> Fixed an issue where passive gold generation was paused.</li>
                             <li><strong>Boss Raids:</strong> Added "Defeated" counter to track boss kills.</li>
                             <li><strong>Armoury:</strong> Added summary bar to see equipped/unequipped soldiers at a glance.</li>
+                            <li><strong>Espionage:</strong> Removed passive observation. Scouting other players now strictly requires a manual spy mission or shared alliance intel.</li>
+                            <li><strong>Spy Reports:</strong> Fixed bug where level 5 spy reports would show zeros in the income breakdown table.</li>
                             <li><strong>Stats:</strong> Fixed instant stat updates when buying weapons.</li>
                         </ul>
                     </div>
