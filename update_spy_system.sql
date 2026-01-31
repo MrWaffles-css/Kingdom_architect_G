@@ -104,13 +104,16 @@ BEGIN
     -- Get Attacker Stats
     SELECT * INTO v_attacker_stats FROM public.user_stats WHERE id = v_attacker_id;
 
+    -- Force Update Target Resources (Lazy calc for offline players)
+    PERFORM public.force_update_resources(target_id);
+
     -- Get Defender Stats
     SELECT * INTO v_defender_stats FROM public.user_stats WHERE id = target_id;
     IF NOT FOUND THEN RAISE EXCEPTION 'Target not found'; END IF;
 
     -- Spy Logic
-    -- Simple check: if Spy > Sentry (with variance), Success.
-    IF (v_attacker_stats.spy * (0.8 + random() * 0.4)) > (v_defender_stats.sentry * (0.8 + random() * 0.4)) THEN
+    -- Simple deterministic check: if Spy > Sentry, Success.
+    IF v_attacker_stats.spy > v_defender_stats.sentry THEN
         -- SUCCESS: Insert Report
         INSERT INTO public.spy_reports (
             attacker_id, defender_id, 

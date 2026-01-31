@@ -14,7 +14,7 @@ export default function Profile({ userId, isOwnProfile, session, onNavigate, onA
     const [spyReport, setSpyReport] = useState(null);
     const [spyFailure, setSpyFailure] = useState(null);
     const [attackResult, setAttackResult] = useState(null);
-    const [achievements, setAchievements] = useState([]);
+
     const [battleHistory, setBattleHistory] = useState([]);
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState(false);
@@ -27,7 +27,7 @@ export default function Profile({ userId, isOwnProfile, session, onNavigate, onA
         setSpyReport(null);
         setSpyFailure(null);
         setBattleHistory([]);
-        setAchievements([]);
+
     }, [userId]);
 
     const targetUserId = userId || session?.user?.id;
@@ -69,9 +69,7 @@ export default function Profile({ userId, isOwnProfile, session, onNavigate, onA
         if (activeTab === 'military' && !viewingOwnProfile && !spyReport) {
             fetchSpyReport();
         }
-        if (activeTab === 'achievements' && achievements.length === 0) {
-            fetchAchievements();
-        }
+
         // Battle History is usually at the bottom or in a specific tab, 
         // asking the user if they want to see it or lazy loading it might be better?
         // For now, let's load it if we are on the 'military' tab or maybe a new 'history' tab?
@@ -294,12 +292,7 @@ export default function Profile({ userId, isOwnProfile, session, onNavigate, onA
         } catch (error) { console.error(error); }
     };
 
-    const fetchAchievements = async () => {
-        try {
-            const { data } = await supabase.rpc('get_user_achievements', { target_user_id: targetUserId });
-            setAchievements(data || []);
-        } catch (error) { console.error(error); }
-    };
+
 
     const handleSpy = async () => {
         setActionLoading(true);
@@ -396,7 +389,7 @@ export default function Profile({ userId, isOwnProfile, session, onNavigate, onA
                             <div className="text-xs text-gray-500 uppercase font-bold">Turns</div>
                             <div className="text-lg font-bold flex items-center gap-2">
                                 <span>⏳</span>
-                                <SpyCheck level={lvl} required={0}>{formatNumber(s.turns)}</SpyCheck>
+                                <SpyCheck level={lvl} required={3}>{formatNumber(s.turns)}</SpyCheck>
                             </div>
                         </div>
                         <div className="bg-white p-2 border border-gray-400">
@@ -801,29 +794,7 @@ export default function Profile({ userId, isOwnProfile, session, onNavigate, onA
         );
     };
 
-    // 5. ACHIEVEMENTS TAB
-    const renderAchievementsTab = () => {
-        return (
-            <div className="bg-white border-2 border-gray-400 p-2 min-h-full">
-                {achievements.length === 0 ? (
-                    <div className="text-center text-gray-500 mt-10">No achievements earned yet.</div>
-                ) : (
-                    <div className="grid grid-cols-1 gap-1">
-                        {achievements.map((ach, i) => (
-                            <div key={i} className="flex items-center gap-2 p-2 border-b border-gray-200 hover:bg-yellow-50">
-                                <div className="text-2xl">{ach.icon}</div>
-                                <div>
-                                    <div className="font-bold text-sm">{ach.achievement_name}</div>
-                                    <div className="text-[10px] text-gray-500 uppercase font-bold">{ach.rarity}</div>
-                                    <div className="text-xs text-gray-600">{ach.description || 'Achievement Unlocked'}</div>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                )}
-            </div>
-        );
-    };
+
 
     // 6. HISTORY TAB
     const renderHistoryTab = () => {
@@ -1005,10 +976,11 @@ export default function Profile({ userId, isOwnProfile, session, onNavigate, onA
                                 </span>
                                 <span className="font-mono bg-yellow-200 px-1 border border-yellow-500">Spy Level: {currentUserStats?.research_spy_report || 0}</span>
                             </div>
-                            <div className="text-[10px] italic opacity-80">
-                                {spyReport.is_shared ? 'This report was shared by an alliance member.' :
-                                    'Some data may be redacted ("???") due to low Spy Report Level. Upgrade "Spy Tech" to reveal more.'}
-                            </div>
+                            {spyReport.is_shared && (
+                                <div className="text-[10px] italic opacity-80">
+                                    This report was shared by an alliance member.
+                                </div>
+                            )}
                         </div>
                     ) : (
                         <div className="flex justify-between">
@@ -1039,7 +1011,7 @@ export default function Profile({ userId, isOwnProfile, session, onNavigate, onA
                     { id: 'structures', label: 'Structures' },
                     { id: 'military', label: 'Military' },
                     { id: 'tech', label: 'Technology' },
-                    { id: 'achievements', label: 'Achievements' },
+
                     ...(viewingOwnProfile ? [] : [{ id: 'history', label: 'History' }])
                 ].map(tab => (
                     <button
@@ -1062,7 +1034,7 @@ export default function Profile({ userId, isOwnProfile, session, onNavigate, onA
                 {activeTab === 'structures' && renderStructuresTab()}
                 {activeTab === 'military' && renderMilitaryTab()}
                 {activeTab === 'tech' && renderTechTab()}
-                {activeTab === 'achievements' && renderAchievementsTab()}
+
                 {activeTab === 'history' && renderHistoryTab()}
             </div>
         </div>

@@ -19,7 +19,7 @@ export default function Help() {
                     <p className="mb-2">Welcome to Kingdom Architect! Your goal is to build the most powerful kingdom through economy, war, and research.</p>
                     <ul className="list-disc list-inside space-y-1 ml-2 text-gray-800">
                         <li><strong>Citizens:</strong> The lifeblood of your kingdom. They generate gold (as miners) or become soldiers.</li>
-                        <li><strong>Turns:</strong> Required to attack or spy. You regenerate turns every minute.</li>
+                        <li><strong>Turns:</strong> Required to attack players. Spying is FREE. You regenerate turns every minute.</li>
                         <li><strong>Gold:</strong> The main currency. Used for buildings, weapons, and training.</li>
                         <li><strong>XP:</strong> Earned from actions. Used for Library research.</li>
                     </ul>
@@ -244,7 +244,7 @@ export default function Help() {
                             <p className="mb-2 font-bold">PvP Battlefield:</p>
                             <ul className="list-disc list-inside space-y-1 ml-2 mb-4 text-gray-700">
                                 <li><strong>Attacking:</strong> Uses turns. If your Attack &gt; their Defense, you win and steal gold.</li>
-                                <li><strong>Spying:</strong> Spy Strength vs Sentry Strength. Success reveals info.</li>
+                                <li><strong>Spying:</strong> FREE intelligence gathering. Your Spy must be <span className="font-bold text-green-700">strictly greater than</span> their Sentry to succeed. See Library section for full spy report research details.</li>
                             </ul>
                             <p className="mb-2 font-bold">PvE Bosses:</p>
                             <ul className="list-disc list-inside space-y-1 ml-2 text-gray-700">
@@ -402,17 +402,107 @@ export default function Help() {
                                             <tr>
                                                 <th className="p-1 border-r border-gray-400">Level</th>
                                                 <th className="p-1 border-r border-gray-400">Cost (XP)</th>
-                                                <th className="p-1">Unlocks</th>
+                                                <th className="p-1">Information Revealed</th>
                                             </tr>
                                         </thead>
                                         <tbody className="bg-white">
-                                            <tr className="border-b border-gray-300"><td className="p-1 border-r">1</td><td className="p-1 border-r">5,000 XP</td><td className="p-1">Basic Stats</td></tr>
-                                            <tr className="border-b border-gray-300"><td className="p-1 border-r">2</td><td className="p-1 border-r">10,000 XP</td><td className="p-1">Unit Counts</td></tr>
-                                            <tr className="border-b border-gray-300"><td className="p-1 border-r">3</td><td className="p-1 border-r">15,000 XP</td><td className="p-1">Weapon Levels</td></tr>
-                                            <tr className="border-b border-gray-300"><td className="p-1 border-r">4</td><td className="p-1 border-r">20,000 XP</td><td className="p-1">Gold & Resource</td></tr>
-                                            <tr><td className="p-1 border-r">5 (MAX)</td><td className="p-1 border-r">25,000 XP</td><td className="p-1">Full Inventory Reveal</td></tr>
+                                            <tr className="border-b border-gray-300">
+                                                <td className="p-1 border-r font-bold">0</td>
+                                                <td className="p-1 border-r">-</td>
+                                                <td className="p-1">
+                                                    <div className="font-semibold mb-1">Base Information (Always Visible):</div>
+                                                    <ul className="list-disc list-inside space-y-0.5 text-[11px]">
+                                                        <li>Gold, Combat Stats (Attack, Defense, Spy, Sentry)</li>
+                                                    </ul>
+                                                </td>
+                                            </tr>
+                                            <tr className="border-b border-gray-300">
+                                                <td className="p-1 border-r font-bold">1</td>
+                                                <td className="p-1 border-r">5,000 XP</td>
+                                                <td className="p-1">
+                                                    <div className="font-semibold mb-1">Basic Military Intelligence:</div>
+                                                    <ul className="list-disc list-inside space-y-0.5 text-[11px]">
+                                                        <li>Citizens count</li>
+                                                        <li>All unit counts (Attack Soldiers, Defense Soldiers, Spies, Sentries)</li>
+                                                    </ul>
+                                                </td>
+                                            </tr>
+                                            <tr className="border-b border-gray-300">
+                                                <td className="p-1 border-r font-bold">2</td>
+                                                <td className="p-1 border-r">10,000 XP</td>
+                                                <td className="p-1">
+                                                    <div className="font-semibold mb-1">Economic & Infrastructure Data:</div>
+                                                    <ul className="list-disc list-inside space-y-0.5 text-[11px]">
+                                                        <li>Miners count & Gold per Minute calculation</li>
+                                                        <li>Hostages count</li>
+                                                        <li>Kingdom Level, Gold Mine Level, Barracks Level</li>
+                                                    </ul>
+                                                </td>
+                                            </tr>
+                                            <tr className="border-b border-gray-300">
+                                                <td className="p-1 border-r font-bold">3</td>
+                                                <td className="p-1 border-r">15,000 XP</td>
+                                                <td className="p-1">
+                                                    <div className="font-semibold mb-1">Arsenal Intelligence:</div>
+                                                    <ul className="list-disc list-inside space-y-0.5 text-[11px]">
+                                                        <li>Complete Armoury inventory (all weapons by type & tier)</li>
+                                                        <li>Weapon Technology research level</li>
+                                                    </ul>
+                                                </td>
+                                            </tr>
+                                            <tr className="border-b border-gray-300">
+                                                <td className="p-1 border-r font-bold">4</td>
+                                                <td className="p-1 border-r">20,000 XP</td>
+                                                <td className="p-1">
+                                                    <div className="font-semibold mb-1">Advanced Technology:</div>
+                                                    <ul className="list-disc list-inside space-y-0.5 text-[11px]">
+                                                        <li>Library Level</li>
+                                                        <li>All research levels (Attack Tech, Defense Tech, Spy Tech, Sentry Tech)</li>
+                                                        <li>Economy research (Turns per Minute)</li>
+                                                        <li>Hostage Conversion research level</li>
+                                                    </ul>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td className="p-1 border-r font-bold">5 (MAX)</td>
+                                                <td className="p-1 border-r">25,000 XP</td>
+                                                <td className="p-1">
+                                                    <div className="font-semibold mb-1">Complete Intelligence:</div>
+                                                    <ul className="list-disc list-inside space-y-0.5 text-[11px]">
+                                                        <li>Vault gold amount (protected treasure)</li>
+                                                        <li>Vault Level</li>
+                                                        <li><span className="font-bold text-green-700">Full kingdom transparency</span></li>
+                                                    </ul>
+                                                </td>
+                                            </tr>
                                         </tbody>
                                     </table>
+                                    <div className="mt-2 p-2 bg-blue-50 border border-blue-300 text-xs">
+                                        <p className="font-semibold mb-1">💡 Spy Report Mechanics:</p>
+                                        <ul className="list-disc list-inside space-y-1">
+                                            <li><strong>Success Condition:</strong> Your Spy stat must be <span className="font-bold text-green-700">strictly greater than</span> the target's Sentry stat</li>
+                                            <li><strong>Important:</strong> Equal stats (Spy = Sentry) always results in <span className="font-bold text-red-700">FAILURE</span> - you must have higher Spy to succeed</li>
+                                            <li><strong>Cost:</strong> Spying is <span className="font-bold text-green-700">FREE</span> (no turns required)</li>
+                                            <li><strong>Examples:</strong>
+                                                <ul className="ml-4 mt-1 space-y-0.5 text-[11px]">
+                                                    <li>✅ Your Spy: 100, Their Sentry: 99 → <strong>Success</strong></li>
+                                                    <li>❌ Your Spy: 100, Their Sentry: 100 → <strong>Failure</strong></li>
+                                                    <li>❌ Your Spy: 100, Their Sentry: 101 → <strong>Failure</strong></li>
+                                                </ul>
+                                            </li>
+                                            <li><strong>Report Sharing:</strong> Successful spy reports can be shared with alliance members</li>
+                                            <li><strong>Data Snapshot:</strong> Information shown is from the time of spying (may become outdated)</li>
+                                        </ul>
+                                    </div>
+                                    <div className="mt-2 p-2 bg-yellow-50 border border-yellow-300 text-xs">
+                                        <p className="font-semibold mb-1">🎯 Strategic Tips:</p>
+                                        <ul className="list-disc list-inside space-y-1">
+                                            <li><strong>Offensive:</strong> Build Spies to gather intelligence before attacking</li>
+                                            <li><strong>Defensive:</strong> Build Sentries to protect your kingdom from enemy spies</li>
+                                            <li><strong>Calculation:</strong> Spy success is 100% predictable - you can calculate exact requirements</li>
+                                            <li><strong>Investment:</strong> Focus on Level 1-2 research for immediate tactical value</li>
+                                        </ul>
+                                    </div>
                                 </div>
                             </div>
 
