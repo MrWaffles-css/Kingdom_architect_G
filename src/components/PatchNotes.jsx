@@ -14,7 +14,7 @@ export default function PatchNotes() {
                             <li><strong>Balance:</strong> Bandit Leader stats reduced (10k → 1k).</li>
                             <li><strong>Economy:</strong> Miner training cost reduced (2000g → 1000g).</li>
                             <li><strong>Armoury:</strong> Added "MAX" buy button and Sell confirmation modal.</li>
-                            <li><strong>Economy Fixes:</strong> Vault gold can now be used for all upgrades.</li>
+                            <li><strong>Economy Fixes:</strong> Fixed bug preventing Vault gold from being used for building upgrades.</li>
                             <li><strong>Gold Overflow:</strong> Attack winnings now overfill the Vault (this pauses passive income until drained).</li>
                             <li><strong>Gold Generation:</strong> Fixed an issue where passive gold generation was paused.</li>
                             <li><strong>Boss Raids:</strong> Added "Defeated" counter to track boss kills.</li>
