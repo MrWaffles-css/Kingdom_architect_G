@@ -17,8 +17,10 @@ import Help from '../components/Help';
 import HallOfFame from '../components/HallOfFame';
 import Alliance from '../components/Alliance';
 import Bosses from '../components/Bosses';
+import GamesWindow from '../components/GamesWindow';
 
 export const desktopFeatures = [
+    { id: 'games', title: 'Games', icon: 'https://win98icons.alexmeub.com/icons/png/joystick-0.png', isImage: true, component: GamesWindow, defaultWidth: 600, hidden: true },
     { id: 'recycle', title: 'Recycle Bin', icon: 'https://win98icons.alexmeub.com/icons/png/recycle_bin_empty-0.png', isImage: true, component: RecycleBin, defaultWidth: 400 },
     { id: 'alliance', title: 'Alliance', icon: '/alliance_icon.png', isImage: true, component: Alliance, defaultWidth: 700 },
     { id: 'kingdom', title: 'Kingdom', icon: '/kingdom_icon.png', isImage: true, component: Kingdom, defaultWidth: 600 },
