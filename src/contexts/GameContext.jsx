@@ -90,7 +90,7 @@ export function GameProvider({ children }) {
             }
 
             // Parallel Fetching: Get Core Data First
-            const profileReq = supabase.from('profiles').select('is_admin, desktop_layout, avatar_id, alliance_id, last_active_at').eq('id', userId).single();
+            const profileReq = supabase.from('profiles').select('username, is_admin, desktop_layout, avatar_id, alliance_id, last_active_at').eq('id', userId).single();
             const statsReq = supabase.from('user_stats').select('*').eq('id', userId).single();
 
             // Create a timeout promise
@@ -142,6 +142,7 @@ export function GameProvider({ children }) {
                 const initialStats = {
                     ...defaultStats,
                     ...userStats,
+                    username: profileData.username, // Add username from profile
                     avatar_id: profileData.avatar_id,
                     alliance_id: profileData.alliance_id, // Add alliance_id
                     last_active_at: profileData.last_active_at // Add last_active_at from profile

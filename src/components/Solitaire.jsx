@@ -350,19 +350,21 @@ export default function Solitaire() {
 
                         {/* Cards Stack */}
                         {pile.map((card, cardIndex) => (
-                            <div
-                                key={card.id}
-                                className="absolute left-0"
-                                style={{ top: `${cardIndex * 15}px`, zIndex: cardIndex }}
-                            >
-                                <Card
-                                    card={card}
-                                    source="tableau"
-                                    colIndex={colIndex}
-                                    index={cardIndex}
-                                    isTop={cardIndex === pile.length - 1}
-                                />
-                            </div>
+                            card ? (
+                                <div
+                                    key={card.id}
+                                    className="absolute left-0"
+                                    style={{ top: `${cardIndex * 15}px`, zIndex: cardIndex }}
+                                >
+                                    <Card
+                                        card={card}
+                                        source="tableau"
+                                        colIndex={colIndex}
+                                        index={cardIndex}
+                                        isTop={cardIndex === pile.length - 1}
+                                    />
+                                </div>
+                            ) : null
                         ))}
                     </div>
                 ))}

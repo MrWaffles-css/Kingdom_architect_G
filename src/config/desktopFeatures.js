@@ -19,7 +19,10 @@ import Alliance from '../components/Alliance';
 import Bosses from '../components/Bosses';
 import GamesWindow from '../components/GamesWindow';
 
+import ControlPanel from '../components/ControlPanel';
+
 export const desktopFeatures = [
+    { id: 'control_panel', title: 'Control Panel', icon: '/control_panel_icon.png', isImage: true, component: ControlPanel, defaultWidth: 500 },
     { id: 'games', title: 'Games', icon: 'https://win98icons.alexmeub.com/icons/png/joystick-0.png', isImage: true, component: GamesWindow, defaultWidth: 600, hidden: true },
     { id: 'recycle', title: 'Recycle Bin', icon: 'https://win98icons.alexmeub.com/icons/png/recycle_bin_empty-0.png', isImage: true, component: RecycleBin, defaultWidth: 400 },
     { id: 'alliance', title: 'Alliance', icon: '/alliance_icon.png', isImage: true, component: Alliance, defaultWidth: 700 },

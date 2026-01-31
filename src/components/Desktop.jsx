@@ -99,6 +99,66 @@ const Desktop = ({
         }
     }, []);
 
+    const [hotkeys, setHotkeys] = useState({});
+
+    useEffect(() => {
+        const fetchHotkeys = async () => {
+            if (session?.user?.id) {
+                const { data } = await supabase
+                    .from('profiles')
+                    .select('hotkeys')
+                    .eq('id', session.user.id)
+                    .single();
+                if (data?.hotkeys) {
+                    setHotkeys(data.hotkeys);
+                }
+            }
+        };
+        fetchHotkeys();
+    }, [session]);
+
+    // Re-fetch hotkeys when Control Panel updates them
+    const refreshHotkeys = async () => {
+        if (session?.user?.id) {
+            const { data } = await supabase
+                .from('profiles')
+                .select('hotkeys')
+                .eq('id', session.user.id)
+                .single();
+            if (data?.hotkeys) {
+                setHotkeys(data.hotkeys);
+            }
+        }
+    };
+
+    useEffect(() => {
+        const handleGlobalKeyDown = (e) => {
+            // Ignore if typing in input/textarea
+            if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName) || e.target.isContentEditable) {
+                return;
+            }
+
+            const key = e.key.toLowerCase();
+            // Find feature ID for this key
+            const featureId = Object.keys(hotkeys).find(k => hotkeys[k] === key);
+
+            if (featureId) {
+                e.preventDefault();
+
+                const existingWindow = openWindows.find(w => w.id === featureId);
+                // Check if it's the top-most active window
+                if (existingWindow && activeWindowId === featureId && !existingWindow.isMinimized) {
+                    closeWindow(featureId);
+                } else {
+                    openWindow(featureId);
+                }
+            }
+        };
+
+        window.addEventListener('keydown', handleGlobalKeyDown);
+        return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+    }, [hotkeys, openWindows, activeWindowId]);
+
     // Handle Escape Key Global Listener
     useEffect(() => {
         const handleKeyDown = (e) => {
@@ -504,8 +564,12 @@ const Desktop = ({
                     experience: stats?.experience || 0,
                     onBuild: handleBuildKingdom,
                     onUpgrade: handleUpgradeKingdom,
-                    onUpdate: (newStats) => {
-                        setStats(prev => ({ ...prev, ...newStats }));
+                    onUpdate: (newData) => {
+                        if (newData?.hotkeys) {
+                            refreshHotkeys();
+                        } else {
+                            setStats(prev => ({ ...prev, ...newData }));
+                        }
                         refreshUserData(session.user.id);
                     },
                     onNavigate: (page, data) => {
@@ -752,11 +816,11 @@ const Desktop = ({
                                         <span className="text-sm">Minesweeper</span>
                                     </button>
                                     <button
-                                        onClick={() => { openWindow('games', { initialGame: 'solitaire' }); setActiveSubmenu(null); setStartMenuOpen(false); }}
+                                        onClick={() => { openWindow('games', { initialGame: 'snake' }); setActiveSubmenu(null); setStartMenuOpen(false); }}
                                         className="w-full text-left px-2 py-1 hover:bg-[#000080] hover:text-white flex items-center gap-2"
                                     >
-                                        <img src="https://win98icons.alexmeub.com/icons/png/solitaire-0.png" alt="" className="w-4 h-4" />
-                                        <span className="text-sm">Solitaire</span>
+                                        <span className="text-sm ml-1">🐍</span>
+                                        <span className="text-sm">Snake</span>
                                     </button>
                                 </div>
                             )}

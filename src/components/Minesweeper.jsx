@@ -11,7 +11,7 @@ const DIFFICULTIES = {
 const CELL_SIZE = 24;
 
 export default function Minesweeper() {
-    const { session } = useGame();
+    const { session, isAdmin } = useGame();
     const [difficulty, setDifficulty] = useState('beginner');
     const [grid, setGrid] = useState([]);
     const [gameState, setGameState] = useState('new'); // new, playing, won, lost
@@ -107,12 +107,45 @@ export default function Minesweeper() {
 
     const submitScore = async (scoreTime) => {
         try {
+            // First, check if the player has an existing score for this difficulty
+            const { data: existingScores, error: fetchError } = await supabase
+                .from('minesweeper_scores')
+                .select('id, time_seconds')
+                .eq('user_id', session.user.id)
+                .eq('difficulty', difficulty)
+                .order('time_seconds', { ascending: true })
+                .limit(1);
+
+            if (fetchError) throw fetchError;
+
+            // If there's an existing score and it's better (lower), don't submit the new one
+            if (existingScores && existingScores.length > 0) {
+                const bestExistingTime = existingScores[0].time_seconds;
+
+                if (scoreTime >= bestExistingTime) {
+                    // New score is not better, don't save it
+                    console.log('New score is not better than existing best score');
+                    return;
+                }
+
+                // New score is better, delete all old scores for this player/difficulty
+                const { error: deleteError } = await supabase
+                    .from('minesweeper_scores')
+                    .delete()
+                    .eq('user_id', session.user.id)
+                    .eq('difficulty', difficulty);
+
+                if (deleteError) throw deleteError;
+            }
+
+            // Insert the new (best) score
             await supabase.from('minesweeper_scores').insert({
                 user_id: session.user.id,
                 difficulty: difficulty,
                 time_seconds: scoreTime
             });
-            // Don't auto-open but refresh if open
+
+            // Refresh leaderboard if it's open
             if (showLeaderboard) fetchLeaderboard();
         } catch (err) {
             console.error('Failed to submit score:', err);
@@ -137,6 +170,32 @@ export default function Minesweeper() {
             fetchLeaderboard();
         }
     }, [showLeaderboard, fetchLeaderboard]);
+
+    const handleResetLeaderboard = async () => {
+        if (!window.confirm(`Are you sure you want to reset the ${difficulty.toUpperCase()} leaderboard? This action cannot be undone!`)) {
+            return;
+        }
+
+        try {
+            const { error } = await supabase
+                .from('minesweeper_scores')
+                .delete()
+                .eq('difficulty', difficulty);
+
+            if (error) throw error;
+
+            alert(`${difficulty.toUpperCase()} leaderboard has been reset.`);
+
+            // Refresh the leaderboard display
+            if (showLeaderboard) {
+                fetchLeaderboard();
+            }
+        } catch (err) {
+            console.error('Failed to reset leaderboard:', err);
+            alert('Failed to reset leaderboard. Please try again.');
+        }
+    };
+
 
 
     const handleCellClick = (r, c) => {
@@ -370,6 +429,15 @@ export default function Minesweeper() {
                                     ))}
                                 </tbody>
                             </table>
+                        )}
+                        {isAdmin && (
+                            <button
+                                onClick={handleResetLeaderboard}
+                                className="mt-2 w-full px-2 py-1 bg-red-700 hover:bg-red-600 text-white text-xs font-bold border-2 border-white border-r-black border-b-black active:border-black active:border-r-white active:border-b-white"
+                                title="Admin: Reset this leaderboard"
+                            >
+                                🔒 Reset Leaderboard
+                            </button>
                         )}
                     </div>
                 )}
