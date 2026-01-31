@@ -10,8 +10,21 @@ body,
   width: 100%;
   margin: 0;
   padding: 0;
-  overflow: hidden;
+  /* Allow scrolling on mobile/tablet */
+  overflow: auto;
+  overflow-x: hidden;
+  /* Prevent horizontal scroll */
   overscroll-behavior: none;
+}
+
+/* On desktop (1024px+), prevent scrolling */
+@media (min-width: 1024px) {
+
+  html,
+  body,
+  #root {
+    overflow: hidden;
+  }
 }
 
 /* Custom Scrollbar */
@@ -108,11 +121,13 @@ textarea {
 
 /* Hide scrollbar for Chrome, Safari and Opera */
 .no-scrollbar::-webkit-scrollbar {
-    display: none;
+  display: none;
 }
 
 /* Hide scrollbar for IE, Edge and Firefox */
 .no-scrollbar {
-    -ms-overflow-style: none;  /* IE and Edge */
-    scrollbar-width: none;  /* Firefox */
+  -ms-overflow-style: none;
+  /* IE and Edge */
+  scrollbar-width: none;
+  /* Firefox */
 }
