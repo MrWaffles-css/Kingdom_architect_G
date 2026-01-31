@@ -26,6 +26,7 @@ export default function App() {
         isAdmin,
 
         refreshUserData,
+        generateResources,
         setStats,
         fixSession,
 
@@ -116,16 +117,19 @@ export default function App() {
 
     // Refresh data immediately when tab becomes visible (Fix for "frozen" feel after inactivity)
     useEffect(() => {
-        const handleVisibilityChange = () => {
+        const handleVisibilityChange = async () => {
             if (document.visibilityState === 'visible' && session?.user?.id) {
-                console.log('Tab became visible: Refreshing user data...');
+                console.log('Tab became visible: Generating resources and refreshing user data...');
+                // Generate resources first to update gold/turns based on time passed
+                await generateResources();
+                // Then refresh user data to get latest stats
                 refreshUserData(session.user.id);
             }
         };
 
         document.addEventListener('visibilitychange', handleVisibilityChange);
         return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-    }, [session, refreshUserData]);
+    }, [session, refreshUserData, generateResources]);
 
     // Automatic Logout on Maintenance (if not admin)
     // REMOVED: User request to show Waiting Page instead of logging out
