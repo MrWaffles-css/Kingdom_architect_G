@@ -309,7 +309,22 @@ export default function Profile({ userId, isOwnProfile, session, onNavigate, onA
             if (error) throw error;
             if (data.success) {
                 await fetchCurrentUserStats();
-                await fetchSpyReport();
+
+                // Use returned data directly to avoid fetch latency/race conditions
+                if (data.data) {
+                    const newReport = {
+                        ...data.data,
+                        created_at: new Date().toISOString(),
+                        hours_old: 0,
+                        is_passive: false,
+                        is_shared: false
+                    };
+                    setSpyReport(newReport);
+                } else {
+                    // Fallback if data not returned for some reason
+                    await fetchSpyReport();
+                }
+
                 if (onAction) onAction();
                 setNotification({ type: 'success', message: 'Spy Successful! Data updated.' });
             } else {
