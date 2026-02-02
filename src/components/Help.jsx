@@ -267,12 +267,104 @@ export default function Help() {
                     </button>
                     {openSection === 'vault' && (
                         <div className="p-3 bg-white">
-                            <p className="mb-2">Your bank. Gold stored here is safe from attackers.</p>
-                            <ul className="list-disc list-inside space-y-1 ml-2 text-gray-700">
+                            <p className="mb-2">Your bank. Gold stored here is safe from attackers and earns interest every minute.</p>
+                            <ul className="list-disc list-inside space-y-1 ml-2 text-gray-700 mb-4">
                                 <li><strong>Safety:</strong> Attackers cannot steal gold from the Vault (unless they research Vault Theft!).</li>
-                                <li><strong>Usage:</strong> Vault gold can now be used directly for most upgrades without withdrawing.</li>
-                                <li><strong>Deposit/Withdraw:</strong> Manage your funds to keep your treasury empty of stealable gold.</li>
+                                <li><strong>Interest:</strong> Vault gold earns passive interest based on your total gold production per minute.</li>
+                                <li><strong>Usage:</strong> Vault gold can be used directly for most upgrades without withdrawing.</li>
+                                <li><strong>Capacity:</strong> Each level increases storage capacity and interest rate.</li>
                             </ul>
+
+                            {/* Vault Upgrades Table */}
+                            <div className="mb-2">
+                                <div className="font-bold bg-[#000080] text-white px-2 py-1 text-xs uppercase mb-1">
+                                    🏦 Vault Upgrades (Levels 1-10)
+                                </div>
+                                <div className="overflow-y-auto max-h-60 border border-gray-400 p-1 bg-white">
+                                    <table className="w-full text-xs text-left relative">
+                                        <thead className="bg-gray-200 border-b border-gray-400 font-bold sticky top-0 shadow-sm z-10">
+                                            <tr>
+                                                <th className="p-1 border-r border-gray-400">Level</th>
+                                                <th className="p-1 border-r border-gray-400">Cost (Gold)</th>
+                                                <th className="p-1 border-r border-gray-400">Interest Rate</th>
+                                                <th className="p-1">Capacity</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="bg-white">
+                                            <tr className="border-b border-gray-300 hover:bg-yellow-50">
+                                                <td className="p-1 border-r text-center font-bold">1</td>
+                                                <td className="p-1 border-r">5,000 G</td>
+                                                <td className="p-1 border-r font-bold text-green-700">5%/min</td>
+                                                <td className="p-1">200,000</td>
+                                            </tr>
+                                            <tr className="border-b border-gray-300 hover:bg-yellow-50">
+                                                <td className="p-1 border-r text-center font-bold">2</td>
+                                                <td className="p-1 border-r">100,000 G</td>
+                                                <td className="p-1 border-r font-bold text-green-700">10%/min</td>
+                                                <td className="p-1">300,000</td>
+                                            </tr>
+                                            <tr className="border-b border-gray-300 hover:bg-yellow-50">
+                                                <td className="p-1 border-r text-center font-bold">3</td>
+                                                <td className="p-1 border-r">1,000,000 G</td>
+                                                <td className="p-1 border-r font-bold text-green-700">15%/min</td>
+                                                <td className="p-1">1,500,000</td>
+                                            </tr>
+                                            <tr className="border-b border-gray-300 hover:bg-yellow-50">
+                                                <td className="p-1 border-r text-center font-bold">4</td>
+                                                <td className="p-1 border-r">4,000,000 G</td>
+                                                <td className="p-1 border-r font-bold text-green-700">20%/min</td>
+                                                <td className="p-1">5,000,000</td>
+                                            </tr>
+                                            <tr className="border-b border-gray-300 hover:bg-yellow-50">
+                                                <td className="p-1 border-r text-center font-bold">5</td>
+                                                <td className="p-1 border-r">8,000,000 G</td>
+                                                <td className="p-1 border-r font-bold text-green-700">25%/min</td>
+                                                <td className="p-1">15,000,000</td>
+                                            </tr>
+                                            <tr className="border-b border-gray-300 hover:bg-yellow-50">
+                                                <td className="p-1 border-r text-center font-bold">6</td>
+                                                <td className="p-1 border-r">20,000,000 G</td>
+                                                <td className="p-1 border-r font-bold text-green-700">30%/min</td>
+                                                <td className="p-1">50,000,000</td>
+                                            </tr>
+                                            <tr className="border-b border-gray-300 hover:bg-yellow-50">
+                                                <td className="p-1 border-r text-center font-bold">7</td>
+                                                <td className="p-1 border-r">75,000,000 G</td>
+                                                <td className="p-1 border-r font-bold text-green-700">35%/min</td>
+                                                <td className="p-1">150,000,000</td>
+                                            </tr>
+                                            <tr className="border-b border-gray-300 hover:bg-yellow-50">
+                                                <td className="p-1 border-r text-center font-bold">8</td>
+                                                <td className="p-1 border-r">200,000,000 G</td>
+                                                <td className="p-1 border-r font-bold text-green-700">40%/min</td>
+                                                <td className="p-1">500,000,000</td>
+                                            </tr>
+                                            <tr className="border-b border-gray-300 hover:bg-yellow-50">
+                                                <td className="p-1 border-r text-center font-bold">9</td>
+                                                <td className="p-1 border-r">1,000,000,000 G</td>
+                                                <td className="p-1 border-r font-bold text-green-700">45%/min</td>
+                                                <td className="p-1">1,500,000,000</td>
+                                            </tr>
+                                            <tr className="hover:bg-yellow-50">
+                                                <td className="p-1 border-r text-center font-bold">10 (MAX)</td>
+                                                <td className="p-1 border-r">5,000,000,000 G</td>
+                                                <td className="p-1 border-r font-bold text-green-700">50%/min</td>
+                                                <td className="p-1">5,000,000,000</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            <div className="mt-2 p-2 bg-blue-50 border border-blue-300 text-xs">
+                                <p className="font-semibold mb-1">💡 How Interest Works:</p>
+                                <ul className="list-disc list-inside space-y-1">
+                                    <li><strong>Calculation:</strong> Interest = (Your Total Gold Production/min) × (Interest Rate)</li>
+                                    <li><strong>Example:</strong> If you produce 1,000 gold/min and have Level 3 vault (15%), you earn +150 gold/min to your vault</li>
+                                    <li><strong>Automatic:</strong> Interest is added to your vault every minute automatically</li>
+                                    <li><strong>Compound Growth:</strong> Higher levels provide both more capacity and better returns</li>
+                                </ul>
+                            </div>
                         </div>
                     )}
                 </div>
