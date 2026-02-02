@@ -1,4 +1,6 @@
--- Final update for reset_world to ensure all stats, including barracks and bosses, are reset
+-- Update reset_world function to delete alliance messages and shared spy reports
+-- Run this to update the function in your database
+
 CREATE OR REPLACE FUNCTION reset_world()
 RETURNS VOID
 LANGUAGE plpgsql
@@ -88,7 +90,6 @@ BEGIN
     DELETE FROM chat_messages WHERE TRUE;
 
     -- Delete all active boss fights
-    -- Make this conditional in case the table doesn't exist yet (though it should by now)
     IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'user_boss_fights') THEN
         DELETE FROM user_boss_fights WHERE TRUE;
     END IF;

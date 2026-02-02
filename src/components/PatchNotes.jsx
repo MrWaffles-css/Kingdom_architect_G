@@ -11,6 +11,7 @@ export default function PatchNotes() {
                     <div className="text-sm space-y-1">
                         <p className="font-bold text-green-700">✨ New Features &amp; Fixes:</p>
                         <ul className="list-disc list-inside ml-2 space-y-1">
+                            <li><strong>Research Fixed:</strong> Fixed "Steal %" and "Vault Steal %" research upgrades that were previously failing.</li>
                             <li><strong>Documentation:</strong> Enhanced Help section with detailed spy report breakdowns - now shows exactly what information is revealed at each research level (0-5).</li>
                             <li><strong>Achievements:</strong> Temporarily removed from the game for rework.</li>
                             <li><strong>Balance:</strong> Bandit Leader stats reduced (10k → 1k).</li>

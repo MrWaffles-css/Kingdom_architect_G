@@ -210,7 +210,7 @@ const Desktop = ({
     });
 
     // Desktop Icon Dragging
-    const { desktopLayout, saveDesktopLayout } = useGame();
+    const { desktopLayout, saveDesktopLayout, showNotification } = useGame();
     const [dragState, setDragState] = useState(null);
     const [localLayout, setLocalLayout] = useState({});
     const dragMoved = React.useRef(false);
@@ -264,6 +264,81 @@ const Desktop = ({
             supabase.removeChannel(channel);
         };
     }, [session?.user?.id]);
+
+    // Fetch unread reports count & Check for offline attacks
+    const [unreadReportsCount, setUnreadReportsCount] = useState(0);
+    const reportsCheckDone = React.useRef(false);
+
+    useEffect(() => {
+        if (!session?.user?.id) return;
+
+        const fetchUnreadReports = async () => {
+            try {
+                // Get total unread count
+                const { count, error } = await supabase
+                    .from('reports')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('user_id', session.user.id)
+                    .eq('is_read', false);
+
+                if (error) throw error;
+                setUnreadReportsCount(count || 0);
+
+                // Check for attacks while away (Only run once per session load)
+                if (!reportsCheckDone.current && count > 0) {
+                    reportsCheckDone.current = true;
+
+                    const { data: attacks, error: attackError } = await supabase
+                        .from('reports')
+                        .select('id, data')
+                        .eq('user_id', session.user.id)
+                        .eq('is_read', false)
+                        .eq('type', 'defend_loss'); // Only care about losses? Or defend_win too? Request says "attacks that occurred". Usually implies being attacked.
+
+                    if (!attackError && attacks && attacks.length > 0) {
+                        const totalStolen = attacks.reduce((acc, curr) => acc + (curr.data?.gold_lost || 0), 0);
+                        const msg = `You were attacked ${attacks.length} times while away! Lost ${totalStolen.toLocaleString()} Gold. Check Reports!`;
+                        showNotification(msg, 10000); // 10s duration
+                    }
+                }
+            } catch (err) {
+                console.error('Error fetching reports:', err);
+            }
+        };
+
+        fetchUnreadReports();
+
+        const channel = supabase
+            .channel('public:reports')
+            .on('postgres_changes', {
+                event: 'INSERT', // Only listen for new inserts? Or updates too if read status changes?
+                schema: 'public',
+                table: 'reports',
+                filter: `user_id=eq.${session.user.id}`
+            }, () => {
+                fetchUnreadReports();
+                // If it's a new INSERT, we might want a toast too?
+                // The polling handles the badge.
+            })
+            .on('postgres_changes', {
+                event: 'UPDATE',
+                schema: 'public',
+                table: 'reports',
+                filter: `user_id=eq.${session.user.id}`
+            }, () => {
+                // If read status changes
+                fetchUnreadReports();
+            })
+            .subscribe();
+
+        // Polling fallback
+        const interval = setInterval(fetchUnreadReports, 30000);
+
+        return () => {
+            clearInterval(interval);
+            supabase.removeChannel(channel);
+        };
+    }, [session?.user?.id, showNotification]);
 
     // Mobile detection
     const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
@@ -343,6 +418,9 @@ const Desktop = ({
             setHasUnreadPatchNotes(false);
             localStorage.setItem('seen_patch_version', LATEST_PATCH_VERSION);
         }
+        if (featureId === 'reports') {
+            setUnreadReportsCount(0);
+        }
 
         const existingWindow = openWindows.find(w => w.id === featureId);
         if (existingWindow) {
@@ -417,6 +495,36 @@ const Desktop = ({
             }
             return updated;
         });
+    };
+
+    // Get bounds of all windows for snapping
+    const getAllWindowBounds = (excludeId) => {
+        const bounds = [];
+
+        openWindows.forEach(win => {
+            if (win.id !== excludeId && !win.isMinimized) {
+                const windowElement = document.querySelector(`[data-window-id="${win.id}"]`);
+                if (windowElement) {
+                    const rect = windowElement.getBoundingClientRect();
+                    bounds.push({
+                        x: rect.left,
+                        y: rect.top,
+                        width: rect.width,
+                        height: rect.height
+                    });
+                } else if (win.position && win.size) {
+                    // Fallback to stored position/size if element not found
+                    bounds.push({
+                        x: win.position.x,
+                        y: win.position.y,
+                        width: win.size.width || win.defaultWidth || 400,
+                        height: win.size.height || 300
+                    });
+                }
+            }
+        });
+
+        return bounds;
     };
 
     const handleAutoArrange = () => {
@@ -538,7 +646,11 @@ const Desktop = ({
                                     openWindow(feature.id);
                                 }
                             }}
-                            badge={feature.id === 'mail' ? unreadMailCount : (feature.id === 'patch' && hasUnreadPatchNotes ? 1 : 0)}
+                            badge={
+                                feature.id === 'mail' ? unreadMailCount :
+                                    feature.id === 'reports' ? unreadReportsCount :
+                                        (feature.id === 'patch' && hasUnreadPatchNotes ? 1 : 0)
+                            }
                             style={{ left: position.x, top: displayY }}
                             onMouseDown={(e) => handleIconDragStart(e, feature.id)}
                             className="absolute"
@@ -612,6 +724,8 @@ const Desktop = ({
                         initialSize={win.size}
                         width={win.defaultWidth}
                         onStateUpdate={(newState) => handleWindowStateUpdate(win.id, newState)}
+                        getAllWindowBounds={() => getAllWindowBounds(win.id)}
+                        data-window-id={win.id}
                     >
                         <Component {...props} />
                     </Window>
@@ -628,6 +742,8 @@ const Desktop = ({
                     isActive={true}
                     onFocus={() => { }}
                     width={600}
+                    getAllWindowBounds={() => getAllWindowBounds('admin')}
+                    data-window-id="admin"
                 >
                     <AdminPanel
                         onClose={() => setShowAdmin(false)}
@@ -652,6 +768,8 @@ const Desktop = ({
                     initialPosition={savedWindowStates['profile']?.position}
                     initialSize={savedWindowStates['profile']?.size}
                     onStateUpdate={(newState) => handleWindowStateUpdate('profile', newState)}
+                    getAllWindowBounds={() => getAllWindowBounds('viewing-profile')}
+                    data-window-id="viewing-profile"
                 >
                     <Profile
                         userId={viewingUserId}

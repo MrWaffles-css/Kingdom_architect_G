@@ -1,12 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
 
-const Window = ({ title, isOpen, onClose, onMinimize, isActive, onFocus, children, initialPosition = { x: 50, y: 50 }, width = 400, initialSize = null, onStateUpdate }) => {
+const SNAP_THRESHOLD = 30; // Distance in pixels to trigger snapping (increased for stronger magnetism)
+
+const Window = ({ title, isOpen, onClose, onMinimize, isActive, onFocus, children, initialPosition = { x: 50, y: 50 }, width = 400, initialSize = null, onStateUpdate, getAllWindowBounds }) => {
     const [isMaximized, setIsMaximized] = useState(false);
     const [position, setPosition] = useState(initialPosition);
     const [size, setSize] = useState(initialSize || { width: width, height: 'auto' });
     const [isDragging, setIsDragging] = useState(false);
     const [isResizing, setIsResizing] = useState(false);
     const [isMobile, setIsMobile] = useState(false);
+    const [isSnapped, setIsSnapped] = useState(false);
 
     // Refs to keep track of latest state for event handlers
     const stateRef = useRef({ position, size });
@@ -35,6 +38,87 @@ const Window = ({ title, isOpen, onClose, onMinimize, isActive, onFocus, childre
     }, [width]); // Re-run if width prop changes, but primarily on resize
 
     if (!isOpen) return null;
+
+    // Function to snap window position to nearby edges
+    const snapToNearestEdge = (newX, newY, currentWidth, currentHeight) => {
+        let snappedX = newX;
+        let snappedY = newY;
+        let hasSnapped = false;
+
+        // Define the current window's edges
+        const currentLeft = newX;
+        const currentRight = newX + currentWidth;
+        const currentTop = newY;
+        const currentBottom = newY + currentHeight;
+
+        // Snap to screen edges
+        if (Math.abs(currentLeft) < SNAP_THRESHOLD) {
+            snappedX = 0;
+            hasSnapped = true;
+        }
+        if (Math.abs(currentRight - window.innerWidth) < SNAP_THRESHOLD) {
+            snappedX = window.innerWidth - currentWidth;
+            hasSnapped = true;
+        }
+        if (Math.abs(currentTop) < SNAP_THRESHOLD) {
+            snappedY = 0;
+            hasSnapped = true;
+        }
+        const bottomEdge = window.innerHeight - 40; // Account for taskbar
+        if (Math.abs(currentBottom - bottomEdge) < SNAP_THRESHOLD) {
+            snappedY = bottomEdge - currentHeight;
+            hasSnapped = true;
+        }
+
+        // Get bounds of all other windows
+        if (getAllWindowBounds) {
+            const otherWindows = getAllWindowBounds();
+
+            for (const otherWindow of otherWindows) {
+                if (!otherWindow) continue;
+
+                const otherLeft = otherWindow.x;
+                const otherRight = otherWindow.x + otherWindow.width;
+                const otherTop = otherWindow.y;
+                const otherBottom = otherWindow.y + otherWindow.height;
+
+                // Check if windows overlap vertically (for horizontal snapping)
+                const verticalOverlap = !(currentBottom < otherTop || currentTop > otherBottom);
+
+                // Check if windows overlap horizontally (for vertical snapping)
+                const horizontalOverlap = !(currentRight < otherLeft || currentLeft > otherRight);
+
+                if (verticalOverlap) {
+                    // Snap to left edge of other window
+                    if (Math.abs(currentRight - otherLeft) < SNAP_THRESHOLD) {
+                        snappedX = otherLeft - currentWidth;
+                        hasSnapped = true;
+                    }
+                    // Snap to right edge of other window
+                    if (Math.abs(currentLeft - otherRight) < SNAP_THRESHOLD) {
+                        snappedX = otherRight;
+                        hasSnapped = true;
+                    }
+                }
+
+                if (horizontalOverlap) {
+                    // Snap to top edge of other window
+                    if (Math.abs(currentBottom - otherTop) < SNAP_THRESHOLD) {
+                        snappedY = otherTop - currentHeight;
+                        hasSnapped = true;
+                    }
+                    // Snap to bottom edge of other window
+                    if (Math.abs(currentTop - otherBottom) < SNAP_THRESHOLD) {
+                        snappedY = otherBottom;
+                        hasSnapped = true;
+                    }
+                }
+            }
+        }
+
+        setIsSnapped(hasSnapped);
+        return { x: snappedX, y: snappedY };
+    };
 
     const handleDragStart = (clientX, clientY) => {
         if (isMaximized) return;
@@ -93,7 +177,10 @@ const Window = ({ title, isOpen, onClose, onMinimize, isActive, onFocus, childre
                 newX = Math.max(0, Math.min(newX, maxX));
                 newY = Math.max(minY, Math.min(newY, maxY));
 
-                setPosition({ x: newX, y: newY });
+                // Apply magnetic snapping
+                const snapped = snapToNearestEdge(newX, newY, currentWidth, currentHeight);
+
+                setPosition({ x: snapped.x, y: snapped.y });
             } else if (isResizing) {
                 const deltaX = clientX - resizeStart.x;
                 const deltaY = clientY - resizeStart.y;
@@ -121,6 +208,7 @@ const Window = ({ title, isOpen, onClose, onMinimize, isActive, onFocus, childre
         const handleUp = () => {
             setIsDragging(false);
             setIsResizing(false);
+            setIsSnapped(false);
             if (onStateUpdate) onStateUpdate(stateRef.current);
         };
 
@@ -162,8 +250,14 @@ const Window = ({ title, isOpen, onClose, onMinimize, isActive, onFocus, childre
     return (
         <div
             ref={windowRef}
+            data-window-id={title} // Use title as fallback if not explicitly passed
             className="flex flex-col bg-[#c0c0c0] p-[3px] shadow-[inset_-1px_-1px_#0a0a0a,inset_1px_1px_#dfdfdf,inset_-2px_-2px_#808080,inset_2px_2px_#ffffff] font-sans"
-            style={windowStyle}
+            style={{
+                ...windowStyle,
+                boxShadow: isSnapped
+                    ? 'inset -1px -1px #0a0a0a, inset 1px 1px #dfdfdf, inset -2px -2px #808080, inset 2px 2px #ffffff, 0 0 0 2px #1084d0'
+                    : undefined
+            }}
             onMouseDown={onFocus}
         >
             {/* Title Bar */}

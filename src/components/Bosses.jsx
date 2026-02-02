@@ -12,6 +12,11 @@ export default function Bosses({ session }) {
     const [timeLeft, setTimeLeft] = useState(0);
     const [bossKills, setBossKills] = useState({});
     const [showCancelConfirmation, setShowCancelConfirmation] = useState(false);
+    const [showInfo, setShowInfo] = useState(() => localStorage.getItem('bosses_showInfo') !== 'false');
+
+    useEffect(() => {
+        localStorage.setItem('bosses_showInfo', showInfo);
+    }, [showInfo]);
 
     // Fetch Initial Data
     const fetchData = async () => {
@@ -206,23 +211,41 @@ export default function Bosses({ session }) {
         <div className="p-4 max-w-6xl mx-auto space-y-6 pb-20">
             {/* Header / Info */}
             <div className="bg-[#c0c0c0] border-2 border-white border-b-gray-600 border-r-gray-600 p-4 text-sm relative shadow-md">
-                <div className="absolute top-1 right-1 text-gray-500 text-xs">v1.0</div>
+                <div className="absolute top-1 right-1 flex flex-col items-end">
+                    <div className="text-gray-500 text-xs">v1.0</div>
+                    <button
+                        onClick={() => setShowInfo(!showInfo)}
+                        className="text-[10px] uppercase font-bold text-blue-800 hover:text-blue-600 hover:underline mt-1 bg-gray-200 px-1 border border-gray-400"
+                    >
+                        {showInfo ? 'Hide Info' : 'Show Info'}
+                    </button>
+                </div>
+
                 <h2 className="text-xl font-bold mb-2 flex items-center gap-2">
                     <span>💀</span> Boss Raids
                 </h2>
-                <p className="mb-2">
-                    Challenge powerful entities to earn Gold, Experience, and Citizens.
-                    Fights run passively in the background. You can exit this page and return later.
-                </p>
-                <ul className="list-disc list-inside text-gray-700 bg-white/50 p-2 border border-gray-400">
-                    <li><strong>Requirements:</strong> You must meet the <u>Total Stats</u> requirement.</li>
-                    <li><strong>Progression:</strong> Defeat bosses in order to unlock the next level.</li>
-                    <li><strong>Turns:</strong> Each fight costs turns. Turns are deducted automatically for auto-loops.</li>
-                    <li><strong>Auto-Loop:</strong> Choose 10x or ∞ to repeat the fight automatically. Gold goes directly to Vault!</li>
-                </ul>
-                <div className="mt-2 font-bold text-blue-900">
-                    Your Total Stats: {formatNumber(totalStats)}
-                </div>
+
+                {showInfo && (
+                    <div className="animate-fade-in">
+                        <p className="mb-2">
+                            Challenge powerful entities to earn Gold, Experience, and Citizens.
+                            Fights run passively in the background. You can exit this page and return later.
+                        </p>
+                        <ul className="list-disc list-inside text-gray-700 bg-white/50 p-2 border border-gray-400">
+                            <li><strong>Requirements:</strong> You must meet the <u>Total Stats</u> requirement.</li>
+                            <li><strong>Progression:</strong> Defeat bosses in order to unlock the next level.</li>
+                            <li><strong>Turns:</strong> Each fight costs turns. Turns are deducted automatically for auto-loops.</li>
+                            <li><strong>Fight Count:</strong> Use preset buttons (1x, 10x, 100x) or enter a custom number (1-9999) to repeat fights automatically.</li>
+                            <li><strong>Infinity (∞):</strong> Fight continuously until you run out of turns. Gold goes directly to Vault!</li>
+                        </ul>
+                    </div>
+                )}
+            </div>
+
+            {/* Total Stats Banner - Moved Out */}
+            <div className="bg-[#e0e0e0] border-2 border-white border-b-gray-500 border-r-gray-500 p-2 text-center shadow-sm flex items-center justify-center gap-3">
+                <span className="text-gray-700 font-bold uppercase text-xs">Your Commander Stats:</span>
+                <span className="text-xl font-bold text-blue-900 border-b-2 border-blue-900 leading-none">{formatNumber(totalStats)}</span>
             </div>
 
             {/* Reward Notification (Bottom Right Toast) */}
@@ -246,49 +269,7 @@ export default function Bosses({ session }) {
                 </div>
             )}
 
-            {/* Active Fight Banner */}
-            {activeFight && (
-                <div className="bg-yellow-100 border-4 border-yellow-500 p-4 shadow-lg sticky top-2 z-50 animate-pulse-slow">
-                    {(() => {
-                        const boss = BOSSES.find(b => b.id === activeFight.boss_id);
-                        if (!boss) return <div>Unknown Fight</div>;
-                        const progress = activeFight.target_fights
-                            ? `${activeFight.total_fights_done} / ${activeFight.target_fights}`
-                            : `${activeFight.total_fights_done} / ∞`;
-                        const percent = Math.min(100, Math.max(0, 100 - (timeLeft / (boss.duration_seconds * 1000) * 100)));
 
-                        return (
-                            <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-                                <div className="flex items-center gap-4">
-                                    <span className="text-3xl">⚔️</span>
-                                    <div>
-                                        <div className="font-bold text-lg">Fighting: {boss.name}</div>
-                                        <div className="text-sm text-gray-700">Loop Progress: <b>{progress}</b></div>
-                                    </div>
-                                </div>
-                                <div className="flex-1 w-full md:w-auto mx-4">
-                                    <div className="flex justify-between text-xs font-bold mb-1">
-                                        <span>Current Fight</span>
-                                        <span>{formatTime(timeLeft)}</span>
-                                    </div>
-                                    <div className="w-full bg-gray-300 h-4 border border-gray-600 relative">
-                                        <div
-                                            className="h-full bg-green-600 transition-all duration-1000 ease-linear"
-                                            style={{ width: `${percent}%` }}
-                                        ></div>
-                                    </div>
-                                </div>
-                                <button
-                                    onClick={handleCancelClick}
-                                    className="bg-red-600 text-white px-4 py-2 border-2 border-red-800 hover:bg-red-700 font-bold text-xs"
-                                >
-                                    Cancel Fight
-                                </button>
-                            </div>
-                        );
-                    })()}
-                </div>
-            )}
 
             {/* Custom Confirmation Modal */}
             {showCancelConfirmation && (
@@ -389,34 +370,76 @@ export default function Bosses({ session }) {
                             {/* Controls */}
                             {isUnlocked && (
                                 <div className="mt-auto">
-                                    <div className="flex gap-1 mb-2">
-                                        {[1, 10, 100, 999999].map(num => (
+                                    {isThisFight ? (
+                                        <div className="space-y-2 pt-2 animate-fade-in">
+                                            {/* The "Fighting Button" / Progress Bar */}
+                                            <div className="relative w-full h-8 border-2 border-blue-600 bg-gray-200 overflow-hidden shadow-inner flex items-center justify-center cursor-default">
+                                                {(() => {
+                                                    const percent = Math.min(100, Math.max(0, 100 - (timeLeft / (boss.duration_seconds * 1000) * 100)));
+                                                    return (
+                                                        <>
+                                                            <div
+                                                                className="absolute left-0 top-0 h-full bg-blue-300 transition-all duration-1000 ease-linear"
+                                                                style={{ width: `${percent}%` }}
+                                                            />
+                                                            <span className="relative z-10 font-bold text-blue-900 text-xs drop-shadow-sm flex items-center gap-2">
+                                                                <span>⚔️ Fighting...</span>
+                                                                <span>{formatTime(timeLeft)}</span>
+                                                            </span>
+                                                        </>
+                                                    );
+                                                })()}
+                                            </div>
+
+                                            {/* Loop Stats */}
+                                            <div className="flex justify-between items-center text-[10px] font-bold text-gray-600 px-1">
+                                                <span>Loop: {activeFight.total_fights_done} / {activeFight.target_fights || '∞'}</span>
+                                            </div>
+
+                                            {/* Cancel Button */}
                                             <button
-                                                key={num}
-                                                onClick={() => setSelectedTarget({ ...selectedTarget, [boss.id]: num })}
-                                                className={`flex-1 text-[10px] sm:text-xs py-1 border border-gray-600 
-                                                    ${(selectedTarget[boss.id] || 1) === num ? 'bg-blue-600 text-white' : 'bg-gray-300 hover:bg-gray-400'}
+                                                onClick={handleCancelClick}
+                                                className="w-full py-1 text-[10px] uppercase tracking-wider bg-red-100 border border-red-400 text-red-700 font-bold hover:bg-red-200 hover:text-red-900 transition-colors"
+                                            >
+                                                Cancel Fight
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <>
+                                            {/* Custom Input Only */}
+                                            <div className="mb-2">
+                                                <input
+                                                    type="number"
+                                                    min="1"
+                                                    max="9999"
+                                                    value={(selectedTarget[boss.id] === 999999 || !selectedTarget[boss.id]) ? '' : selectedTarget[boss.id]}
+                                                    onChange={(e) => {
+                                                        const val = parseInt(e.target.value) || 1;
+                                                        const clamped = Math.min(9999, Math.max(1, val));
+                                                        setSelectedTarget({ ...selectedTarget, [boss.id]: clamped });
+                                                    }}
+                                                    placeholder="Count (1-9999)"
+                                                    className="w-full px-2 py-1 text-sm border-2 border-gray-600 bg-white focus:border-blue-500 focus:outline-none text-center font-bold text-gray-700"
+                                                />
+                                            </div>
+
+                                            <button
+                                                onClick={() => handleStart(boss.id)}
+                                                disabled={!meetsReq || !canAfford || (isFightingSomething && !isThisFight)}
+                                                className={`
+                                                    w-full py-2 font-bold text-sm border-2
+                                                    ${isFightingSomething && isThisFight
+                                                        ? 'bg-blue-200 border-blue-500 text-blue-800' // Should not be reached due to ternary above, but good fallback
+                                                        : (!meetsReq || !canAfford || isFightingSomething)
+                                                            ? 'bg-gray-400 border-gray-500 text-gray-200 cursor-not-allowed'
+                                                            : 'bg-green-600 border-green-800 text-white hover:bg-green-500 hover:scale-[1.02] active:scale-95 transition-transform shadow-sm'
+                                                    }
                                                 `}
                                             >
-                                                {num === 999999 ? '∞' : `${num}x`}
+                                                {isFightingSomething ? 'Busy' : 'Start Fight'}
                                             </button>
-                                        ))}
-                                    </div>
-                                    <button
-                                        onClick={() => handleStart(boss.id)}
-                                        disabled={!meetsReq || !canAfford || (isFightingSomething && !isThisFight)}
-                                        className={`
-                                            w-full py-2 font-bold text-sm border-2
-                                            ${isFightingSomething && isThisFight
-                                                ? 'bg-blue-200 border-blue-500 text-blue-800' // Current active look
-                                                : (!meetsReq || !canAfford || isFightingSomething)
-                                                    ? 'bg-gray-400 border-gray-500 text-gray-200 cursor-not-allowed'
-                                                    : 'bg-green-600 border-green-800 text-white hover:bg-green-500 hover:scale-[1.02] active:scale-95 transition-transform shadow-sm'
-                                            }
-                                        `}
-                                    >
-                                        {isFightingSomething ? (isThisFight ? 'Fighting...' : 'Busy') : 'Start Fight'}
-                                    </button>
+                                        </>
+                                    )}
                                 </div>
                             )}
                         </div>

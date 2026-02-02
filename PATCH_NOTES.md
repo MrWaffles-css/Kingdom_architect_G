@@ -1,6 +1,7 @@
 # Patch 1.5 - Economy, Bosses & Quality of Life
 
 ### 🛠️ Key Fixes
+*   **Research Fixed**: Fixed an issue where "Increase Stolen %" and "Steal from Vault %" research could not be upgraded.
 *   **Gold Generation Restored**: Fixed an issue where passive gold generation (every minute) was paused. Resources now generate consistently.
 *   **Instant Equipment Stats**: Fixed a bug where buying weapons didn't immediately update your defense/attack stats in the UI.
 
