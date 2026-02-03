@@ -13,6 +13,8 @@ export function TimeProvider({ children }) {
     const [serverTime, setServerTime] = useState(new Date());
     const [lastProcessedTime, setLastProcessedTime] = useState(Date.now());
 
+    const [serverOffset, setServerOffset] = useState(0);
+
     // We keep lastRefreshedMinute in a ref so it doesn't trigger re-renders itself
     const lastRefreshedMinute = useRef(-1);
 
@@ -22,13 +24,13 @@ export function TimeProvider({ children }) {
         let offset = 0;
 
         const syncTime = async () => {
-            // Get database NOW() to calculate offset
-            // We assume get_server_time RPC exists, otherwise we'll fall back to local or specific query
+            // Get database NOW() to calculate offset (via get_server_time RPC)
             const { data, error } = await supabase.rpc('get_server_time');
             if (data) {
                 const serverNow = new Date(data).getTime();
                 const localNow = Date.now();
                 offset = serverNow - localNow;
+                setServerOffset(offset);
                 console.log('[TimeContext] Server time sync offset:', offset, 'ms');
             }
         };
@@ -64,7 +66,8 @@ export function TimeProvider({ children }) {
     }, [session, refreshUserData, generateResources]);
 
     const value = {
-        serverTime
+        serverTime,
+        serverOffset
     };
 
     return (

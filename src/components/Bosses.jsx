@@ -1,7 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabase';
+import { useGameTime } from '../contexts/TimeContext';
+import { useGame } from '../contexts/GameContext';
 
 export default function Bosses({ session }) {
+    const { serverOffset } = useGameTime();
+    const { showRewardPopup } = useGame();
     const [userStats, setUserStats] = useState(null);
     const [activeFight, setActiveFight] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -86,14 +90,18 @@ export default function Bosses({ session }) {
             return;
         }
 
-
         const boss = bosses.find(b => b.id === activeFight.boss_id);
-        if (!boss) return;
+        if (!boss) {
+            console.log('Boss data not loaded yet, waiting...');
+            return;
+        }
 
+        console.log('Timer initialized for boss:', boss.name);
 
         // Calculate and set initial time immediately
         const updateTimer = async () => {
-            const now = new Date().getTime();
+            // Use serverOffset to sync with server time
+            const now = new Date().getTime() + (serverOffset || 0);
             const start = new Date(activeFight.last_claim_time).getTime();
             const end = start + (boss.duration_seconds * 1000);
 
@@ -115,17 +123,9 @@ export default function Bosses({ session }) {
         const timer = setInterval(updateTimer, 1000);
 
         return () => clearInterval(timer);
-    }, [activeFight, bosses]);
+    }, [activeFight, bosses, serverOffset]);
 
-    const [lastReward, setLastReward] = useState(null);
 
-    // Clear reward popup after 1.5 seconds
-    useEffect(() => {
-        if (lastReward) {
-            const timer = setTimeout(() => setLastReward(null), 1500);
-            return () => clearTimeout(timer);
-        }
-    }, [lastReward]);
 
     const processFight = async () => {
         if (processingRef.current) return;
@@ -141,7 +141,7 @@ export default function Bosses({ session }) {
             console.log('Boss fight process result:', data);
 
             if (data.fights_processed > 0 && data.rewards) {
-                setLastReward(data.rewards);
+                showRewardPopup(data.rewards);
             }
 
             if (data.status === 'finished' || data.status === 'finished_no_turns') {
@@ -285,46 +285,7 @@ export default function Bosses({ session }) {
                 <span className="text-xl font-bold text-blue-900 border-b-2 border-blue-900 leading-none">{formatNumber(totalStats)}</span>
             </div>
 
-            {/* Reward Notification (Windows 98 Toast Style) */}
-            {lastReward && (
-                <div className="fixed bottom-12 right-4 z-[99999] animate-slide-up-fade">
-                    <div className="bg-[#c0c0c0] border-2 border-white border-r-gray-800 border-b-gray-800 shadow-2xl" style={{ minWidth: '320px', maxWidth: '400px' }}>
-                        {/* Title Bar */}
-                        <div className="px-2 py-1 bg-gradient-to-r from-[#000080] to-[#1084d0] text-white font-bold flex items-center gap-2">
-                            <span className="text-sm">🏆 Victory Rewards!</span>
-                        </div>
 
-                        {/* Content */}
-                        <div className="p-4 space-y-3">
-                            <div className="text-center mb-3">
-                                <div className="text-4xl mb-2">⚔️</div>
-                                <div className="text-sm font-bold text-gray-700">Boss Defeated!</div>
-                            </div>
-
-                            <div className="bg-white border-2 border-gray-400 border-t-gray-600 border-l-gray-600 p-3 space-y-2">
-                                {lastReward.gold > 0 && (
-                                    <div className="flex justify-between items-center border-b border-gray-300 pb-2">
-                                        <span className="font-bold text-sm text-gray-700">💰 Gold:</span>
-                                        <span className="font-bold text-yellow-600">+{formatNumber(lastReward.gold)}</span>
-                                    </div>
-                                )}
-                                {lastReward.xp > 0 && (
-                                    <div className="flex justify-between items-center border-b border-gray-300 pb-2">
-                                        <span className="font-bold text-sm text-gray-700">⭐ Experience:</span>
-                                        <span className="font-bold text-blue-600">+{formatNumber(lastReward.xp)}</span>
-                                    </div>
-                                )}
-                                {lastReward.citizens > 0 && (
-                                    <div className="flex justify-between items-center">
-                                        <span className="font-bold text-sm text-gray-700">👥 Citizens:</span>
-                                        <span className="font-bold text-green-600">+{formatNumber(lastReward.citizens)}</span>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
 
 
 

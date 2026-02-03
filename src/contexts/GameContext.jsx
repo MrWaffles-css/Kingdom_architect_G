@@ -27,6 +27,7 @@ export function GameProvider({ children }) {
     });
 
     const [notification, setNotification] = useState(null)
+    const [rewardPopup, setRewardPopup] = useState(null)
 
 
 
@@ -517,6 +518,14 @@ export function GameProvider({ children }) {
                     setNotification(current => current && current.id === id ? null : current);
                 }, duration);
             }
+        }, []),
+        rewardPopup,
+        showRewardPopup: useCallback((data) => {
+            if (!data) return;
+            setRewardPopup(data);
+            setTimeout(() => {
+                setRewardPopup(null);
+            }, 3000); // Show for 3 seconds
         }, [])
     };
 
