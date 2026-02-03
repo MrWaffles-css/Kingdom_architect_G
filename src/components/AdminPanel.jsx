@@ -624,7 +624,7 @@ function BossEditorModal({ onClose }) {
     const [bosses, setBosses] = useState([]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
-    const [editingBoss, setEditingBoss] = useState(null);
+    const [hasChanges, setHasChanges] = useState(false);
 
     useEffect(() => {
         fetchBosses();
@@ -635,7 +635,10 @@ function BossEditorModal({ onClose }) {
             setLoading(true);
             const { data, error } = await supabase.rpc('get_boss_configs');
             if (error) throw error;
-            setBosses(data || []);
+            // Sort by ID to ensure stable order
+            const sorted = (data || []).sort((a, b) => a.id - b.id);
+            setBosses(sorted);
+            setHasChanges(false);
         } catch (err) {
             console.error('Error fetching bosses:', err);
             alert('Failed to load bosses: ' + err.message);
@@ -644,32 +647,46 @@ function BossEditorModal({ onClose }) {
         }
     };
 
-    const handleSave = async (boss) => {
+    const handleChange = (id, field, value) => {
+        setBosses(prev => prev.map(b => b.id === id ? { ...b, [field]: value } : b));
+        setHasChanges(true);
+    };
+
+    const handleSaveAll = async () => {
+        if (!window.confirm('Are you sure you want to save ALL changes? This will immediately affect the game.')) return;
+
         try {
             setSaving(true);
-            const { data, error } = await supabase.rpc('update_boss_config', {
-                p_id: boss.id,
-                p_name: boss.name,
-                p_req_total_stats: parseInt(boss.req_total_stats),
-                p_cost_turns: parseInt(boss.cost_turns),
-                p_duration_seconds: parseInt(boss.duration_seconds),
-                p_reward_xp: parseInt(boss.reward_xp),
-                p_reward_gold: parseInt(boss.reward_gold),
-                p_reward_citizens: parseInt(boss.reward_citizens)
-            });
 
-            if (error) throw error;
-            if (data && !data.success) {
-                alert(data.message || 'Failed to update boss');
-                return;
+            // Execute all updates in parallel
+            const updates = bosses.map(boss =>
+                supabase.rpc('update_boss_config', {
+                    p_id: boss.id,
+                    p_name: boss.name,
+                    p_req_total_stats: parseInt(boss.req_total_stats) || 0,
+                    p_cost_turns: parseInt(boss.cost_turns) || 0,
+                    p_duration_seconds: parseInt(boss.duration_seconds) || 0,
+                    p_reward_xp: parseInt(boss.reward_xp) || 0,
+                    p_reward_gold: parseInt(boss.reward_gold) || 0,
+                    p_reward_citizens: parseInt(boss.reward_citizens) || 0
+                })
+            );
+
+            const results = await Promise.all(updates);
+
+            const errors = results.filter(r => r.error);
+            if (errors.length > 0) {
+                console.error('Some updates failed:', errors);
+                throw new Error(`${errors.length} updates failed. Check console.`);
             }
 
-            alert('Boss updated successfully! Changes are now live.');
-            setEditingBoss(null);
+            alert('All bosses updated successfully!');
+            setHasChanges(false);
             fetchBosses();
+
         } catch (err) {
-            console.error('Error updating boss:', err);
-            alert('Failed to update boss: ' + err.message);
+            console.error('Error saving bosses:', err);
+            alert('Failed to save changes: ' + err.message);
         } finally {
             setSaving(false);
         }
@@ -681,7 +698,7 @@ function BossEditorModal({ onClose }) {
                 {/* Title Bar */}
                 <div className="bg-gradient-to-r from-[#000080] to-[#1084d0] text-white px-2 py-1 flex justify-between items-center">
                     <div className="flex items-center gap-2">
-                        <span className="font-bold">👹 Boss Configuration Editor</span>
+                        <span className="font-bold">👹 Boss Configuration Editor (Bulk Mode)</span>
                     </div>
                     <button
                         onClick={onClose}
@@ -700,29 +717,25 @@ function BossEditorModal({ onClose }) {
                     ) : (
                         <div className="bg-white border-2 border-gray-600 border-r-white border-b-white">
                             <table className="w-full text-xs border-collapse">
-                                <thead className="sticky top-0 bg-gray-200 border-b-2 border-gray-600">
+                                <thead className="sticky top-0 bg-gray-200 border-b-2 border-gray-600 shadow-sm z-10">
                                     <tr>
-                                        <th className="p-2 border-r border-gray-400 text-left">ID</th>
-                                        <th className="p-2 border-r border-gray-400 text-left">Name</th>
+                                        <th className="p-2 border-r border-gray-400 text-left w-10">ID</th>
+                                        <th className="p-2 border-r border-gray-400 text-left w-40">Name</th>
                                         <th className="p-2 border-r border-gray-400 text-right">Required Stats</th>
                                         <th className="p-2 border-r border-gray-400 text-right">Turn Cost</th>
                                         <th className="p-2 border-r border-gray-400 text-right">Duration (s)</th>
                                         <th className="p-2 border-r border-gray-400 text-right">XP Reward</th>
                                         <th className="p-2 border-r border-gray-400 text-right">Gold Reward</th>
                                         <th className="p-2 border-r border-gray-400 text-right">Citizens Reward</th>
-                                        <th className="p-2 text-center">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {bosses.map(boss => (
+                                    {bosses.map((boss, idx) => (
                                         <BossRow
                                             key={boss.id}
                                             boss={boss}
-                                            isEditing={editingBoss === boss.id}
-                                            onEdit={() => setEditingBoss(boss.id)}
-                                            onCancel={() => setEditingBoss(null)}
-                                            onSave={handleSave}
-                                            saving={saving}
+                                            onChange={handleChange}
+                                            isEven={idx % 2 === 0}
                                         />
                                     ))}
                                 </tbody>
@@ -733,142 +746,104 @@ function BossEditorModal({ onClose }) {
                     <div className="mt-4 p-3 bg-yellow-100 border border-yellow-400 text-xs">
                         <p className="font-bold mb-1">⚠️ Important Notes:</p>
                         <ul className="list-disc list-inside space-y-1">
-                            <li>Changes take effect <strong>immediately</strong> for all players</li>
-                            <li>Active boss fights will use the old values until completed</li>
-                            <li>Duration is in seconds (e.g., 60 = 1 minute)</li>
-                            <li>Required Stats = Total of Attack + Defense + Spy + Sentry needed to unlock</li>
+                            <li>Changes take effect <strong>immediately</strong> for all players upon saving.</li>
+                            <li>Active boss fights will use the old values until completed.</li>
+                            <li>Duration is in seconds (e.g., 60 = 1 minute).</li>
                         </ul>
                     </div>
                 </div>
 
                 {/* Footer */}
-                <div className="border-t-2 border-gray-600 p-3 bg-[#c0c0c0] flex justify-end">
-                    <button
-                        onClick={onClose}
-                        className="px-6 py-2 bg-[#c0c0c0] border-2 border-white border-r-gray-600 border-b-gray-600 font-bold active:border-gray-600 active:border-r-white active:border-b-white"
-                    >
-                        Close
-                    </button>
+                <div className="border-t-2 border-gray-600 p-3 bg-[#c0c0c0] flex justify-between items-center">
+                    <div className="text-xs text-gray-600 italic">
+                        {hasChanges ? 'Changes detected - don\'t forget to save!' : 'No unsaved changes.'}
+                    </div>
+                    <div className="flex gap-2">
+                        <button
+                            onClick={handleSaveAll}
+                            disabled={saving || !hasChanges}
+                            className={`px-6 py-2 border-2 font-bold flex items-center gap-2 ${hasChanges
+                                    ? 'bg-green-600 text-white border-green-800 hover:bg-green-700 active:border-green-800'
+                                    : 'bg-gray-400 text-gray-200 border-gray-500 cursor-not-allowed'
+                                } border-white border-r-black border-b-black shadow-md active:shadow-none active:translate-y-[1px]`}
+                        >
+                            {saving ? 'Saving...' : '💾 Save All Changes'}
+                        </button>
+                        <button
+                            onClick={onClose}
+                            className="px-6 py-2 bg-[#c0c0c0] border-2 border-white border-r-black border-b-black font-bold active:border-black active:border-r-white active:border-b-white active:translate-y-[1px]"
+                        >
+                            Close
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
     );
 }
 
-function BossRow({ boss, isEditing, onEdit, onCancel, onSave, saving }) {
-    const [formData, setFormData] = useState({
-        id: boss.id,
-        name: boss.name,
-        req_total_stats: boss.req_total_stats,
-        cost_turns: boss.cost_turns,
-        duration_seconds: boss.duration_seconds,
-        reward_xp: boss.reward_xp,
-        reward_gold: boss.reward_gold,
-        reward_citizens: boss.reward_citizens
-    });
-
-    const inputClass = "w-full bg-white border border-gray-400 px-1 py-0.5 text-right";
-    const nameInputClass = "w-full bg-white border border-gray-400 px-1 py-0.5";
-
-    if (!isEditing) {
-        return (
-            <tr className="hover:bg-blue-50 border-b border-gray-300">
-                <td className="p-2 border-r border-gray-300 font-bold">{boss.id}</td>
-                <td className="p-2 border-r border-gray-300 font-semibold">{boss.name}</td>
-                <td className="p-2 border-r border-gray-300 text-right font-mono">{boss.req_total_stats.toLocaleString()}</td>
-                <td className="p-2 border-r border-gray-300 text-right font-mono">{boss.cost_turns}</td>
-                <td className="p-2 border-r border-gray-300 text-right font-mono">{boss.duration_seconds}</td>
-                <td className="p-2 border-r border-gray-300 text-right font-mono">{boss.reward_xp.toLocaleString()}</td>
-                <td className="p-2 border-r border-gray-300 text-right font-mono">{boss.reward_gold.toLocaleString()}</td>
-                <td className="p-2 border-r border-gray-300 text-right font-mono">{boss.reward_citizens.toLocaleString()}</td>
-                <td className="p-2 text-center">
-                    <button
-                        onClick={onEdit}
-                        className="text-[10px] px-2 py-1 bg-blue-600 text-white border border-blue-800 font-bold hover:bg-blue-700"
-                    >
-                        Edit
-                    </button>
-                </td>
-            </tr>
-        );
-    }
+function BossRow({ boss, onChange, isEven }) {
+    const inputClass = "w-full bg-transparent border-0 border-b border-dashed border-gray-300 px-1 py-1 text-right focus:bg-white focus:border-solid focus:border-blue-500 outline-none hover:bg-white/50 transition-colors";
+    const nameInputClass = "w-full bg-transparent border-0 border-b border-dashed border-gray-300 px-1 py-1 text-left focus:bg-white focus:border-solid focus:border-blue-500 outline-none hover:bg-white/50 transition-colors";
 
     return (
-        <tr className="bg-yellow-50 border-b border-gray-300">
-            <td className="p-2 border-r border-gray-300 font-bold">{boss.id}</td>
-            <td className="p-2 border-r border-gray-300">
+        <tr className={isEven ? "bg-gray-50" : "bg-white"}>
+            <td className="p-2 border-r border-gray-300 text-center font-bold text-gray-500">{boss.id}</td>
+            <td className="p-1 border-r border-gray-300">
                 <input
                     type="text"
-                    value={formData.name}
-                    onChange={e => setFormData({ ...formData, name: e.target.value })}
+                    value={boss.name}
+                    onChange={e => onChange(boss.id, 'name', e.target.value)}
                     className={nameInputClass}
                 />
             </td>
-            <td className="p-2 border-r border-gray-300">
+            <td className="p-1 border-r border-gray-300">
                 <input
                     type="number"
-                    value={formData.req_total_stats}
-                    onChange={e => setFormData({ ...formData, req_total_stats: e.target.value })}
+                    value={boss.req_total_stats}
+                    onChange={e => onChange(boss.id, 'req_total_stats', e.target.value)}
                     className={inputClass}
                 />
             </td>
-            <td className="p-2 border-r border-gray-300">
+            <td className="p-1 border-r border-gray-300">
                 <input
                     type="number"
-                    value={formData.cost_turns}
-                    onChange={e => setFormData({ ...formData, cost_turns: e.target.value })}
+                    value={boss.cost_turns}
+                    onChange={e => onChange(boss.id, 'cost_turns', e.target.value)}
                     className={inputClass}
                 />
             </td>
-            <td className="p-2 border-r border-gray-300">
+            <td className="p-1 border-r border-gray-300">
                 <input
                     type="number"
-                    value={formData.duration_seconds}
-                    onChange={e => setFormData({ ...formData, duration_seconds: e.target.value })}
+                    value={boss.duration_seconds}
+                    onChange={e => onChange(boss.id, 'duration_seconds', e.target.value)}
                     className={inputClass}
                 />
             </td>
-            <td className="p-2 border-r border-gray-300">
+            <td className="p-1 border-r border-gray-300">
                 <input
                     type="number"
-                    value={formData.reward_xp}
-                    onChange={e => setFormData({ ...formData, reward_xp: e.target.value })}
+                    value={boss.reward_xp}
+                    onChange={e => onChange(boss.id, 'reward_xp', e.target.value)}
                     className={inputClass}
                 />
             </td>
-            <td className="p-2 border-r border-gray-300">
+            <td className="p-1 border-r border-gray-300">
                 <input
                     type="number"
-                    value={formData.reward_gold}
-                    onChange={e => setFormData({ ...formData, reward_gold: e.target.value })}
+                    value={boss.reward_gold}
+                    onChange={e => onChange(boss.id, 'reward_gold', e.target.value)}
                     className={inputClass}
                 />
             </td>
-            <td className="p-2 border-r border-gray-300">
+            <td className="p-1 border-r border-gray-300">
                 <input
                     type="number"
-                    value={formData.reward_citizens}
-                    onChange={e => setFormData({ ...formData, reward_citizens: e.target.value })}
+                    value={boss.reward_citizens}
+                    onChange={e => onChange(boss.id, 'reward_citizens', e.target.value)}
                     className={inputClass}
                 />
-            </td>
-            <td className="p-2 text-center">
-                <div className="flex gap-1 justify-center">
-                    <button
-                        onClick={() => onSave(formData)}
-                        disabled={saving}
-                        className="text-[10px] px-2 py-1 bg-green-600 text-white border border-green-800 font-bold hover:bg-green-700 disabled:opacity-50"
-                    >
-                        {saving ? '...' : 'Save'}
-                    </button>
-                    <button
-                        onClick={onCancel}
-                        disabled={saving}
-                        className="text-[10px] px-2 py-1 bg-red-600 text-white border border-red-800 font-bold hover:bg-red-700 disabled:opacity-50"
-                    >
-                        Cancel
-                    </button>
-                </div>
             </td>
         </tr>
     );
