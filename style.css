@@ -119,6 +119,24 @@ textarea {
   animation: bounce-twice-fade 2.5s ease-in-out forwards;
 }
 
+/* Slide up and fade in animation for toast notifications */
+@keyframes slide-up-fade {
+  0% {
+    transform: translateY(100px);
+    opacity: 0;
+  }
+
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-up-fade {
+  animation: slide-up-fade 0.4s ease-out forwards;
+}
+
+
 /* Hide scrollbar for Chrome, Safari and Opera */
 .no-scrollbar::-webkit-scrollbar {
   display: none;

@@ -1,18 +1,18 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabase';
-import { BOSSES } from '../gameData/bosses';
 
 export default function Bosses({ session }) {
     const [userStats, setUserStats] = useState(null);
     const [activeFight, setActiveFight] = useState(null);
     const [loading, setLoading] = useState(true);
-    const [selectedTarget, setSelectedTarget] = useState({}); // { bossId: 1 } (1, 10, 100, 999999)
+    const [selectedTarget, setSelectedTarget] = useState({});
     const [processing, setProcessing] = useState(false);
-    const processingRef = useRef(false); // Ref to track processing state synchronously in closures
+    const processingRef = useRef(false);
     const [timeLeft, setTimeLeft] = useState(0);
     const [bossKills, setBossKills] = useState({});
     const [showCancelConfirmation, setShowCancelConfirmation] = useState(false);
     const [showInfo, setShowInfo] = useState(() => localStorage.getItem('bosses_showInfo') !== 'false');
+    const [bosses, setBosses] = useState([]);
 
     useEffect(() => {
         localStorage.setItem('bosses_showInfo', showInfo);
@@ -55,6 +55,17 @@ export default function Bosses({ session }) {
             }
             setBossKills(killsMap);
 
+            // Fetch Boss Configurations from database
+            const { data: bossConfigs, error: bossError } = await supabase.rpc('get_all_bosses');
+            if (bossError) {
+                console.error('Error fetching boss configs:', bossError);
+                // Fallback to empty array if fetch fails
+                setBosses([]);
+            } else {
+                console.log('Loaded bosses from database:', bossConfigs);
+                setBosses(bossConfigs || []);
+            }
+
         } catch (error) {
             console.error('Error fetching boss data:', error);
         } finally {
@@ -75,8 +86,10 @@ export default function Bosses({ session }) {
             return;
         }
 
-        const boss = BOSSES.find(b => b.id === activeFight.boss_id);
+
+        const boss = bosses.find(b => b.id === activeFight.boss_id);
         if (!boss) return;
+
 
         // Calculate and set initial time immediately
         const updateTimer = async () => {
@@ -102,7 +115,7 @@ export default function Bosses({ session }) {
         const timer = setInterval(updateTimer, 1000);
 
         return () => clearInterval(timer);
-    }, [activeFight]);
+    }, [activeFight, bosses]);
 
     const [lastReward, setLastReward] = useState(null);
 
@@ -121,17 +134,22 @@ export default function Bosses({ session }) {
         setProcessing(true);
 
         try {
+            console.log('Processing boss fight...');
             const { data, error } = await supabase.rpc('process_boss_fight');
             if (error) throw error;
+
+            console.log('Boss fight process result:', data);
 
             if (data.fights_processed > 0 && data.rewards) {
                 setLastReward(data.rewards);
             }
 
             if (data.status === 'finished' || data.status === 'finished_no_turns') {
+                console.log('Fight finished!');
                 setActiveFight(null);
                 fetchData(); // Refresh stats
             } else {
+                console.log('Fight continuing...');
                 setActiveFight(prev => ({
                     ...prev,
                     last_claim_time: data.next_claim_time,
@@ -141,6 +159,7 @@ export default function Bosses({ session }) {
             }
         } catch (err) {
             console.error('Process error:', err);
+            alert('Error processing fight: ' + err.message);
         } finally {
             processingRef.current = false;
             setProcessing(false);
@@ -266,10 +285,10 @@ export default function Bosses({ session }) {
                 <span className="text-xl font-bold text-blue-900 border-b-2 border-blue-900 leading-none">{formatNumber(totalStats)}</span>
             </div>
 
-            {/* Reward Notification (Windows 98 Style Modal) */}
+            {/* Reward Notification (Windows 98 Toast Style) */}
             {lastReward && (
-                <div className="fixed inset-0 z-[9999] flex items-center justify-center pointer-events-none animate-fade-in">
-                    <div className="bg-[#c0c0c0] border-2 border-white border-r-gray-800 border-b-gray-800 shadow-2xl pointer-events-auto animate-fade-in-up" style={{ minWidth: '320px', maxWidth: '400px' }}>
+                <div className="fixed bottom-12 right-4 z-[99999] animate-slide-up-fade">
+                    <div className="bg-[#c0c0c0] border-2 border-white border-r-gray-800 border-b-gray-800 shadow-2xl" style={{ minWidth: '320px', maxWidth: '400px' }}>
                         {/* Title Bar */}
                         <div className="px-2 py-1 bg-gradient-to-r from-[#000080] to-[#1084d0] text-white font-bold flex items-center gap-2">
                             <span className="text-sm">🏆 Victory Rewards!</span>
@@ -349,7 +368,7 @@ export default function Bosses({ session }) {
 
             {/* Boss List */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {BOSSES.map((boss) => {
+                {bosses.map((boss) => {
                     const isUnlocked = boss.id === 1 || maxDefeated >= (boss.id - 1);
                     const meetsReq = totalStats >= boss.req_total_stats;
                     const canAfford = userStats?.turns >= boss.cost_turns;

@@ -7,7 +7,7 @@ export default function AdminPanel({ onClose, onWorldReset, onUserUpdate }) {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [editingUser, setEditingUser] = useState(null);
-    const [activeTab, setActiveTab] = useState('users'); // 'users', 'mail'
+    const [activeTab, setActiveTab] = useState('users'); // 'users', 'mail', 'mechanics'
 
     useEffect(() => {
         fetchUsers();
@@ -129,6 +129,15 @@ export default function AdminPanel({ onClose, onWorldReset, onUserUpdate }) {
                     Season
                 </button>
                 <button
+                    onClick={() => setActiveTab('mechanics')}
+                    className={`px-4 py-2 border-2 ${activeTab === 'mechanics'
+                        ? 'border-white border-b-[#c0c0c0] bg-[#c0c0c0] border-r-gray-600 border-t-white border-l-white -mb-[2px] relative z-10'
+                        : 'border-gray-600 border-r-white border-b-white bg-gray-300 mt-[2px]'
+                        } font-bold text-sm`}
+                >
+                    Mechanics
+                </button>
+                <button
                     onClick={() => setActiveTab('settings')}
                     className={`px-4 py-2 border-2 ${activeTab === 'settings'
                         ? 'border-white border-b-[#c0c0c0] bg-[#c0c0c0] border-r-gray-600 border-t-white border-l-white -mb-[2px] relative z-10'
@@ -198,6 +207,12 @@ export default function AdminPanel({ onClose, onWorldReset, onUserUpdate }) {
                 {
                     activeTab === 'season' && (
                         <AdminSeasonPanel onSchedule={handleScheduleSeason} />
+                    )
+                }
+
+                {
+                    activeTab === 'mechanics' && (
+                        <AdminMechanicsPanel />
                     )
                 }
 
@@ -444,7 +459,424 @@ function AdminSeasonPanel({ onSchedule }) {
     );
 }
 
+function AdminMechanicsPanel() {
+    const [mechanics, setMechanics] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [showBossEditor, setShowBossEditor] = useState(false);
+
+    useEffect(() => {
+        fetchMechanics();
+    }, []);
+
+    const fetchMechanics = async () => {
+        try {
+            setLoading(true);
+            const { data, error } = await supabase.rpc('get_all_mechanics');
+            if (error) throw error;
+            setMechanics(data || []);
+        } catch (err) {
+            console.error('Error fetching mechanics:', err);
+            alert('Failed to load mechanics: ' + err.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const toggleMechanic = async (key, currentEnabled) => {
+        try {
+            const newEnabled = !currentEnabled;
+            const { data, error } = await supabase.rpc('toggle_mechanic', {
+                p_key: key,
+                p_enabled: newEnabled
+            });
+
+            if (error) throw error;
+            if (data && !data.success) {
+                alert(data.message || 'Failed to toggle mechanic');
+                return;
+            }
+
+            // Update local state
+            setMechanics(prev => prev.map(m =>
+                m.key === key ? { ...m, enabled: newEnabled } : m
+            ));
+        } catch (err) {
+            console.error('Error toggling mechanic:', err);
+            alert('Failed to toggle mechanic: ' + err.message);
+        }
+    };
+
+    const getMechanicIcon = (key) => {
+        const icons = {
+            'vault_stealing': '🔐',
+            'hostage_system': '⛓️',
+            'alliance_system': '🤝',
+            'boss_fights': '👹',
+            'spy_reports': '🕵️'
+        };
+        return icons[key] || '⚙️';
+    };
+
+    const getMechanicName = (key) => {
+        return key.split('_').map(word =>
+            word.charAt(0).toUpperCase() + word.slice(1)
+        ).join(' ');
+    };
+
+    if (loading) {
+        return (
+            <fieldset className="border-2 border-white border-l-gray-600 border-t-gray-600 p-4 h-full">
+                <legend className="font-bold px-1 text-sm">Game Mechanics</legend>
+                <div className="flex items-center justify-center h-32">
+                    <div className="text-gray-500">Loading mechanics...</div>
+                </div>
+            </fieldset>
+        );
+    }
+
+    return (
+        <fieldset className="border-2 border-white border-l-gray-600 border-t-gray-600 p-4 h-full overflow-auto">
+            <legend className="font-bold px-1 text-sm">Game Mechanics</legend>
+
+            <div className="space-y-4">
+                <div className="bg-blue-50 p-3 border border-blue-300">
+                    <p className="text-sm text-blue-900">
+                        <strong>⚙️ Toggle Game Features:</strong> Enable or disable specific game mechanics.
+                        Disabled mechanics will be hidden from players and their functionality will be blocked.
+                    </p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {mechanics.map(mechanic => (
+                        <div
+                            key={mechanic.key}
+                            className={`p-4 border-2 transition-colors ${mechanic.enabled
+                                ? 'bg-green-50 border-green-500'
+                                : 'bg-red-50 border-red-500'
+                                }`}
+                        >
+                            <div className="flex items-start justify-between gap-4">
+                                <div className="flex-1">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <span className="text-2xl">{getMechanicIcon(mechanic.key)}</span>
+                                        <h3 className="font-bold text-lg">
+                                            {getMechanicName(mechanic.key)}
+                                        </h3>
+                                    </div>
+                                    <p className="text-sm text-gray-700 mb-2">
+                                        {mechanic.description}
+                                    </p>
+                                    <div className="text-xs text-gray-500">
+                                        Last updated: {mechanic.updated_at
+                                            ? new Date(mechanic.updated_at).toLocaleString()
+                                            : 'Never'}
+                                    </div>
+                                </div>
+
+                                <div className="flex flex-col items-center gap-2">
+                                    <div className={`text-xs font-bold uppercase px-2 py-1 rounded ${mechanic.enabled
+                                        ? 'bg-green-600 text-white'
+                                        : 'bg-red-600 text-white'
+                                        }`}>
+                                        {mechanic.enabled ? 'ENABLED' : 'DISABLED'}
+                                    </div>
+
+                                    {mechanic.key === 'boss_fights' && (
+                                        <button
+                                            onClick={() => setShowBossEditor(true)}
+                                            className="px-4 py-2 border-2 font-bold text-sm shadow active:translate-y-[1px] bg-blue-600 text-white border-blue-800 hover:bg-blue-700"
+                                        >
+                                            ⚙️ Configure
+                                        </button>
+                                    )}
+
+                                    <button
+                                        onClick={() => toggleMechanic(mechanic.key, mechanic.enabled)}
+                                        className={`px-4 py-2 border-2 font-bold text-sm shadow active:translate-y-[1px] ${mechanic.enabled
+                                            ? 'bg-red-600 text-white border-red-800 hover:bg-red-700'
+                                            : 'bg-green-600 text-white border-green-800 hover:bg-green-700'
+                                            }`}
+                                    >
+                                        {mechanic.enabled ? 'Disable' : 'Enable'}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+
+                {mechanics.length === 0 && (
+                    <div className="text-center text-gray-500 py-8">
+                        No mechanics configured
+                    </div>
+                )}
+            </div>
+
+            {/* Boss Editor Modal */}
+            {showBossEditor && (
+                <BossEditorModal onClose={() => setShowBossEditor(false)} />
+            )}
+        </fieldset>
+    );
+}
+
+function BossEditorModal({ onClose }) {
+    const [bosses, setBosses] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
+    const [editingBoss, setEditingBoss] = useState(null);
+
+    useEffect(() => {
+        fetchBosses();
+    }, []);
+
+    const fetchBosses = async () => {
+        try {
+            setLoading(true);
+            const { data, error } = await supabase.rpc('get_boss_configs');
+            if (error) throw error;
+            setBosses(data || []);
+        } catch (err) {
+            console.error('Error fetching bosses:', err);
+            alert('Failed to load bosses: ' + err.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleSave = async (boss) => {
+        try {
+            setSaving(true);
+            const { data, error } = await supabase.rpc('update_boss_config', {
+                p_id: boss.id,
+                p_name: boss.name,
+                p_req_total_stats: parseInt(boss.req_total_stats),
+                p_cost_turns: parseInt(boss.cost_turns),
+                p_duration_seconds: parseInt(boss.duration_seconds),
+                p_reward_xp: parseInt(boss.reward_xp),
+                p_reward_gold: parseInt(boss.reward_gold),
+                p_reward_citizens: parseInt(boss.reward_citizens)
+            });
+
+            if (error) throw error;
+            if (data && !data.success) {
+                alert(data.message || 'Failed to update boss');
+                return;
+            }
+
+            alert('Boss updated successfully! Changes are now live.');
+            setEditingBoss(null);
+            fetchBosses();
+        } catch (err) {
+            console.error('Error updating boss:', err);
+            alert('Failed to update boss: ' + err.message);
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-[#c0c0c0] border-2 border-white border-r-gray-600 border-b-gray-600 shadow-lg max-w-6xl w-full max-h-[90vh] flex flex-col">
+                {/* Title Bar */}
+                <div className="bg-gradient-to-r from-[#000080] to-[#1084d0] text-white px-2 py-1 flex justify-between items-center">
+                    <div className="flex items-center gap-2">
+                        <span className="font-bold">👹 Boss Configuration Editor</span>
+                    </div>
+                    <button
+                        onClick={onClose}
+                        className="bg-[#c0c0c0] text-black px-2 border-2 border-white border-r-gray-600 border-b-gray-600 font-bold hover:bg-gray-300 active:border-gray-600 active:border-r-white active:border-b-white"
+                    >
+                        ✕
+                    </button>
+                </div>
+
+                {/* Content */}
+                <div className="p-4 flex-1 overflow-auto">
+                    {loading ? (
+                        <div className="flex items-center justify-center h-32">
+                            <div className="text-gray-700">Loading bosses...</div>
+                        </div>
+                    ) : (
+                        <div className="bg-white border-2 border-gray-600 border-r-white border-b-white">
+                            <table className="w-full text-xs border-collapse">
+                                <thead className="sticky top-0 bg-gray-200 border-b-2 border-gray-600">
+                                    <tr>
+                                        <th className="p-2 border-r border-gray-400 text-left">ID</th>
+                                        <th className="p-2 border-r border-gray-400 text-left">Name</th>
+                                        <th className="p-2 border-r border-gray-400 text-right">Required Stats</th>
+                                        <th className="p-2 border-r border-gray-400 text-right">Turn Cost</th>
+                                        <th className="p-2 border-r border-gray-400 text-right">Duration (s)</th>
+                                        <th className="p-2 border-r border-gray-400 text-right">XP Reward</th>
+                                        <th className="p-2 border-r border-gray-400 text-right">Gold Reward</th>
+                                        <th className="p-2 border-r border-gray-400 text-right">Citizens Reward</th>
+                                        <th className="p-2 text-center">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {bosses.map(boss => (
+                                        <BossRow
+                                            key={boss.id}
+                                            boss={boss}
+                                            isEditing={editingBoss === boss.id}
+                                            onEdit={() => setEditingBoss(boss.id)}
+                                            onCancel={() => setEditingBoss(null)}
+                                            onSave={handleSave}
+                                            saving={saving}
+                                        />
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+
+                    <div className="mt-4 p-3 bg-yellow-100 border border-yellow-400 text-xs">
+                        <p className="font-bold mb-1">⚠️ Important Notes:</p>
+                        <ul className="list-disc list-inside space-y-1">
+                            <li>Changes take effect <strong>immediately</strong> for all players</li>
+                            <li>Active boss fights will use the old values until completed</li>
+                            <li>Duration is in seconds (e.g., 60 = 1 minute)</li>
+                            <li>Required Stats = Total of Attack + Defense + Spy + Sentry needed to unlock</li>
+                        </ul>
+                    </div>
+                </div>
+
+                {/* Footer */}
+                <div className="border-t-2 border-gray-600 p-3 bg-[#c0c0c0] flex justify-end">
+                    <button
+                        onClick={onClose}
+                        className="px-6 py-2 bg-[#c0c0c0] border-2 border-white border-r-gray-600 border-b-gray-600 font-bold active:border-gray-600 active:border-r-white active:border-b-white"
+                    >
+                        Close
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function BossRow({ boss, isEditing, onEdit, onCancel, onSave, saving }) {
+    const [formData, setFormData] = useState({
+        id: boss.id,
+        name: boss.name,
+        req_total_stats: boss.req_total_stats,
+        cost_turns: boss.cost_turns,
+        duration_seconds: boss.duration_seconds,
+        reward_xp: boss.reward_xp,
+        reward_gold: boss.reward_gold,
+        reward_citizens: boss.reward_citizens
+    });
+
+    const inputClass = "w-full bg-white border border-gray-400 px-1 py-0.5 text-right";
+    const nameInputClass = "w-full bg-white border border-gray-400 px-1 py-0.5";
+
+    if (!isEditing) {
+        return (
+            <tr className="hover:bg-blue-50 border-b border-gray-300">
+                <td className="p-2 border-r border-gray-300 font-bold">{boss.id}</td>
+                <td className="p-2 border-r border-gray-300 font-semibold">{boss.name}</td>
+                <td className="p-2 border-r border-gray-300 text-right font-mono">{boss.req_total_stats.toLocaleString()}</td>
+                <td className="p-2 border-r border-gray-300 text-right font-mono">{boss.cost_turns}</td>
+                <td className="p-2 border-r border-gray-300 text-right font-mono">{boss.duration_seconds}</td>
+                <td className="p-2 border-r border-gray-300 text-right font-mono">{boss.reward_xp.toLocaleString()}</td>
+                <td className="p-2 border-r border-gray-300 text-right font-mono">{boss.reward_gold.toLocaleString()}</td>
+                <td className="p-2 border-r border-gray-300 text-right font-mono">{boss.reward_citizens.toLocaleString()}</td>
+                <td className="p-2 text-center">
+                    <button
+                        onClick={onEdit}
+                        className="text-[10px] px-2 py-1 bg-blue-600 text-white border border-blue-800 font-bold hover:bg-blue-700"
+                    >
+                        Edit
+                    </button>
+                </td>
+            </tr>
+        );
+    }
+
+    return (
+        <tr className="bg-yellow-50 border-b border-gray-300">
+            <td className="p-2 border-r border-gray-300 font-bold">{boss.id}</td>
+            <td className="p-2 border-r border-gray-300">
+                <input
+                    type="text"
+                    value={formData.name}
+                    onChange={e => setFormData({ ...formData, name: e.target.value })}
+                    className={nameInputClass}
+                />
+            </td>
+            <td className="p-2 border-r border-gray-300">
+                <input
+                    type="number"
+                    value={formData.req_total_stats}
+                    onChange={e => setFormData({ ...formData, req_total_stats: e.target.value })}
+                    className={inputClass}
+                />
+            </td>
+            <td className="p-2 border-r border-gray-300">
+                <input
+                    type="number"
+                    value={formData.cost_turns}
+                    onChange={e => setFormData({ ...formData, cost_turns: e.target.value })}
+                    className={inputClass}
+                />
+            </td>
+            <td className="p-2 border-r border-gray-300">
+                <input
+                    type="number"
+                    value={formData.duration_seconds}
+                    onChange={e => setFormData({ ...formData, duration_seconds: e.target.value })}
+                    className={inputClass}
+                />
+            </td>
+            <td className="p-2 border-r border-gray-300">
+                <input
+                    type="number"
+                    value={formData.reward_xp}
+                    onChange={e => setFormData({ ...formData, reward_xp: e.target.value })}
+                    className={inputClass}
+                />
+            </td>
+            <td className="p-2 border-r border-gray-300">
+                <input
+                    type="number"
+                    value={formData.reward_gold}
+                    onChange={e => setFormData({ ...formData, reward_gold: e.target.value })}
+                    className={inputClass}
+                />
+            </td>
+            <td className="p-2 border-r border-gray-300">
+                <input
+                    type="number"
+                    value={formData.reward_citizens}
+                    onChange={e => setFormData({ ...formData, reward_citizens: e.target.value })}
+                    className={inputClass}
+                />
+            </td>
+            <td className="p-2 text-center">
+                <div className="flex gap-1 justify-center">
+                    <button
+                        onClick={() => onSave(formData)}
+                        disabled={saving}
+                        className="text-[10px] px-2 py-1 bg-green-600 text-white border border-green-800 font-bold hover:bg-green-700 disabled:opacity-50"
+                    >
+                        {saving ? '...' : 'Save'}
+                    </button>
+                    <button
+                        onClick={onCancel}
+                        disabled={saving}
+                        className="text-[10px] px-2 py-1 bg-red-600 text-white border border-red-800 font-bold hover:bg-red-700 disabled:opacity-50"
+                    >
+                        Cancel
+                    </button>
+                </div>
+            </td>
+        </tr>
+    );
+}
+
 function AdminSettingsPanel() {
+
+
     const [isMaintenance, setIsMaintenance] = useState(false);
     const [loading, setLoading] = useState(false);
 
