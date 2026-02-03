@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
 import GuideArrow from './GuideArrow';
 import { useGame } from '../contexts/GameContext';
@@ -7,6 +7,39 @@ export default function Library({ userStats, onUpdate }) {
     const { showNotification } = useGame();
     const [loading, setLoading] = useState(false);
     const [activeTab, setActiveTab] = useState('economy');
+    const [libConfig, setLibConfig] = useState(null);
+    const [hostageConfig, setHostageConfig] = useState(null);
+    const [mechanics, setMechanics] = useState({});
+
+    useEffect(() => {
+        const fetchConfig = async () => {
+            const { data, error } = await supabase.rpc('get_library_config');
+            if (!error && data) {
+                setLibConfig(data);
+            }
+
+            try {
+                const { data: hData, error: hError } = await supabase.rpc('get_hostage_config');
+                if (!hError && hData && hData.levels) {
+                    setHostageConfig(hData);
+                }
+            } catch (e) {
+                console.error("Failed to load hostage config", e);
+            }
+
+            try {
+                const { data: mData, error: mError } = await supabase.rpc('get_all_mechanics');
+                if (!mError && mData) {
+                    const mechMap = {};
+                    mData.forEach(m => mechMap[m.key] = m.enabled);
+                    setMechanics(mechMap);
+                }
+            } catch (e) {
+                console.error("Failed to load mechanics", e);
+            }
+        };
+        fetchConfig();
+    }, []);
 
     if (!userStats) return <div className="p-4">Loading Library...</div>;
 
@@ -14,6 +47,11 @@ export default function Library({ userStats, onUpdate }) {
 
     // Upgrade Cost Logic
     const getUpgradeCost = (level) => {
+        if (libConfig) {
+            const config = libConfig.find(l => l.level === level);
+            return config ? config.upgrade_cost : 0;
+        }
+
         if (level === 1) return 100000;
         if (level === 2) return 300000;
         if (level === 3) return 600000;
@@ -26,8 +64,17 @@ export default function Library({ userStats, onUpdate }) {
         return 0; // Max level
     };
 
+    const getXpRate = (level) => {
+        if (libConfig) {
+            const config = libConfig.find(l => l.level === level);
+            return config ? config.xp_rate : level;
+        }
+        return level;
+    };
+
     const nextLevelCost = getUpgradeCost(currentLevel);
-    const isMaxLevel = currentLevel >= 10;
+    // Check if next level exists in config (to determine max level correctly)
+    const isMaxLevel = libConfig ? !libConfig.some(l => l.level === currentLevel + 1) : currentLevel >= 10;
 
     const handleUpgrade = async () => {
         setLoading(true);
@@ -92,6 +139,18 @@ export default function Library({ userStats, onUpdate }) {
 
     // Helper to get cost string for hostage research
     const getHostageResearchCost = (level) => {
+        if (hostageConfig && hostageConfig.levels) {
+            // Find config for NEXT level (users pay to go to next level)
+            // Current level 0 means paying for level 1? Or level 0 represents what you HAVE?
+            // Usually research starts at 0. You pay to reach level 1.
+            // If Hostage Config has Levels 1...N.
+            // Level 0 user -> Pays cost defined in Level 1 config? Or Level 0 config?
+            // Let's assume Config Level N defines cost to reach N.
+            const nextLvl = hostageConfig.levels.find(l => l.level === level + 1);
+            if (!nextLvl) return 'Max Level';
+            return (nextLvl.cost || 0).toLocaleString() + ' Gold';
+        }
+
         if (level === 0) return '100,000 Gold';
         if (level === 1) return '200,000 Gold';
         if (level === 2) return '500,000 Gold';
@@ -107,6 +166,12 @@ export default function Library({ userStats, onUpdate }) {
 
     // Helper to get numeric cost for hostage research validation
     const getHostageResearchCostNum = (level) => {
+        if (hostageConfig && hostageConfig.levels) {
+            const nextLvl = hostageConfig.levels.find(l => l.level === level + 1);
+            if (!nextLvl) return Infinity;
+            return nextLvl.cost || 0;
+        }
+
         if (level === 0) return 100000;
         if (level === 1) return 200000;
         if (level === 2) return 500000;
@@ -118,6 +183,23 @@ export default function Library({ userStats, onUpdate }) {
         if (level === 8) return 100000000;
         if (level === 9) return 1000000000;
         return Infinity;
+    };
+
+    // Helper for Hostage Bonus
+    const getHostageBonus = (level) => {
+        if (hostageConfig && hostageConfig.levels) {
+            const cfg = hostageConfig.levels.find(l => l.level === level);
+            return cfg ? cfg.bonus : (level * 10);
+        }
+        return level * 10;
+    };
+
+    // Helper for Hostage Max Level
+    const getHostageMaxLevel = () => {
+        if (hostageConfig && hostageConfig.levels) {
+            return Math.max(...hostageConfig.levels.map(l => l.level));
+        }
+        return 10;
     };
 
     // Helper to get cost for Tech Upgrades (Attack, Defense, Spy, Sentry)
@@ -247,7 +329,7 @@ export default function Library({ userStats, onUpdate }) {
                 cost: getVaultStealResearchCost(userStats.research_vault_steal || 0),
                 costNum: getVaultStealResearchCostNum(userStats.research_vault_steal || 0),
                 currency: 'xp',
-                disabled: false
+                disabled: mechanics['vault_stealing'] === false
             },
             {
                 name: 'Increase Stolen %',
@@ -276,12 +358,12 @@ export default function Library({ userStats, onUpdate }) {
             {
                 name: 'Convert into Hostages %',
                 level: userStats.research_hostage_convert || 0,
-                maxLevel: 10,
-                currentStat: `Convert ${(userStats.research_hostage_convert || 0) * 10}%`,
-                nextStat: `Convert ${Math.min(((userStats.research_hostage_convert || 0) + 1) * 10, 100)}%`,
+                maxLevel: getHostageMaxLevel(),
+                currentStat: `Convert ${getHostageBonus(userStats.research_hostage_convert || 0)}%`,
+                nextStat: `Convert ${getHostageBonus(Math.min((userStats.research_hostage_convert || 0) + 1, getHostageMaxLevel()))}%`,
                 cost: getHostageResearchCost(userStats.research_hostage_convert || 0),
                 costNum: getHostageResearchCostNum(userStats.research_hostage_convert || 0),
-                disabled: false
+                disabled: mechanics['hostage_system'] === false
             },
             {
                 name: 'Unlock Better Weapons',
@@ -291,41 +373,6 @@ export default function Library({ userStats, onUpdate }) {
                 nextStat: `Tier ${Math.min((userStats.research_weapons || 0) + 1, 5)}`,
                 cost: getWeaponResearchCost(userStats.research_weapons || 0),
                 costNum: getWeaponResearchCostNum(userStats.research_weapons || 0),
-                disabled: false
-            },
-            {
-                name: 'Attack Technology',
-                level: userStats.research_attack || 0,
-                maxLevel: 63,
-                currentStat: `+${getTechBonus(userStats.research_attack || 0)}% Power`,
-                nextStat: `+${getTechBonus(Math.min((userStats.research_attack || 0) + 1, 63))}% Power`,
-                cost: getTechUpgradeCost(userStats.research_attack || 0),
-                costNum: getTechUpgradeCostNum(userStats.research_attack || 0),
-                currency: 'xp',
-                disabled: false
-            },
-        ],
-        defense: [
-            {
-                name: 'Defense Technology',
-                level: userStats.research_defense || 0,
-                maxLevel: 63,
-                currentStat: `+${getTechBonus(userStats.research_defense || 0)}% Power`,
-                nextStat: `+${getTechBonus(Math.min((userStats.research_defense || 0) + 1, 63))}% Power`,
-                cost: getTechUpgradeCost(userStats.research_defense || 0),
-                costNum: getTechUpgradeCostNum(userStats.research_defense || 0),
-                currency: 'xp',
-                disabled: false
-            },
-            {
-                name: 'Sentry Technology',
-                level: userStats.research_sentry || 0,
-                maxLevel: 63,
-                currentStat: `+${getTechBonus(userStats.research_sentry || 0)}% Power`,
-                nextStat: `+${getTechBonus(Math.min((userStats.research_sentry || 0) + 1, 63))}% Power`,
-                cost: getTechUpgradeCost(userStats.research_sentry || 0),
-                costNum: getTechUpgradeCostNum(userStats.research_sentry || 0),
-                currency: 'xp',
                 disabled: false
             },
         ],
@@ -341,6 +388,30 @@ export default function Library({ userStats, onUpdate }) {
                 currency: 'xp',
                 disabled: false
             },
+        ],
+        technology: [
+            {
+                name: 'Attack Technology',
+                level: userStats.research_attack || 0,
+                maxLevel: 63,
+                currentStat: `+${getTechBonus(userStats.research_attack || 0)}% Power`,
+                nextStat: `+${getTechBonus(Math.min((userStats.research_attack || 0) + 1, 63))}% Power`,
+                cost: getTechUpgradeCost(userStats.research_attack || 0),
+                costNum: getTechUpgradeCostNum(userStats.research_attack || 0),
+                currency: 'xp',
+                disabled: false
+            },
+            {
+                name: 'Defense Technology',
+                level: userStats.research_defense || 0,
+                maxLevel: 63,
+                currentStat: `+${getTechBonus(userStats.research_defense || 0)}% Power`,
+                nextStat: `+${getTechBonus(Math.min((userStats.research_defense || 0) + 1, 63))}% Power`,
+                cost: getTechUpgradeCost(userStats.research_defense || 0),
+                costNum: getTechUpgradeCostNum(userStats.research_defense || 0),
+                currency: 'xp',
+                disabled: false
+            },
             {
                 name: 'Spy Technology',
                 level: userStats.research_spy || 0,
@@ -349,6 +420,17 @@ export default function Library({ userStats, onUpdate }) {
                 nextStat: `+${getTechBonus(Math.min((userStats.research_spy || 0) + 1, 63))}% Power`,
                 cost: getTechUpgradeCost(userStats.research_spy || 0),
                 costNum: getTechUpgradeCostNum(userStats.research_spy || 0),
+                currency: 'xp',
+                disabled: false
+            },
+            {
+                name: 'Sentry Technology',
+                level: userStats.research_sentry || 0,
+                maxLevel: 63,
+                currentStat: `+${getTechBonus(userStats.research_sentry || 0)}% Power`,
+                nextStat: `+${getTechBonus(Math.min((userStats.research_sentry || 0) + 1, 63))}% Power`,
+                cost: getTechUpgradeCost(userStats.research_sentry || 0),
+                costNum: getTechUpgradeCostNum(userStats.research_sentry || 0),
                 currency: 'xp',
                 disabled: false
             },
@@ -388,7 +470,7 @@ export default function Library({ userStats, onUpdate }) {
                         <div className="grid grid-cols-2 gap-4">
                             <div className="p-2 border border-black bg-white">
                                 <div className="text-xs text-black uppercase font-bold">XP Bonus</div>
-                                <div className="font-bold text-black">+{currentLevel} XP / min</div>
+                                <div className="font-bold text-black">+{getXpRate(currentLevel)} XP / min</div>
                             </div>
                         </div>
                     </div>
@@ -396,7 +478,7 @@ export default function Library({ userStats, onUpdate }) {
                     {!isMaxLevel && (
                         <div className="flex-1 text-center md:text-right border-t md:border-t-0 md:border-l border-gray-400 pt-4 md:pt-0 md:pl-6">
                             <p className="text-sm text-gray-800 mb-2">
-                                Upgrade to Level {currentLevel + 1} for +1 XP/min
+                                Upgrade to Level {currentLevel + 1} for +{getXpRate(currentLevel + 1) - getXpRate(currentLevel)} XP/min
                             </p>
                             <div className="text-sm font-bold text-black mb-3">
                                 Cost: {nextLevelCost.toLocaleString()} Gold
@@ -434,7 +516,7 @@ export default function Library({ userStats, onUpdate }) {
 
                 {/* Research Grid */}
                 <div className="p-4 bg-white border-2 border-gray-600 border-t-white border-l-white">
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div className={`grid grid-cols-1 gap-6 ${activeTab === 'technology' ? 'md:grid-cols-2' : 'md:grid-cols-2 lg:grid-cols-3'}`}>
                         {researchCategories[activeTab].map((research, index) => (
                             <fieldset key={index} className="border-2 border-white border-l-gray-500 border-t-gray-500 p-2 relative group hover:bg-gray-50">
                                 <legend className="font-bold text-black mb-1 px-1">{research.name}</legend>
@@ -476,7 +558,7 @@ export default function Library({ userStats, onUpdate }) {
                                     }
                                     className={`w-full mt-2 py-1 font-bold text-xs uppercase border-2 border-white border-r-gray-800 border-b-gray-800 active:border-gray-800 active:border-r-white active:border-b-white bg-[#c0c0c0] text-black disabled:text-gray-500 disabled:border-gray-400`}
                                 >
-                                    {research.level >= research.maxLevel ? 'Max Level' : (research.disabled ? 'Coming Soon' : 'Research')}
+                                    {research.level >= research.maxLevel ? 'Max Level' : (research.disabled ? 'DISABLED' : 'Research')}
                                 </button>
                             </fieldset>
                         ))}

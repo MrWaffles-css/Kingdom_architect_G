@@ -99,6 +99,7 @@ const Desktop = ({
         }
     }, []);
 
+    const [adminMinimized, setAdminMinimized] = useState(false);
     const [hotkeys, setHotkeys] = useState({});
 
     useEffect(() => {
@@ -193,6 +194,26 @@ const Desktop = ({
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [viewingUserId, showAdmin, activeWindowId, openWindows, startMenuOpen]); // Dependencies ensure we have fresh state
+
+    // Admin Shortcut (Ctrl + A)
+    useEffect(() => {
+        const handleAdminShortcut = (e) => {
+            // Allow default Select All behavior in inputs
+            if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName) || e.target.isContentEditable) {
+                return;
+            }
+
+            if (e.ctrlKey && e.key.toLowerCase() === 'a') {
+                if (isAdmin) {
+                    e.preventDefault();
+                    setShowAdmin(prev => !prev);
+                }
+            }
+        };
+
+        window.addEventListener('keydown', handleAdminShortcut);
+        return () => window.removeEventListener('keydown', handleAdminShortcut);
+    }, [isAdmin, setShowAdmin]);
 
     const updateWindowTitle = (id, newTitle) => {
         setOpenWindows(prev => prev.map(w => w.id === id ? { ...w, title: newTitle } : w));
@@ -735,15 +756,18 @@ const Desktop = ({
             })}
 
             {/* Special Windows (Modals -> Windows) */}
-            {showAdmin && (
+            {showAdmin && !adminMinimized && (
                 <Window
                     title="Admin Panel"
                     isOpen={true}
                     onClose={() => setShowAdmin(false)}
-                    onMinimize={() => { }}
-                    isActive={true}
-                    onFocus={() => { }}
+                    onMinimize={() => setAdminMinimized(true)}
+                    isActive={activeWindowId === 'admin'}
+                    onFocus={() => setActiveWindowId('admin')}
                     width={600}
+                    initialPosition={savedWindowStates['admin']?.position}
+                    initialSize={savedWindowStates['admin']?.size}
+                    onStateUpdate={(newState) => handleWindowStateUpdate('admin', newState)}
                     getAllWindowBounds={() => getAllWindowBounds('admin')}
                     data-window-id="admin"
                 >
@@ -754,6 +778,8 @@ const Desktop = ({
                             setStats({ gold: 0, experience: 600, turns: 0, vault: 0, rank: 1, citizens: 2, kingdom_level: 0, tutorial_step: 0 });
                             refreshUserData(session.user.id);
                         }}
+                        initialTab={savedWindowStates['admin']?.tab}
+                        onTabChange={(tab) => handleWindowStateUpdate('admin', { tab })}
                     />
                 </Window>
             )}
@@ -961,7 +987,7 @@ const Desktop = ({
 
                         {isAdmin && (
                             <button
-                                onClick={() => { setShowAdmin(true); setStartMenuOpen(false); }}
+                                onClick={() => { setShowAdmin(true); setAdminMinimized(false); setActiveWindowId('admin'); setStartMenuOpen(false); }}
                                 className="w-full text-left px-2 py-1 hover:bg-[#000080] hover:text-white flex items-center gap-2"
                             >
                                 <img src="https://win98icons.alexmeub.com/icons/png/settings_gear-0.png" alt="" className="w-6 h-6" />
@@ -986,9 +1012,21 @@ const Desktop = ({
             )}
 
             <Taskbar
-                openWindows={openWindows}
+                openWindows={[...openWindows, ...(showAdmin ? [{ id: 'admin', title: 'Admin Panel', icon: '🛠️', isMinimized: adminMinimized }] : [])]}
                 activeWindowId={activeWindowId}
                 onWindowClick={(id) => {
+                    if (id === 'admin') {
+                        if (adminMinimized) {
+                            setAdminMinimized(false);
+                            setActiveWindowId('admin');
+                        } else if (activeWindowId === 'admin') {
+                            setAdminMinimized(true);
+                        } else {
+                            setActiveWindowId('admin');
+                        }
+                        return;
+                    }
+
                     const win = openWindows.find(w => w.id === id);
                     if (win) {
                         if (win.isMinimized) {

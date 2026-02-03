@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
 import { GAME_COSTS, UNIT_STATS, BARRACKS_LEVELS } from '../gameConfig';
 
@@ -12,6 +12,32 @@ export default function Barracks({ userStats, onUpdate }) {
         spy: '1',
         sentry: '1'
     });
+    const [hostageConfig, setHostageConfig] = useState(null);
+
+    useEffect(() => {
+        const fetchConfig = async () => {
+            try {
+                const { data, error } = await supabase.rpc('get_hostage_config');
+                if (!error && data) {
+                    setHostageConfig(data);
+                }
+            } catch (err) {
+                console.error("Failed to load hostage config", err);
+            }
+        };
+        fetchConfig();
+    }, []);
+
+    // Determine Conversion Cost
+    const getConversionCost = () => {
+        if (!hostageConfig || !hostageConfig.levels) return 2000;
+        // Default to level 0 if research is undefined
+        const currentLevel = userStats.research_hostage_convert || 0;
+        const configLevel = hostageConfig.levels.find(l => l.level === currentLevel);
+        return configLevel ? configLevel.convert_cost : 2000;
+    };
+
+    const conversionCost = getConversionCost();
 
     if (!userStats) return <div className="p-4 text-center">Loading barracks...</div>;
 
@@ -208,7 +234,7 @@ export default function Barracks({ userStats, onUpdate }) {
 
                     <div className="flex-1 flex flex-col items-center gap-2">
                         <p className="text-[0.875em] font-bold text-gray-800">Convert to Citizens</p>
-                        <p className="text-[0.75em] text-gray-600 mb-2">Cost: 2,000 Gold per hostage</p>
+                        <p className="text-[0.75em] text-gray-600 mb-2">Cost: {conversionCost.toLocaleString()} Gold per hostage</p>
                         <div className="flex gap-2 w-full justify-center">
                             <button
                                 onClick={async () => {
@@ -226,7 +252,7 @@ export default function Barracks({ userStats, onUpdate }) {
                                         setLoading(false);
                                     }
                                 }}
-                                disabled={loading || !userStats.hostages || userStats.hostages < 1 || availableGold < 2000}
+                                disabled={loading || !userStats.hostages || userStats.hostages < 1 || availableGold < conversionCost}
                                 className="px-4 py-1 bg-[#c0c0c0] border-2 border-white border-r-gray-800 border-b-gray-800 active:border-gray-800 active:border-r-white active:border-b-white text-[0.75em] font-bold disabled:text-gray-500"
                             >
                                 Convert 1
@@ -239,7 +265,7 @@ export default function Barracks({ userStats, onUpdate }) {
                                     setSuccessMsg(null);
                                     try {
                                         // Calculate max possible conversions based on gold
-                                        const maxAffordable = Math.floor(availableGold / 2000);
+                                        const maxAffordable = Math.floor(availableGold / conversionCost);
                                         const qty = Math.min(userStats.hostages, maxAffordable);
 
                                         if (qty <= 0) throw new Error("Not enough gold to convert any hostages.");
@@ -254,7 +280,7 @@ export default function Barracks({ userStats, onUpdate }) {
                                         setLoading(false);
                                     }
                                 }}
-                                disabled={loading || !userStats.hostages || userStats.hostages < 1 || availableGold < 2000}
+                                disabled={loading || !userStats.hostages || userStats.hostages < 1 || availableGold < conversionCost}
                                 className="px-4 py-1 bg-[#c0c0c0] border-2 border-white border-r-gray-800 border-b-gray-800 active:border-gray-800 active:border-r-white active:border-b-white text-[0.75em] font-bold disabled:text-gray-500"
                             >
                                 Convert All

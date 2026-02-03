@@ -2,12 +2,19 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
 import AdminMailPanel from './AdminMailPanel';
 
-export default function AdminPanel({ onClose, onWorldReset, onUserUpdate }) {
+export default function AdminPanel({ onClose, onWorldReset, onUserUpdate, initialTab, onTabChange }) {
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [editingUser, setEditingUser] = useState(null);
-    const [activeTab, setActiveTab] = useState('users'); // 'users', 'mail', 'mechanics'
+    const [activeTab, setActiveTabInternal] = useState(initialTab || 'users'); // 'users', 'mail', 'mechanics'
+
+    const setActiveTab = (tab) => {
+        setActiveTabInternal(tab);
+        if (onTabChange) {
+            onTabChange(tab);
+        }
+    };
 
     useEffect(() => {
         fetchUsers();
@@ -62,7 +69,7 @@ export default function AdminPanel({ onClose, onWorldReset, onUserUpdate }) {
             if (onUserUpdate) onUserUpdate();
         } catch (err) {
             console.error('Error updating user:', err);
-            alert('Failed to update user: ' + err.message);
+            console.error('Failed to update user:', err.message);
         }
     };
 
@@ -72,12 +79,12 @@ export default function AdminPanel({ onClose, onWorldReset, onUserUpdate }) {
             const { error } = await supabase.rpc('reset_world');
 
             if (error) throw error;
-            alert('World has been reset successfully. All stats, armies, reports, and messages have been wiped.');
+            console.log('World has been reset successfully.');
             if (onWorldReset) onWorldReset();
             fetchUsers();
         } catch (err) {
             console.error('Error resetting world:', err);
-            alert('Failed to reset world: ' + err.message);
+            console.error('Failed to reset world:', err.message);
         } finally {
             setLoading(false);
         }
@@ -88,10 +95,10 @@ export default function AdminPanel({ onClose, onWorldReset, onUserUpdate }) {
             setLoading(true);
             const { error } = await supabase.rpc('set_season_end_time', { p_end_time: date });
             if (error) throw error;
-            alert('Season end time updated successfully!');
+            console.log('Season end time updated successfully!');
         } catch (err) {
             console.error('Error scheduling season:', err);
-            alert('Failed to schedule season: ' + err.message);
+            console.error('Failed to schedule season:', err.message);
         } finally {
             setLoading(false);
         }
@@ -464,6 +471,16 @@ function AdminMechanicsPanel() {
     const [loading, setLoading] = useState(true);
     const [showBossEditor, setShowBossEditor] = useState(false);
 
+    const [showHostageEditor, setShowHostageEditor] = useState(false);
+    const [showLibraryEditor, setShowLibraryEditor] = useState(false);
+    const [showKingdomEditor, setShowKingdomEditor] = useState(false);
+    const [showGoldMineEditor, setShowGoldMineEditor] = useState(false);
+    const [showBarracksEditor, setShowBarracksEditor] = useState(false);
+    const [showVaultStealingEditor, setShowVaultStealingEditor] = useState(false);
+    const [showVaultEditor, setShowVaultEditor] = useState(false);
+    const [showTechStatsEditor, setShowTechStatsEditor] = useState(false);
+    const [showTurnsResearchEditor, setShowTurnsResearchEditor] = useState(false);
+
     useEffect(() => {
         fetchMechanics();
     }, []);
@@ -473,7 +490,9 @@ function AdminMechanicsPanel() {
             setLoading(true);
             const { data, error } = await supabase.rpc('get_all_mechanics');
             if (error) throw error;
-            setMechanics(data || []);
+            // Filter out mechanics that should always be enabled and not toggled
+            const permanentlyEnabled = ['alliance_system', 'spy_reports'];
+            setMechanics((data || []).filter(m => !permanentlyEnabled.includes(m.key)));
         } catch (err) {
             console.error('Error fetching mechanics:', err);
             alert('Failed to load mechanics: ' + err.message);
@@ -512,7 +531,15 @@ function AdminMechanicsPanel() {
             'hostage_system': '⛓️',
             'alliance_system': '🤝',
             'boss_fights': '👹',
-            'spy_reports': '🕵️'
+            'alliance_system': '🤝',
+            'boss_fights': '👹',
+            'spy_reports': '🕵️',
+            'kingdom_system': '🏰',
+            'gold_mine_system': '⛏️',
+            'barracks_system': '🗡️',
+            'vault_system': '🏦',
+            'tech_stats_system': '⚔️',
+            'turns_research_system': '⏱️'
         };
         return icons[key] || '⚙️';
     };
@@ -534,89 +561,336 @@ function AdminMechanicsPanel() {
         );
     }
 
+
     return (
-        <fieldset className="border-2 border-white border-l-gray-600 border-t-gray-600 p-4 h-full overflow-auto">
-            <legend className="font-bold px-1 text-sm">Game Mechanics</legend>
+        <>
+            <fieldset className="border-2 border-white border-l-gray-600 border-t-gray-600 p-4 h-full overflow-auto">
+                <legend className="font-bold px-1 text-sm">Game Mechanics</legend>
 
-            <div className="space-y-4">
-                <div className="bg-blue-50 p-3 border border-blue-300">
-                    <p className="text-sm text-blue-900">
-                        <strong>⚙️ Toggle Game Features:</strong> Enable or disable specific game mechanics.
-                        Disabled mechanics will be hidden from players and their functionality will be blocked.
-                    </p>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {mechanics.map(mechanic => (
-                        <div
-                            key={mechanic.key}
-                            className={`p-4 border-2 transition-colors ${mechanic.enabled
-                                ? 'bg-green-50 border-green-500'
-                                : 'bg-red-50 border-red-500'
-                                }`}
-                        >
-                            <div className="flex items-start justify-between gap-4">
-                                <div className="flex-1">
-                                    <div className="flex items-center gap-2 mb-2">
-                                        <span className="text-2xl">{getMechanicIcon(mechanic.key)}</span>
-                                        <h3 className="font-bold text-lg">
-                                            {getMechanicName(mechanic.key)}
-                                        </h3>
-                                    </div>
-                                    <p className="text-sm text-gray-700 mb-2">
-                                        {mechanic.description}
-                                    </p>
-                                    <div className="text-xs text-gray-500">
-                                        Last updated: {mechanic.updated_at
-                                            ? new Date(mechanic.updated_at).toLocaleString()
-                                            : 'Never'}
-                                    </div>
-                                </div>
-
-                                <div className="flex flex-col items-center gap-2">
-                                    <div className={`text-xs font-bold uppercase px-2 py-1 rounded ${mechanic.enabled
-                                        ? 'bg-green-600 text-white'
-                                        : 'bg-red-600 text-white'
-                                        }`}>
-                                        {mechanic.enabled ? 'ENABLED' : 'DISABLED'}
-                                    </div>
-
-                                    {mechanic.key === 'boss_fights' && (
-                                        <button
-                                            onClick={() => setShowBossEditor(true)}
-                                            className="px-4 py-2 border-2 font-bold text-sm shadow active:translate-y-[1px] bg-blue-600 text-white border-blue-800 hover:bg-blue-700"
-                                        >
-                                            ⚙️ Configure
-                                        </button>
-                                    )}
-
-                                    <button
-                                        onClick={() => toggleMechanic(mechanic.key, mechanic.enabled)}
-                                        className={`px-4 py-2 border-2 font-bold text-sm shadow active:translate-y-[1px] ${mechanic.enabled
-                                            ? 'bg-red-600 text-white border-red-800 hover:bg-red-700'
-                                            : 'bg-green-600 text-white border-green-800 hover:bg-green-700'
-                                            }`}
-                                    >
-                                        {mechanic.enabled ? 'Disable' : 'Enable'}
-                                    </button>
-                                </div>
-                            </div>
+                <div className="flex flex-col h-full gap-4">
+                    {/* Library Upgrades Section */}
+                    <div className="bg-white border-2 border-gray-500 border-r-white border-b-white">
+                        <div className="bg-gradient-to-r from-blue-700 to-blue-500 text-white px-2 py-1 font-bold text-xs border-b border-gray-400">
+                            📚 Library Upgrades
                         </div>
-                    ))}
+                        <table className="w-full text-sm border-collapse">
+                            <thead className="bg-[#c0c0c0]">
+                                <tr>
+                                    <th className="border border-gray-500 border-t-white border-l-white px-2 py-0.5 text-left w-8">On</th>
+                                    <th className="border border-gray-500 border-t-white border-l-white px-2 py-0.5 text-left">Feature</th>
+                                    <th className="border border-gray-500 border-t-white border-l-white px-2 py-0.5 w-24">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {/* Tech Stats System */}
+                                {mechanics.filter(m => m.key === 'tech_stats_system').map(mechanic => (
+                                    <tr key={mechanic.key} className="hover:bg-blue-800 hover:text-white group">
+                                        <td className="border border-gray-200 p-1 text-center">
+                                            <input
+                                                type="checkbox"
+                                                checked={mechanic.enabled}
+                                                onChange={() => toggleMechanic(mechanic.key, mechanic.enabled)}
+                                                className="cursor-pointer"
+                                            />
+                                        </td>
+                                        <td className="border border-gray-200 p-1 flex items-center gap-2 select-none">
+                                            <span>{getMechanicIcon(mechanic.key)}</span>
+                                            <span>{getMechanicName(mechanic.key)}</span>
+                                        </td>
+                                        <td className="border border-gray-200 p-1 text-center">
+                                            <button
+                                                onClick={() => setShowTechStatsEditor(true)}
+                                                className="px-2 py-0.5 bg-[#c0c0c0] text-black border-2 border-white border-r-black border-b-black text-xs active:border-black active:border-r-white active:border-b-white font-bold"
+                                            >
+                                                Setup
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))}
+
+                                {/* Turns Research System */}
+                                {mechanics.filter(m => m.key === 'turns_research_system').map(mechanic => (
+                                    <tr key={mechanic.key} className="hover:bg-blue-800 hover:text-white group">
+                                        <td className="border border-gray-200 p-1 text-center">
+                                            <input
+                                                type="checkbox"
+                                                checked={mechanic.enabled}
+                                                onChange={() => toggleMechanic(mechanic.key, mechanic.enabled)}
+                                                className="cursor-pointer"
+                                            />
+                                        </td>
+                                        <td className="border border-gray-200 p-1 flex items-center gap-2 select-none">
+                                            <span>{getMechanicIcon(mechanic.key)}</span>
+                                            <span>{getMechanicName(mechanic.key)}</span>
+                                        </td>
+                                        <td className="border border-gray-200 p-1 text-center">
+                                            <button
+                                                onClick={() => setShowTurnsResearchEditor(true)}
+                                                className="px-2 py-0.5 bg-[#c0c0c0] text-black border-2 border-white border-r-black border-b-black text-xs active:border-black active:border-r-white active:border-b-white font-bold"
+                                            >
+                                                Setup
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))}
+
+                                {/* Hostage System */}
+                                {mechanics.filter(m => m.key === 'hostage_system').map(mechanic => (
+                                    <tr key={mechanic.key} className="hover:bg-blue-800 hover:text-white group">
+                                        <td className="border border-gray-200 p-1 text-center">
+                                            <input
+                                                type="checkbox"
+                                                checked={mechanic.enabled}
+                                                onChange={() => toggleMechanic(mechanic.key, mechanic.enabled)}
+                                                className="cursor-pointer"
+                                            />
+                                        </td>
+                                        <td className="border border-gray-200 p-1 flex items-center gap-2 select-none">
+                                            <span>{getMechanicIcon(mechanic.key)}</span>
+                                            <span>{getMechanicName(mechanic.key)}</span>
+                                        </td>
+                                        <td className="border border-gray-200 p-1 text-center">
+                                            <button
+                                                onClick={() => setShowHostageEditor(true)}
+                                                className="px-2 py-0.5 bg-[#c0c0c0] text-black border-2 border-white border-r-black border-b-black text-xs active:border-black active:border-r-white active:border-b-white font-bold"
+                                            >
+                                                Setup
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))}
+
+                                {/* Vault Stealing */}
+                                {mechanics.filter(m => m.key === 'vault_stealing').map(mechanic => (
+                                    <tr key={mechanic.key} className="hover:bg-blue-800 hover:text-white group">
+                                        <td className="border border-gray-200 p-1 text-center">
+                                            <input
+                                                type="checkbox"
+                                                checked={mechanic.enabled}
+                                                onChange={() => toggleMechanic(mechanic.key, mechanic.enabled)}
+                                                className="cursor-pointer"
+                                            />
+                                        </td>
+                                        <td className="border border-gray-200 p-1 flex items-center gap-2 select-none">
+                                            <span>{getMechanicIcon(mechanic.key)}</span>
+                                            <span>{getMechanicName(mechanic.key)}</span>
+                                        </td>
+                                        <td className="border border-gray-200 p-1 text-center">
+                                            <button
+                                                onClick={() => setShowVaultStealingEditor(true)}
+                                                className="px-2 py-0.5 bg-[#c0c0c0] text-black border-2 border-white border-r-black border-b-black text-xs active:border-black active:border-r-white active:border-b-white font-bold"
+                                            >
+                                                Setup
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {/* Buildings Section */}
+                    <div className="bg-white border-2 border-gray-500 border-r-white border-b-white">
+                        <div className="bg-gradient-to-r from-amber-700 to-amber-500 text-white px-2 py-1 font-bold text-xs border-b border-gray-400">
+                            🏗️ Buildings
+                        </div>
+                        <table className="w-full text-sm border-collapse">
+                            <thead className="bg-[#c0c0c0]">
+                                <tr>
+                                    <th className="border border-gray-500 border-t-white border-l-white px-2 py-0.5 text-left w-8">On</th>
+                                    <th className="border border-gray-500 border-t-white border-l-white px-2 py-0.5 text-left">Feature</th>
+                                    <th className="border border-gray-500 border-t-white border-l-white px-2 py-0.5 w-24">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {/* Royal Library */}
+                                <tr className="hover:bg-blue-800 hover:text-white group">
+                                    <td className="border border-gray-200 p-1 text-center">
+                                        <input type="checkbox" checked={true} disabled className="cursor-not-allowed" />
+                                    </td>
+                                    <td className="border border-gray-200 p-1 flex items-center gap-2 select-none">
+                                        <span>📚</span>
+                                        <span>Royal Library</span>
+                                    </td>
+                                    <td className="border border-gray-200 p-1 text-center">
+                                        <button
+                                            onClick={() => setShowLibraryEditor(true)}
+                                            className="px-2 py-0.5 bg-[#c0c0c0] text-black border-2 border-white border-r-black border-b-black text-xs active:border-black active:border-r-white active:border-b-white font-bold"
+                                        >
+                                            Setup
+                                        </button>
+                                    </td>
+                                </tr>
+
+                                {/* Kingdom System */}
+                                {mechanics.filter(m => m.key === 'kingdom_system').map(mechanic => (
+                                    <tr key={mechanic.key} className="hover:bg-blue-800 hover:text-white group">
+                                        <td className="border border-gray-200 p-1 text-center">
+                                            <input
+                                                type="checkbox"
+                                                checked={mechanic.enabled}
+                                                onChange={() => toggleMechanic(mechanic.key, mechanic.enabled)}
+                                                className="cursor-pointer"
+                                            />
+                                        </td>
+                                        <td className="border border-gray-200 p-1 flex items-center gap-2 select-none">
+                                            <span>{getMechanicIcon(mechanic.key)}</span>
+                                            <span>{getMechanicName(mechanic.key)}</span>
+                                        </td>
+                                        <td className="border border-gray-200 p-1 text-center">
+                                            <button
+                                                onClick={() => setShowKingdomEditor(true)}
+                                                className="px-2 py-0.5 bg-[#c0c0c0] text-black border-2 border-white border-r-black border-b-black text-xs active:border-black active:border-r-white active:border-b-white font-bold"
+                                            >
+                                                Setup
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))}
+
+                                {/* Gold Mine System */}
+                                {mechanics.filter(m => m.key === 'gold_mine_system').map(mechanic => (
+                                    <tr key={mechanic.key} className="hover:bg-blue-800 hover:text-white group">
+                                        <td className="border border-gray-200 p-1 text-center">
+                                            <input
+                                                type="checkbox"
+                                                checked={mechanic.enabled}
+                                                onChange={() => toggleMechanic(mechanic.key, mechanic.enabled)}
+                                                className="cursor-pointer"
+                                            />
+                                        </td>
+                                        <td className="border border-gray-200 p-1 flex items-center gap-2 select-none">
+                                            <span>{getMechanicIcon(mechanic.key)}</span>
+                                            <span>{getMechanicName(mechanic.key)}</span>
+                                        </td>
+                                        <td className="border border-gray-200 p-1 text-center">
+                                            <button
+                                                onClick={() => setShowGoldMineEditor(true)}
+                                                className="px-2 py-0.5 bg-[#c0c0c0] text-black border-2 border-white border-r-black border-b-black text-xs active:border-black active:border-r-white active:border-b-white font-bold"
+                                            >
+                                                Setup
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))}
+
+                                {/* Barracks System */}
+                                {mechanics.filter(m => m.key === 'barracks_system').map(mechanic => (
+                                    <tr key={mechanic.key} className="hover:bg-blue-800 hover:text-white group">
+                                        <td className="border border-gray-200 p-1 text-center">
+                                            <input
+                                                type="checkbox"
+                                                checked={mechanic.enabled}
+                                                onChange={() => toggleMechanic(mechanic.key, mechanic.enabled)}
+                                                className="cursor-pointer"
+                                            />
+                                        </td>
+                                        <td className="border border-gray-200 p-1 flex items-center gap-2 select-none">
+                                            <span>{getMechanicIcon(mechanic.key)}</span>
+                                            <span>{getMechanicName(mechanic.key)}</span>
+                                        </td>
+                                        <td className="border border-gray-200 p-1 text-center">
+                                            <button
+                                                onClick={() => setShowBarracksEditor(true)}
+                                                className="px-2 py-0.5 bg-[#c0c0c0] text-black border-2 border-white border-r-black border-b-black text-xs active:border-black active:border-r-white active:border-b-white font-bold"
+                                            >
+                                                Setup
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))}
+
+                                {/* Vault System */}
+                                {mechanics.filter(m => m.key === 'vault_system').map(mechanic => (
+                                    <tr key={mechanic.key} className="hover:bg-blue-800 hover:text-white group">
+                                        <td className="border border-gray-200 p-1 text-center">
+                                            <input
+                                                type="checkbox"
+                                                checked={mechanic.enabled}
+                                                onChange={() => toggleMechanic(mechanic.key, mechanic.enabled)}
+                                                className="cursor-pointer"
+                                            />
+                                        </td>
+                                        <td className="border border-gray-200 p-1 flex items-center gap-2 select-none">
+                                            <span>{getMechanicIcon(mechanic.key)}</span>
+                                            <span>{getMechanicName(mechanic.key)}</span>
+                                        </td>
+                                        <td className="border border-gray-200 p-1 text-center">
+                                            <button
+                                                onClick={() => setShowVaultEditor(true)}
+                                                className="px-2 py-0.5 bg-[#c0c0c0] text-black border-2 border-white border-r-black border-b-black text-xs active:border-black active:border-r-white active:border-b-white font-bold"
+                                            >
+                                                Setup
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {/* Other Section */}
+                    <div className="bg-white border-2 border-gray-500 border-r-white border-b-white">
+                        <div className="bg-gradient-to-r from-purple-700 to-purple-500 text-white px-2 py-1 font-bold text-xs border-b border-gray-400">
+                            ⚙️ Other
+                        </div>
+                        <table className="w-full text-sm border-collapse">
+                            <thead className="bg-[#c0c0c0]">
+                                <tr>
+                                    <th className="border border-gray-500 border-t-white border-l-white px-2 py-0.5 text-left w-8">On</th>
+                                    <th className="border border-gray-500 border-t-white border-l-white px-2 py-0.5 text-left">Feature</th>
+                                    <th className="border border-gray-500 border-t-white border-l-white px-2 py-0.5 w-24">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {/* All other mechanics */}
+                                {mechanics.filter(m => !['tech_stats_system', 'turns_research_system', 'hostage_system', 'vault_stealing', 'kingdom_system', 'gold_mine_system', 'barracks_system', 'vault_system'].includes(m.key)).map(mechanic => (
+                                    <tr key={mechanic.key} className="hover:bg-blue-800 hover:text-white group">
+                                        <td className="border border-gray-200 p-1 text-center">
+                                            <input
+                                                type="checkbox"
+                                                checked={mechanic.enabled}
+                                                onChange={() => toggleMechanic(mechanic.key, mechanic.enabled)}
+                                                className="cursor-pointer"
+                                            />
+                                        </td>
+                                        <td className="border border-gray-200 p-1 flex items-center gap-2 select-none">
+                                            <span>{getMechanicIcon(mechanic.key)}</span>
+                                            <span>{getMechanicName(mechanic.key)}</span>
+                                        </td>
+                                        <td className="border border-gray-200 p-1 text-center">
+                                            {['boss_fights'].includes(mechanic.key) && (
+                                                <button
+                                                    onClick={() => {
+                                                        if (mechanic.key === 'boss_fights') setShowBossEditor(true);
+                                                    }}
+                                                    className="px-2 py-0.5 bg-[#c0c0c0] text-black border-2 border-white border-r-black border-b-black text-xs active:border-black active:border-r-white active:border-b-white font-bold"
+                                                >
+                                                    Setup
+                                                </button>
+                                            )}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
 
-                {mechanics.length === 0 && (
-                    <div className="text-center text-gray-500 py-8">
-                        No mechanics configured
-                    </div>
-                )}
-            </div>
+            </fieldset>
 
-            {/* Boss Editor Modal */}
-            {showBossEditor && (
-                <BossEditorModal onClose={() => setShowBossEditor(false)} />
-            )}
-        </fieldset>
+            {/* Modals */}
+            {showBossEditor && <BossEditorModal onClose={() => setShowBossEditor(false)} />}
+            {showHostageEditor && <HostageEditorModal onClose={() => setShowHostageEditor(false)} />}
+            {showLibraryEditor && <LibraryEditorModal onClose={() => setShowLibraryEditor(false)} />}
+            {showKingdomEditor && <KingdomEditorModal onClose={() => setShowKingdomEditor(false)} />}
+            {showGoldMineEditor && <GoldMineEditorModal onClose={() => setShowGoldMineEditor(false)} />}
+            {showBarracksEditor && <BarracksEditorModal onClose={() => setShowBarracksEditor(false)} />}
+            {showVaultStealingEditor && <VaultStealingEditorModal onClose={() => setShowVaultStealingEditor(false)} />}
+            {showVaultEditor && <VaultEditorModal onClose={() => setShowVaultEditor(false)} />}
+            {showTechStatsEditor && <TechStatsEditorModal onClose={() => setShowTechStatsEditor(false)} />}
+            {showTurnsResearchEditor && <TurnsResearchEditorModal onClose={() => setShowTurnsResearchEditor(false)} />}
+        </>
     );
 }
 
@@ -763,8 +1037,8 @@ function BossEditorModal({ onClose }) {
                             onClick={handleSaveAll}
                             disabled={saving || !hasChanges}
                             className={`px-6 py-2 border-2 font-bold flex items-center gap-2 ${hasChanges
-                                    ? 'bg-green-600 text-white border-green-800 hover:bg-green-700 active:border-green-800'
-                                    : 'bg-gray-400 text-gray-200 border-gray-500 cursor-not-allowed'
+                                ? 'bg-green-600 text-white border-green-800 hover:bg-green-700 active:border-green-800'
+                                : 'bg-gray-400 text-gray-200 border-gray-500 cursor-not-allowed'
                                 } border-white border-r-black border-b-black shadow-md active:shadow-none active:translate-y-[1px]`}
                         >
                             {saving ? 'Saving...' : '💾 Save All Changes'}
@@ -885,7 +1159,7 @@ function AdminSettingsPanel() {
             // alert(`Maintenance mode turned ${newValue ? 'ON' : 'OFF'}`);
             if (!newValue) window.location.reload(); // Reload to refresh the scheduler view
         } catch (err) {
-            alert('Failed to update maintenance mode: ' + err.message);
+            console.error('Failed to update maintenance mode:', err.message);
         } finally {
             setLoading(false);
         }
@@ -1011,3 +1285,1769 @@ function UserRow({ user, isEditing, onEdit, onCancel, onSave }) {
         </tr>
     );
 }
+
+function HostageEditorModal({ onClose }) {
+    const [config, setConfig] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
+    const [hasChanges, setHasChanges] = useState(false);
+
+    useEffect(() => {
+        fetchConfig();
+    }, []);
+
+    const fetchConfig = async () => {
+        try {
+            setLoading(true);
+            const { data, error } = await supabase.rpc('get_hostage_config');
+            if (error) throw error;
+            // Ensure levels array is sorted
+            if (data.levels) {
+                data.levels.sort((a, b) => a.level - b.level);
+            }
+            setConfig(data);
+            setHasChanges(false);
+        } catch (err) {
+            console.error('Error fetching hostage config:', err);
+            alert('Failed to load config: ' + err.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleLevelChange = (index, field, value) => {
+        const newLevels = [...config.levels];
+        newLevels[index] = { ...newLevels[index], [field]: parseInt(value) || 0 };
+        setConfig(prev => ({ ...prev, levels: newLevels }));
+        setHasChanges(true);
+    };
+
+    const handleAddLevel = () => {
+        const lastLevel = config.levels[config.levels.length - 1];
+        const newLevel = {
+            level: lastLevel.level + 1,
+            cost: Math.round(lastLevel.cost * 1.5),
+            bonus: lastLevel.bonus + 5,
+            convert_cost: lastLevel.convert_cost
+        };
+        setConfig(prev => ({ ...prev, levels: [...prev.levels, newLevel] }));
+        setHasChanges(true);
+    };
+
+    const handleRemoveLevel = (index) => {
+        // if (!window.confirm('Delete this level?')) return;
+        const newLevels = config.levels.filter((_, i) => i !== index);
+        // Re-index levels to ensure continuity? user might want gaps but our logic assumes sequence.
+        // Let's enforce sequence for now:
+        const reindexed = newLevels.map((lvl, i) => ({ ...lvl, level: i }));
+        setConfig(prev => ({ ...prev, levels: reindexed }));
+        setHasChanges(true);
+    };
+
+    const handleSave = async () => {
+        // if (!window.confirm('Are you sure you want to save changes?')) return;
+
+        try {
+            setSaving(true);
+            const { error } = await supabase.rpc('update_hostage_config_v2', {
+                p_levels: config.levels
+            });
+
+            if (error) throw error;
+            console.log('Hostage configuration updated successfully!');
+            setHasChanges(false);
+            onClose();
+        } catch (err) {
+            console.error('Error saving:', err);
+            console.error('Failed to save:', err.message);
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    // Helper for comma formatting in inputs (visual only)
+    const formatNumber = (num) => num?.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-[#c0c0c0] border-2 border-white border-r-gray-600 border-b-gray-600 shadow-lg max-w-5xl w-full max-h-[90vh] flex flex-col">
+                <div className="bg-gradient-to-r from-[#800000] to-[#d01010] text-white px-2 py-1 flex justify-between items-center">
+                    <span className="font-bold">⛓️ Hostage System Configuration</span>
+                    <button onClick={onClose} className="bg-[#c0c0c0] text-black px-2 border-2 border-white border-r-gray-600 border-b-gray-600 font-bold hover:bg-gray-300">✕</button>
+                </div>
+
+                <div className="p-4 flex-1 overflow-auto bg-[#c0c0c0]">
+                    {loading ? (
+                        <div className="text-center p-8">Loading configuration...</div>
+                    ) : (
+                        <div className="flex flex-col h-full">
+                            <div className="bg-white border-2 border-gray-400 p-1 overflow-auto flex-1">
+                                <table className="w-full text-xs border-collapse">
+                                    <thead className="bg-gray-100 sticky top-0 z-10">
+                                        <tr>
+                                            <th className="p-2 border border-gray-300 w-16">Lvl</th>
+                                            <th className="p-2 border border-gray-300">Cost (Gold)</th>
+                                            <th className="p-2 border border-gray-300">Research Bonus (%)</th>
+                                            <th className="p-2 border border-gray-300">Conversion Cost (Gold)</th>
+                                            <th className="p-2 border border-gray-300 w-10"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {config.levels?.map((lvl, idx) => (
+                                            <tr key={idx} className="hover:bg-blue-50">
+                                                <td className="p-1 border border-gray-200 text-center font-bold text-gray-500">
+                                                    {lvl.level}
+                                                </td>
+                                                <td className="p-1 border border-gray-200">
+                                                    {/* Cost is only editable for levels > 0 usually, but let's allow 0 if they want weird configs */}
+                                                    <input
+                                                        type="text"
+                                                        value={formatNumber(lvl.cost)}
+                                                        onChange={(e) => handleLevelChange(idx, 'cost', e.target.value.replace(/,/g, ''))}
+                                                        className="w-full text-right outline-none bg-transparent focus:bg-white px-1 font-mono"
+                                                    />
+                                                </td>
+                                                <td className="p-1 border border-gray-200">
+                                                    <input
+                                                        type="number"
+                                                        value={lvl.bonus}
+                                                        onChange={(e) => handleLevelChange(idx, 'bonus', e.target.value)}
+                                                        className="w-full text-right outline-none bg-transparent focus:bg-white px-1 font-mono"
+                                                    />
+                                                </td>
+                                                <td className="p-1 border border-gray-200">
+                                                    <input
+                                                        type="text"
+                                                        value={formatNumber(lvl.convert_cost)}
+                                                        onChange={(e) => handleLevelChange(idx, 'convert_cost', e.target.value.replace(/,/g, ''))}
+                                                        className="w-full text-right outline-none bg-transparent focus:bg-white px-1 font-mono"
+                                                    />
+                                                </td>
+                                                <td className="p-1 border border-gray-200 text-center">
+                                                    {idx === config.levels.length - 1 && idx > 0 && (
+                                                        <button
+                                                            onClick={() => handleRemoveLevel(idx)}
+                                                            className="text-red-500 hover:text-red-700 font-bold px-1"
+                                                            title="Remove Level"
+                                                        >
+                                                            ×
+                                                        </button>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <div className="mt-2 flex justify-between items-center">
+                                <button
+                                    onClick={handleAddLevel}
+                                    className="px-3 py-1 bg-white border border-gray-400 text-xs font-bold hover:bg-gray-50 flex items-center gap-1 shadow-sm"
+                                >
+                                    ➕ Add Next Level
+                                </button>
+                                <span className="text-[10px] text-gray-500 italic">
+                                    Levels must be sequential. "Cost" is price to reach this level from previous.
+                                </span>
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                <div className="border-t-2 border-gray-600 p-3 bg-[#c0c0c0] flex justify-end gap-2">
+                    <button
+                        onClick={handleSave}
+                        disabled={saving || !hasChanges}
+                        className={`px-6 py-2 border-2 font-bold flex items-center gap-2 ${hasChanges
+                            ? 'bg-green-600 text-white border-green-800 hover:bg-green-700 active:border-green-800'
+                            : 'bg-gray-400 text-gray-200 border-gray-500 cursor-not-allowed'
+                            } border-white border-r-black border-b-black shadow-md active:shadow-none active:translate-y-[1px]`}
+                    >
+                        {saving ? 'Saving...' : '💾 Save Configuration'}
+                    </button>
+                    <button onClick={onClose} className="px-6 py-2 bg-[#c0c0c0] border-2 border-white border-r-black border-b-black font-bold active:translate-y-[1px]">Close</button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function LibraryEditorModal({ onClose }) {
+    const [levels, setLevels] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
+    const [hasChanges, setHasChanges] = useState(false);
+    const [configMissing, setConfigMissing] = useState(false);
+
+    useEffect(() => {
+        fetchConfig();
+    }, []);
+
+    const fetchConfig = async () => {
+        try {
+            setLoading(true);
+            const { data, error } = await supabase.rpc('get_library_config');
+            if (error) throw error;
+            const sorted = (data || []).sort((a, b) => a.level - b.level);
+            setLevels(sorted);
+            setHasChanges(false);
+            setConfigMissing(false);
+        } catch (err) {
+            console.error('Error fetching library config:', err);
+            // Default fallback if table missing (so UI works for checking at least)
+            if (err.message.includes('function get_library_config') || err.message.includes('Could not find the function')) {
+                setConfigMissing(true);
+            } else {
+                console.error('Failed to load config:', err.message);
+            }
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleLevelChange = (index, field, value) => {
+        const newLevels = [...levels];
+        newLevels[index] = { ...newLevels[index], [field]: parseInt(value) || 0 };
+        setLevels(newLevels);
+        setHasChanges(true);
+    };
+
+    const handleAddLevel = () => {
+        const lastLevel = levels.length > 0 ? levels[levels.length - 1] : { level: 0, upgrade_cost: 0, xp_rate: 0 };
+        const newLevel = {
+            level: lastLevel.level + 1,
+            upgrade_cost: Math.round((lastLevel.upgrade_cost || 100000) * 1.5),
+            xp_rate: (lastLevel.xp_rate || 0) + 1
+        };
+        setLevels([...levels, newLevel]);
+        setHasChanges(true);
+    };
+
+    const handleRemoveLevel = (index) => {
+        // if (!window.confirm('Delete this level?')) return;
+        const newLevels = levels.filter((_, i) => i !== index);
+        // Enforce sequential levels
+        const reindexed = newLevels.map((lvl, i) => ({ ...lvl, level: i + 1 }));
+        setLevels(reindexed);
+        setHasChanges(true);
+    };
+
+    const handleSave = async () => {
+        if (configMissing) {
+            console.error('Cannot save: Database configuration is missing.');
+            return;
+        }
+        // if (!window.confirm('Are you sure you want to save changes?')) return;
+        console.log('Starting save...');
+
+        try {
+            setSaving(true);
+
+            // Get current max level in DB to know if we need to delete any
+            console.log('Fetching current config from DB...');
+            const { data: dbLevels, error: fetchError } = await supabase.rpc('get_library_config');
+            if (fetchError) throw fetchError;
+
+            const dbMax = dbLevels ? Math.max(...dbLevels.map(l => l.level)) : 0;
+            const newMax = levels.length > 0 ? Math.max(...levels.map(l => l.level)) : 0;
+            console.log('DB Max:', dbMax, 'New Max:', newMax);
+
+            const promises = [];
+
+            // Update/Insert all current levels
+            console.log('Preparing updates for', levels.length, 'levels');
+            for (const lvl of levels) {
+                // Ensure values are numbers
+                const payload = {
+                    p_level: Number(lvl.level),
+                    p_upgrade_cost: Number(lvl.upgrade_cost),
+                    p_xp_rate: Number(lvl.xp_rate)
+                };
+                promises.push(supabase.rpc('update_library_config', payload));
+            }
+
+            // Delete excess levels
+            for (let i = newMax + 1; i <= dbMax; i++) {
+                console.log('Deleting level', i);
+                promises.push(supabase.rpc('delete_library_level', { p_level: i }));
+            }
+
+            console.log('Executing', promises.length, 'RPC calls...');
+            const results = await Promise.all(promises);
+            const errors = results.filter(r => r.error);
+
+            if (errors.length > 0) {
+                console.error('RPC Errors:', errors);
+                throw new Error(`${errors.length} operations failed. First error: ${errors[0].error.message}`);
+            }
+
+            console.log('Save complete!');
+            console.log('Library configuration updated successfully!');
+            setHasChanges(false);
+            fetchConfig(); // Refresh
+        } catch (err) {
+            console.error('Error saving:', err);
+            console.error('Failed to save:', (err.message || JSON.stringify(err)));
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const formatNumber = (num) => num?.toLocaleString() || '0';
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-[#c0c0c0] border-2 border-white border-r-gray-600 border-b-gray-600 shadow-lg max-w-4xl w-full max-h-[90vh] flex flex-col">
+                <div className="bg-gradient-to-r from-[#000080] to-[#1084d0] text-white px-2 py-1 flex justify-between items-center">
+                    <span className="font-bold">📚 Library Configuration</span>
+                    <button onClick={onClose} className="bg-[#c0c0c0] text-black px-2 border-2 border-white border-r-gray-600 border-b-gray-600 font-bold hover:bg-gray-300">✕</button>
+                </div>
+
+                <div className="p-4 flex-1 overflow-auto bg-[#c0c0c0]">
+                    {loading ? (
+                        <div className="text-center p-8">Loading configuration...</div>
+                    ) : configMissing ? (
+                        <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4">
+                            <p className="font-bold">Configuration Missing</p>
+                            <p>The necessary database tables and functions for the Library Configurator have not been installed yet.</p>
+                            <p className="mt-2 text-sm text-black bg-gray-100 p-2 border border-gray-300 rounded font-mono select-all">
+                                Please run the "feature_library_config.sql" migration script in your Supabase SQL Editor.
+                            </p>
+                        </div>
+                    ) : (
+                        <div className="flex flex-col h-full">
+                            <div className="bg-white border-2 border-gray-400 p-1 overflow-auto flex-1">
+                                <table className="w-full text-xs border-collapse">
+                                    <thead className="bg-gray-100 sticky top-0 z-10">
+                                        <tr>
+                                            <th className="p-2 border border-gray-300 w-16">Level</th>
+                                            <th className="p-2 border border-gray-300">Upgrade Cost (Gold)</th>
+                                            <th className="p-2 border border-gray-300">Passive XP / Min</th>
+                                            <th className="p-2 border border-gray-300 w-10"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {levels.map((lvl, idx) => (
+                                            <tr key={idx} className="hover:bg-blue-50">
+                                                <td className="p-1 border border-gray-200 text-center font-bold text-gray-500">
+                                                    {lvl.level}
+                                                </td>
+                                                <td className="p-1 border border-gray-200">
+                                                    <input
+                                                        type="text"
+                                                        value={formatNumber(lvl.upgrade_cost)}
+                                                        onChange={(e) => handleLevelChange(idx, 'upgrade_cost', e.target.value.replace(/,/g, ''))}
+                                                        className="w-full text-right outline-none bg-transparent focus:bg-white px-1 font-mono"
+                                                    />
+                                                </td>
+                                                <td className="p-1 border border-gray-200">
+                                                    <input
+                                                        type="number"
+                                                        value={lvl.xp_rate}
+                                                        onChange={(e) => handleLevelChange(idx, 'xp_rate', e.target.value)}
+                                                        className="w-full text-right outline-none bg-transparent focus:bg-white px-1 font-mono"
+                                                    />
+                                                </td>
+                                                <td className="p-1 border border-gray-200 text-center">
+                                                    {idx === levels.length - 1 && (
+                                                        <button
+                                                            onClick={() => handleRemoveLevel(idx)}
+                                                            className="text-red-500 hover:text-red-700 font-bold px-1"
+                                                            title="Remove Level"
+                                                        >
+                                                            ×
+                                                        </button>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <div className="mt-2 flex justify-between items-center">
+                                <button
+                                    onClick={handleAddLevel}
+                                    className="px-3 py-1 bg-white border border-gray-400 text-xs font-bold hover:bg-gray-50 flex items-center gap-1 shadow-sm"
+                                >
+                                    ➕ Add Next Level
+                                </button>
+                                <span className="text-[10px] text-gray-500 italic">
+                                    Levels must be sequential.
+                                </span>
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                <div className="border-t-2 border-gray-600 p-3 bg-[#c0c0c0] flex justify-end gap-2">
+                    <button
+                        onClick={handleSave}
+                        disabled={saving || (!hasChanges && !configMissing) || configMissing}
+                        className={`px-6 py-2 border-2 font-bold flex items-center gap-2 ${hasChanges && !configMissing
+                            ? 'bg-green-600 text-white border-green-800 hover:bg-green-700 active:border-green-800'
+                            : 'bg-gray-400 text-gray-200 border-gray-500 cursor-not-allowed'
+                            } border-white border-r-black border-b-black shadow-md active:shadow-none active:translate-y-[1px]`}
+                    >
+                        {saving ? 'Saving...' : '💾 Save Configuration'}
+                    </button>
+                    <button onClick={onClose} className="px-6 py-2 bg-[#c0c0c0] border-2 border-white border-r-black border-b-black font-bold active:translate-y-[1px]">Close</button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function KingdomEditorModal({ onClose }) {
+    const [config, setConfig] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
+    const [hasChanges, setHasChanges] = useState(false);
+
+    useEffect(() => {
+        fetchConfig();
+    }, []);
+
+    const fetchConfig = async () => {
+        try {
+            setLoading(true);
+            const { data, error } = await supabase.rpc('get_kingdom_config');
+            if (error) throw error;
+            // Ensure levels array is sorted
+            if (data && data.levels) {
+                data.levels.sort((a, b) => a.level - b.level);
+            }
+            setConfig(data || { levels: [] });
+            setHasChanges(false);
+        } catch (err) {
+            console.error('Error fetching kingdom config:', err);
+            // Fallback if table/function missing yet (soft fail)
+            alert('Failed to load config: ' + err.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleLevelChange = (index, field, value) => {
+        const newLevels = [...config.levels];
+        newLevels[index] = { ...newLevels[index], [field]: parseInt(value) || 0 };
+        setConfig(prev => ({ ...prev, levels: newLevels }));
+        setHasChanges(true);
+    };
+
+    const handleAddLevel = () => {
+        const lastLevel = config.levels && config.levels.length > 0
+            ? config.levels[config.levels.length - 1]
+            : { level: 0, cost: 0, citizens_per_minute: 0 };
+
+        const newLevel = {
+            level: lastLevel.level + 1,
+            cost: Math.round((lastLevel.cost || 500) * 1.5),
+            citizens_per_minute: (lastLevel.citizens_per_minute || 0) + 5
+        };
+        setConfig(prev => ({ ...prev, levels: [...(prev.levels || []), newLevel] }));
+        setHasChanges(true);
+    };
+
+    const handleRemoveLevel = (index) => {
+        const newLevels = config.levels.filter((_, i) => i !== index);
+        // Optionally re-index purely for display or logic? 
+        // For now, let's keep them as is or re-index level number
+        const reindexed = newLevels.map((lvl, i) => ({ ...lvl, level: i + 1 }));
+        setConfig(prev => ({ ...prev, levels: reindexed }));
+        setHasChanges(true);
+    };
+
+    const handleSave = async () => {
+        try {
+            setSaving(true);
+            const { error } = await supabase.rpc('update_kingdom_config', {
+                p_levels: config.levels
+            });
+
+            if (error) throw error;
+            console.log('Kingdom configuration updated successfully!');
+            setHasChanges(false);
+            onClose();
+        } catch (err) {
+            console.error('Error saving:', err);
+            alert('Failed to save: ' + err.message);
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    // Helper for comma formatting
+    const formatNumber = (num) => num?.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-[#c0c0c0] border-2 border-white border-r-gray-600 border-b-gray-600 shadow-lg max-w-4xl w-full max-h-[90vh] flex flex-col">
+                <div className="bg-gradient-to-r from-[#502090] to-[#9040d0] text-white px-2 py-1 flex justify-between items-center">
+                    <span className="font-bold">🏰 Kingdom Level Configuration</span>
+                    <button onClick={onClose} className="bg-[#c0c0c0] text-black px-2 border-2 border-white border-r-gray-600 border-b-gray-600 font-bold hover:bg-gray-300">✕</button>
+                </div>
+
+                <div className="p-4 flex-1 overflow-auto bg-[#c0c0c0]">
+                    {loading ? (
+                        <div className="text-center p-8">Loading configuration...</div>
+                    ) : (
+                        <div className="flex flex-col h-full">
+                            <div className="bg-white border-2 border-gray-400 p-1 overflow-auto flex-1">
+                                <table className="w-full text-xs border-collapse">
+                                    <thead className="bg-gray-100 sticky top-0 z-10">
+                                        <tr>
+                                            <th className="p-2 border border-gray-300 w-16">Lvl</th>
+                                            <th className="p-2 border border-gray-300">Upgrade Cost (EXP)</th>
+                                            <th className="p-2 border border-gray-300">Citizens / Minute</th>
+                                            <th className="p-2 border border-gray-300 w-10"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {config?.levels?.map((lvl, idx) => (
+                                            <tr key={idx} className="hover:bg-purple-50">
+                                                <td className="p-1 border border-gray-200 text-center font-bold text-gray-500">
+                                                    {lvl.level}
+                                                </td>
+                                                <td className="p-1 border border-gray-200">
+                                                    <input
+                                                        type="text"
+                                                        value={formatNumber(lvl.cost)}
+                                                        onChange={(e) => handleLevelChange(idx, 'cost', e.target.value.replace(/,/g, ''))}
+                                                        className="w-full text-right outline-none bg-transparent focus:bg-white px-1 font-mono"
+                                                    />
+                                                </td>
+                                                <td className="p-1 border border-gray-200">
+                                                    <input
+                                                        type="text"
+                                                        value={formatNumber(lvl.citizens_per_minute)}
+                                                        onChange={(e) => handleLevelChange(idx, 'citizens_per_minute', e.target.value.replace(/,/g, ''))}
+                                                        className="w-full text-right outline-none bg-transparent focus:bg-white px-1 font-mono"
+                                                    />
+                                                </td>
+                                                <td className="p-1 border border-gray-200 text-center">
+                                                    {idx === config.levels.length - 1 && idx > 0 && (
+                                                        <button
+                                                            onClick={() => handleRemoveLevel(idx)}
+                                                            className="text-red-500 hover:text-red-700 font-bold px-1"
+                                                            title="Remove Level"
+                                                        >
+                                                            ×
+                                                        </button>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <div className="mt-2 flex justify-between items-center">
+                                <button
+                                    onClick={handleAddLevel}
+                                    className="px-3 py-1 bg-white border border-gray-400 text-xs font-bold hover:bg-gray-50 flex items-center gap-1 shadow-sm"
+                                >
+                                    ➕ Add Next Level
+                                </button>
+                                <span className="text-[10px] text-gray-500 italic">
+                                    Levels must be sequential.
+                                </span>
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                <div className="border-t-2 border-gray-600 p-3 bg-[#c0c0c0] flex justify-end gap-2">
+                    <button
+                        onClick={handleSave}
+                        disabled={saving || !hasChanges}
+                        className={`px-6 py-2 border-2 font-bold flex items-center gap-2 ${hasChanges
+                            ? 'bg-green-600 text-white border-green-800 hover:bg-green-700 active:border-green-800'
+                            : 'bg-gray-400 text-gray-200 border-gray-500 cursor-not-allowed'
+                            } border-white border-r-black border-b-black shadow-md active:shadow-none active:translate-y-[1px]`}
+                    >
+                        {saving ? 'Saving...' : '💾 Save Configuration'}
+                    </button>
+                    <button onClick={onClose} className="px-6 py-2 bg-[#c0c0c0] border-2 border-white border-r-black border-b-black font-bold active:translate-y-[1px]">Close</button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function GoldMineEditorModal({ onClose }) {
+    const [config, setConfig] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
+    const [hasChanges, setHasChanges] = useState(false);
+
+    useEffect(() => {
+        fetchConfig();
+    }, []);
+
+    const fetchConfig = async () => {
+        try {
+            setLoading(true);
+            const { data, error } = await supabase.rpc('get_gold_mine_config');
+            if (error) throw error;
+            // Ensure levels array is sorted
+            if (data && data.levels) {
+                data.levels.sort((a, b) => a.level - b.level);
+            }
+            setConfig(data || { levels: [] });
+            setHasChanges(false);
+        } catch (err) {
+            console.error('Error fetching gold mine config:', err);
+            // Fallback if table/function missing yet (soft fail)
+            alert('Failed to load config: ' + err.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleLevelChange = (index, field, value) => {
+        const newLevels = [...config.levels];
+        newLevels[index] = { ...newLevels[index], [field]: parseInt(value) || 0 };
+        setConfig(prev => ({ ...prev, levels: newLevels }));
+        setHasChanges(true);
+    };
+
+    const handleAddLevel = () => {
+        const lastLevel = config.levels && config.levels.length > 0
+            ? config.levels[config.levels.length - 1]
+            : { level: -1, upgrade_cost: 0, production_rate: 0, training_cost: 0 };
+
+        const newLevel = {
+            level: lastLevel.level + 1,
+            upgrade_cost: Math.round((lastLevel.upgrade_cost || 1000) * 1.5),
+            production_rate: (lastLevel.production_rate || 1) + 1,
+            training_cost: (lastLevel.training_cost || 1000) + 0
+        };
+        setConfig(prev => ({ ...prev, levels: [...(prev.levels || []), newLevel] }));
+        setHasChanges(true);
+    };
+
+    const handleRemoveLevel = (index) => {
+        const newLevels = config.levels.filter((_, i) => i !== index);
+        // Re-index purely for display
+        const reindexed = newLevels.map((lvl, i) => ({ ...lvl, level: i }));
+        setConfig(prev => ({ ...prev, levels: reindexed }));
+        setHasChanges(true);
+    };
+
+    const handleSave = async () => {
+        try {
+            setSaving(true);
+            const { error } = await supabase.rpc('update_gold_mine_config', {
+                p_levels: config.levels
+            });
+
+            if (error) throw error;
+            console.log('Gold Mine configuration updated successfully!');
+            setHasChanges(false);
+            onClose();
+        } catch (err) {
+            console.error('Error saving:', err);
+            alert('Failed to save: ' + err.message);
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    // Helper for comma formatting
+    const formatNumber = (num) => num?.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-[#c0c0c0] border-2 border-white border-r-gray-600 border-b-gray-600 shadow-lg max-w-4xl w-full max-h-[90vh] flex flex-col">
+                <div className="bg-gradient-to-r from-[#b8860b] to-[#ffd700] text-black px-2 py-1 flex justify-between items-center border-b border-black">
+                    <span className="font-bold">⛏️ Gold Mine Levels Configuration</span>
+                    <button onClick={onClose} className="bg-[#c0c0c0] text-black px-2 border-2 border-white border-r-gray-600 border-b-gray-600 font-bold hover:bg-gray-300">✕</button>
+                </div>
+
+                <div className="p-4 flex-1 overflow-auto bg-[#c0c0c0]">
+                    {loading ? (
+                        <div className="text-center p-8">Loading configuration...</div>
+                    ) : (
+                        <div className="flex flex-col h-full">
+                            <div className="bg-white border-2 border-gray-400 p-1 overflow-auto flex-1">
+                                <table className="w-full text-xs border-collapse">
+                                    <thead className="bg-gray-100 sticky top-0 z-10">
+                                        <tr>
+                                            <th className="p-2 border border-gray-300 w-16">Lvl</th>
+                                            <th className="p-2 border border-gray-300">Next Upgrade Cost (Gold)</th>
+                                            <th className="p-2 border border-gray-300">Gold / Miner / Min</th>
+                                            <th className="p-2 border border-gray-300">Training Cost</th>
+                                            <th className="p-2 border border-gray-300 w-10"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {config?.levels?.map((lvl, idx) => (
+                                            <tr key={idx} className="hover:bg-yellow-50">
+                                                <td className="p-1 border border-gray-200 text-center font-bold text-gray-500">
+                                                    {lvl.level}
+                                                </td>
+                                                <td className="p-1 border border-gray-200">
+                                                    <input
+                                                        type="text"
+                                                        value={formatNumber(lvl.upgrade_cost)}
+                                                        onChange={(e) => handleLevelChange(idx, 'upgrade_cost', e.target.value.replace(/,/g, ''))}
+                                                        className="w-full text-right outline-none bg-transparent focus:bg-white px-1 font-mono"
+                                                    />
+                                                </td>
+                                                <td className="p-1 border border-gray-200">
+                                                    <input
+                                                        type="text"
+                                                        value={formatNumber(lvl.production_rate)}
+                                                        onChange={(e) => handleLevelChange(idx, 'production_rate', e.target.value.replace(/,/g, ''))}
+                                                        className="w-full text-right outline-none bg-transparent focus:bg-white px-1 font-mono"
+                                                    />
+                                                </td>
+                                                <td className="p-1 border border-gray-200">
+                                                    <input
+                                                        type="text"
+                                                        value={formatNumber(lvl.training_cost)}
+                                                        onChange={(e) => handleLevelChange(idx, 'training_cost', e.target.value.replace(/,/g, ''))}
+                                                        className="w-full text-right outline-none bg-transparent focus:bg-white px-1 font-mono"
+                                                    />
+                                                </td>
+                                                <td className="p-1 border border-gray-200 text-center">
+                                                    {idx === config.levels.length - 1 && idx > 0 && (
+                                                        <button
+                                                            onClick={() => handleRemoveLevel(idx)}
+                                                            className="text-red-500 hover:text-red-700 font-bold px-1"
+                                                            title="Remove Level"
+                                                        >
+                                                            ×
+                                                        </button>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <div className="mt-2 flex justify-between items-center">
+                                <button
+                                    onClick={handleAddLevel}
+                                    className="px-3 py-1 bg-white border border-gray-400 text-xs font-bold hover:bg-gray-50 flex items-center gap-1 shadow-sm"
+                                >
+                                    ➕ Add Next Level
+                                </button>
+                                <span className="text-[10px] text-gray-500 italic">
+                                    Levels must be sequential.
+                                </span>
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                <div className="border-t-2 border-gray-600 p-3 bg-[#c0c0c0] flex justify-end gap-2">
+                    <button
+                        onClick={handleSave}
+                        disabled={saving || !hasChanges}
+                        className={`px-6 py-2 border-2 font-bold flex items-center gap-2 ${hasChanges
+                            ? 'bg-green-600 text-white border-green-800 hover:bg-green-700 active:border-green-800'
+                            : 'bg-gray-400 text-gray-200 border-gray-500 cursor-not-allowed'
+                            } border-white border-r-black border-b-black shadow-md active:shadow-none active:translate-y-[1px]`}
+                    >
+                        {saving ? 'Saving...' : '💾 Save Configuration'}
+                    </button>
+                    <button onClick={onClose} className="px-6 py-2 bg-[#c0c0c0] border-2 border-white border-r-black border-b-black font-bold active:translate-y-[1px]">Close</button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// ===========================
+// Barracks Editor Modal
+// ===========================
+function BarracksEditorModal({ onClose }) {
+    const [config, setConfig] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
+    const [hasChanges, setHasChanges] = useState(false);
+    const [activeTab, setActiveTab] = useState('levels');
+
+    useEffect(() => {
+        fetchConfig();
+    }, []);
+
+    const fetchConfig = async () => {
+        try {
+            const { data, error } = await supabase.rpc('get_barracks_config');
+            if (error) throw error;
+            if (data && data.levels) {
+                data.levels.sort((a, b) => a.level - b.level);
+            }
+            setConfig(data || { levels: [], training_costs: {} });
+            setHasChanges(false);
+        } catch (err) {
+            console.error('Error fetching barracks config:', err);
+            alert('Failed to load config: ' + err.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleLevelChange = (index, field, value) => {
+        const newLevels = [...config.levels];
+        newLevels[index] = { ...newLevels[index], [field]: parseInt(value) || 0 };
+        setConfig(prev => ({ ...prev, levels: newLevels }));
+        setHasChanges(true);
+    };
+
+    const handleTrainingCostChange = (unitType, value) => {
+        setConfig(prev => ({
+            ...prev,
+            training_costs: {
+                ...prev.training_costs,
+                [unitType]: parseInt(value) || 0
+            }
+        }));
+        setHasChanges(true);
+    };
+
+    const handleAddLevel = () => {
+        const lastLevel = config.levels && config.levels.length > 0
+            ? config.levels[config.levels.length - 1]
+            : { level: 0, upgrade_cost: 0, stats_per_unit: 0 };
+
+        const newLevel = {
+            level: lastLevel.level + 1,
+            upgrade_cost: Math.round((lastLevel.upgrade_cost || 1000) * 2.5),
+            stats_per_unit: ((lastLevel.level + 1) * (lastLevel.level + 2)) / 2
+        };
+        setConfig(prev => ({ ...prev, levels: [...(prev.levels || []), newLevel] }));
+        setHasChanges(true);
+    };
+
+    const handleRemoveLevel = (index) => {
+        const newLevels = config.levels.filter((_, i) => i !== index);
+        const reindexed = newLevels.map((lvl, i) => ({ ...lvl, level: i + 1 }));
+        setConfig(prev => ({ ...prev, levels: reindexed }));
+        setHasChanges(true);
+    };
+
+    const handleSave = async () => {
+        try {
+            setSaving(true);
+            const { error } = await supabase.rpc('update_barracks_config', {
+                p_levels: config.levels,
+                p_training_costs: config.training_costs
+            });
+
+            if (error) throw error;
+            console.log('Barracks configuration updated successfully!');
+            setHasChanges(false);
+            onClose();
+        } catch (err) {
+            console.error('Error saving:', err);
+            alert('Failed to save: ' + err.message);
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const formatNumber = (num) => num?.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-[#c0c0c0] border-2 border-white border-r-gray-600 border-b-gray-600 shadow-lg max-w-4xl w-full max-h-[90vh] flex flex-col">
+                <div className="bg-gradient-to-r from-blue-700 to-blue-500 text-white px-2 py-1 flex justify-between items-center border-b border-black">
+                    <span className="font-bold">🗡️ Barracks Configuration</span>
+                    <button onClick={onClose} className="bg-[#c0c0c0] text-black px-2 border-2 border-white border-r-gray-600 border-b-gray-600 font-bold hover:bg-gray-300">✕</button>
+                </div>
+
+                {/* Tabs */}
+                <div className="flex border-b-2 border-gray-600 bg-[#c0c0c0]">
+                    <button
+                        onClick={() => setActiveTab('levels')}
+                        className={`px-4 py-1 border-2 border-t-white border-l-white ${activeTab === 'levels'
+                            ? 'bg-[#c0c0c0] border-r-gray-600 border-b-[#c0c0c0] -mb-[2px] z-10'
+                            : 'bg-gray-400 border-r-gray-600 border-b-gray-600'
+                            } font-bold text-sm`}
+                    >
+                        Barracks Levels
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('training')}
+                        className={`px-4 py-1 border-2 border-t-white border-l-white ${activeTab === 'training'
+                            ? 'bg-[#c0c0c0] border-r-gray-600 border-b-[#c0c0c0] -mb-[2px] z-10'
+                            : 'bg-gray-400 border-r-gray-600 border-b-gray-600'
+                            } font-bold text-sm`}
+                    >
+                        Training Costs
+                    </button>
+                </div>
+
+                <div className="p-4 flex-1 overflow-auto bg-[#c0c0c0]">
+                    {loading ? (
+                        <div className="text-center p-8">Loading configuration...</div>
+                    ) : (
+                        <>
+                            {activeTab === 'levels' && (
+                                <div className="flex flex-col h-full">
+                                    <div className="bg-white border-2 border-gray-400 p-1 overflow-auto flex-1">
+                                        <table className="w-full text-xs border-collapse">
+                                            <thead className="bg-gray-100 sticky top-0 z-10">
+                                                <tr>
+                                                    <th className="p-2 border border-gray-300 w-16">Lvl</th>
+                                                    <th className="p-2 border border-gray-300">Upgrade Cost (Gold)</th>
+                                                    <th className="p-2 border border-gray-300">Stats Per Unit</th>
+                                                    <th className="p-2 border border-gray-300 w-10"></th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {config?.levels?.map((lvl, idx) => (
+                                                    <tr key={idx} className="hover:bg-yellow-50">
+                                                        <td className="p-1 border border-gray-200 text-center font-bold text-gray-500">
+                                                            {lvl.level}
+                                                        </td>
+                                                        <td className="p-1 border border-gray-200">
+                                                            <input
+                                                                type="text"
+                                                                value={formatNumber(lvl.upgrade_cost)}
+                                                                onChange={(e) => handleLevelChange(idx, 'upgrade_cost', e.target.value.replace(/,/g, ''))}
+                                                                className="w-full text-right outline-none bg-transparent focus:bg-white px-1 font-mono"
+                                                            />
+                                                        </td>
+                                                        <td className="p-1 border border-gray-200">
+                                                            <input
+                                                                type="text"
+                                                                value={formatNumber(lvl.stats_per_unit)}
+                                                                onChange={(e) => handleLevelChange(idx, 'stats_per_unit', e.target.value.replace(/,/g, ''))}
+                                                                className="w-full text-right outline-none bg-transparent focus:bg-white px-1 font-mono"
+                                                            />
+                                                        </td>
+                                                        <td className="p-1 border border-gray-200 text-center">
+                                                            {idx === config.levels.length - 1 && idx > 0 && (
+                                                                <button
+                                                                    onClick={() => handleRemoveLevel(idx)}
+                                                                    className="text-red-500 hover:text-red-700 font-bold px-1"
+                                                                    title="Remove Level"
+                                                                >
+                                                                    ×
+                                                                </button>
+                                                            )}
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+
+                                    <div className="flex justify-between items-center mt-2">
+                                        <button
+                                            onClick={handleAddLevel}
+                                            className="px-3 py-1 bg-[#c0c0c0] border-2 border-white border-r-gray-600 border-b-gray-600 text-xs font-bold active:border-gray-600 active:border-r-white active:border-b-white"
+                                        >
+                                            + Add Level
+                                        </button>
+                                        <span className="text-[10px] text-gray-500 italic">
+                                            Levels must be sequential.
+                                        </span>
+                                    </div>
+                                </div>
+                            )}
+
+                            {activeTab === 'training' && (
+                                <div className="bg-white border-2 border-gray-400 p-4 h-full overflow-auto">
+                                    <div className="grid grid-cols-2 gap-4">
+                                        {[
+                                            { id: 'attack', name: 'Attack Soldier', icon: '⚔️' },
+                                            { id: 'defense', name: 'Defense Soldier', icon: '🛡️' },
+                                            { id: 'spy', name: 'Spy', icon: '🕵️' },
+                                            { id: 'sentry', name: 'Sentry', icon: '👁️' }
+                                        ].map(unit => (
+                                            <fieldset key={unit.id} className="border-2 border-white border-l-gray-600 border-t-gray-600 p-3">
+                                                <legend className="px-1 font-bold text-sm">{unit.icon} {unit.name}</legend>
+                                                <div className="flex items-center gap-2 mt-2">
+                                                    <label className="text-xs font-bold">Cost:</label>
+                                                    <input
+                                                        type="text"
+                                                        value={formatNumber(config?.training_costs?.[unit.id] || 0)}
+                                                        onChange={(e) => handleTrainingCostChange(unit.id, e.target.value.replace(/,/g, ''))}
+                                                        className="flex-1 px-2 py-1 border-2 border-gray-500 border-r-white border-b-white text-right font-mono text-sm focus:outline-none"
+                                                    />
+                                                    <span className="text-xs">Gold</span>
+                                                </div>
+                                            </fieldset>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </>
+                    )}
+                </div>
+
+                <div className="border-t-2 border-white p-2 bg-[#c0c0c0] flex justify-end gap-2">
+                    <button
+                        onClick={handleSave}
+                        disabled={saving || !hasChanges}
+                        className={`px-4 py-1 border-2 text-sm font-bold ${hasChanges
+                            ? 'bg-[#c0c0c0] border-white border-r-gray-600 border-b-gray-600 active:border-gray-600 active:border-r-white active:border-b-white'
+                            : 'bg-gray-400 border-gray-500 text-gray-600 cursor-not-allowed'
+                            }`}
+                    >
+                        {saving ? 'Saving...' : 'Save'}
+                    </button>
+                    <button
+                        onClick={onClose}
+                        className="px-4 py-1 bg-[#c0c0c0] border-2 border-white border-r-gray-600 border-b-gray-600 text-sm font-bold active:border-gray-600 active:border-r-white active:border-b-white"
+                    >
+                        Close
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// ===========================
+// Vault Stealing Editor Modal
+// ===========================
+function VaultStealingEditorModal({ onClose }) {
+    const [config, setConfig] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
+    const [hasChanges, setHasChanges] = useState(false);
+
+    useEffect(() => {
+        fetchConfig();
+    }, []);
+
+    const fetchConfig = async () => {
+        try {
+            const { data, error } = await supabase.rpc('get_vault_stealing_config');
+            if (error) throw error;
+            if (data && data.levels) {
+                data.levels.sort((a, b) => a.level - b.level);
+            }
+            setConfig(data || { levels: [] });
+            setHasChanges(false);
+        } catch (err) {
+            console.error('Error fetching vault stealing config:', err);
+            alert('Failed to load config: ' + err.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleLevelChange = (index, field, value) => {
+        const newLevels = [...config.levels];
+        newLevels[index] = { ...newLevels[index], [field]: parseInt(value) || 0 };
+        setConfig(prev => ({ ...prev, levels: newLevels }));
+        setHasChanges(true);
+    };
+
+    const handleAddLevel = () => {
+        const lastLevel = config.levels && config.levels.length > 0
+            ? config.levels[config.levels.length - 1]
+            : { level: 0, cost: 0, steal_percent: 0 };
+
+        const newLevel = {
+            level: lastLevel.level + 1,
+            cost: (lastLevel.cost || 5000) + 5000,
+            steal_percent: (lastLevel.steal_percent || 0) + 5
+        };
+        setConfig(prev => ({ ...prev, levels: [...(prev.levels || []), newLevel] }));
+        setHasChanges(true);
+    };
+
+    const handleRemoveLevel = (index) => {
+        const newLevels = config.levels.filter((_, i) => i !== index);
+        const reindexed = newLevels.map((lvl, i) => ({ ...lvl, level: i + 1 }));
+        setConfig(prev => ({ ...prev, levels: reindexed }));
+        setHasChanges(true);
+    };
+
+    const handleSave = async () => {
+        try {
+            setSaving(true);
+            const { error } = await supabase.rpc('update_vault_stealing_config', {
+                p_levels: config.levels
+            });
+
+            if (error) throw error;
+            console.log('Vault stealing configuration updated successfully!');
+            setHasChanges(false);
+            onClose();
+        } catch (err) {
+            console.error('Error saving:', err);
+            alert('Failed to save: ' + err.message);
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const formatNumber = (num) => num?.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-[#c0c0c0] border-2 border-white border-r-gray-600 border-b-gray-600 shadow-lg max-w-3xl w-full max-h-[90vh] flex flex-col">
+                <div className="bg-gradient-to-r from-purple-700 to-purple-500 text-white px-2 py-1 flex justify-between items-center border-b border-black">
+                    <span className="font-bold">🔐 Vault Stealing Configuration</span>
+                    <button onClick={onClose} className="bg-[#c0c0c0] text-black px-2 border-2 border-white border-r-gray-600 border-b-gray-600 font-bold hover:bg-gray-300">✕</button>
+                </div>
+
+                <div className="p-4 flex-1 overflow-auto bg-[#c0c0c0]">
+                    {loading ? (
+                        <div className="text-center p-8">Loading configuration...</div>
+                    ) : (
+                        <div className="flex flex-col h-full">
+                            <div className="bg-white border-2 border-gray-400 p-1 overflow-auto flex-1">
+                                <table className="w-full text-xs border-collapse">
+                                    <thead className="bg-gray-100 sticky top-0 z-10">
+                                        <tr>
+                                            <th className="p-2 border border-gray-300 w-16">Lvl</th>
+                                            <th className="p-2 border border-gray-300">Cost (XP)</th>
+                                            <th className="p-2 border border-gray-300">Steal %</th>
+                                            <th className="p-2 border border-gray-300 w-10"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {config?.levels?.map((lvl, idx) => (
+                                            <tr key={idx} className="hover:bg-yellow-50">
+                                                <td className="p-1 border border-gray-200 text-center font-bold text-gray-500">
+                                                    {lvl.level}
+                                                </td>
+                                                <td className="p-1 border border-gray-200">
+                                                    <input
+                                                        type="text"
+                                                        value={formatNumber(lvl.cost)}
+                                                        onChange={(e) => handleLevelChange(idx, 'cost', e.target.value.replace(/,/g, ''))}
+                                                        className="w-full text-right outline-none bg-transparent focus:bg-white px-1 font-mono"
+                                                    />
+                                                </td>
+                                                <td className="p-1 border border-gray-200">
+                                                    <input
+                                                        type="text"
+                                                        value={formatNumber(lvl.steal_percent)}
+                                                        onChange={(e) => handleLevelChange(idx, 'steal_percent', e.target.value.replace(/,/g, ''))}
+                                                        className="w-full text-right outline-none bg-transparent focus:bg-white px-1 font-mono"
+                                                    />
+                                                </td>
+                                                <td className="p-1 border border-gray-200 text-center">
+                                                    {idx === config.levels.length - 1 && idx > 0 && (
+                                                        <button
+                                                            onClick={() => handleRemoveLevel(idx)}
+                                                            className="text-red-500 hover:text-red-700 font-bold px-1"
+                                                            title="Remove Level"
+                                                        >
+                                                            ×
+                                                        </button>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <div className="flex justify-between items-center mt-2">
+                                <button
+                                    onClick={handleAddLevel}
+                                    className="px-3 py-1 bg-[#c0c0c0] border-2 border-white border-r-gray-600 border-b-gray-600 text-xs font-bold active:border-gray-600 active:border-r-white active:border-b-white"
+                                >
+                                    + Add Level
+                                </button>
+                                <span className="text-[10px] text-gray-500 italic">
+                                    Configure XP costs and vault steal percentages per research level.
+                                </span>
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                <div className="border-t-2 border-white p-2 bg-[#c0c0c0] flex justify-end gap-2">
+                    <button
+                        onClick={handleSave}
+                        disabled={saving || !hasChanges}
+                        className={`px-4 py-1 border-2 text-sm font-bold ${hasChanges
+                            ? 'bg-[#c0c0c0] border-white border-r-gray-600 border-b-gray-600 active:border-gray-600 active:border-r-white active:border-b-white'
+                            : 'bg-gray-400 border-gray-500 text-gray-600 cursor-not-allowed'
+                            }`}
+                    >
+                        {saving ? 'Saving...' : 'Save'}
+                    </button>
+                    <button
+                        onClick={onClose}
+                        className="px-4 py-1 bg-[#c0c0c0] border-2 border-white border-r-gray-600 border-b-gray-600 text-sm font-bold active:border-gray-600 active:border-r-white active:border-b-white"
+                    >
+                        Close
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// ===========================
+// Vault Editor Modal
+// ===========================
+function VaultEditorModal({ onClose }) {
+    const [config, setConfig] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
+    const [hasChanges, setHasChanges] = useState(false);
+
+    useEffect(() => {
+        fetchConfig();
+    }, []);
+
+    const fetchConfig = async () => {
+        try {
+            const { data, error } = await supabase.rpc('get_vault_config');
+            if (error) throw error;
+            if (data && data.levels) {
+                data.levels.sort((a, b) => a.level - b.level);
+            }
+            setConfig(data || { levels: [] });
+            setHasChanges(false);
+        } catch (err) {
+            console.error('Error fetching vault config:', err);
+            alert('Failed to load config: ' + err.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleLevelChange = (index, field, value) => {
+        const newLevels = [...config.levels];
+        newLevels[index] = { ...newLevels[index], [field]: parseInt(value) || 0 };
+        setConfig(prev => ({ ...prev, levels: newLevels }));
+        setHasChanges(true);
+    };
+
+    const handleAddLevel = () => {
+        const lastLevel = config.levels && config.levels.length > 0
+            ? config.levels[config.levels.length - 1]
+            : { level: 0, upgrade_cost: 0, capacity: 0, interest_rate: 0 };
+
+        const newLevel = {
+            level: lastLevel.level + 1,
+            upgrade_cost: (lastLevel.upgrade_cost || 5000) * 2,
+            capacity: (lastLevel.capacity || 200000) * 3,
+            interest_rate: Math.min((lastLevel.interest_rate || 0) + 5, 50)
+        };
+        setConfig(prev => ({ ...prev, levels: [...(prev.levels || []), newLevel] }));
+        setHasChanges(true);
+    };
+
+    const handleRemoveLevel = (index) => {
+        const newLevels = config.levels.filter((_, i) => i !== index);
+        const reindexed = newLevels.map((lvl, i) => ({ ...lvl, level: i + 1 }));
+        setConfig(prev => ({ ...prev, levels: reindexed }));
+        setHasChanges(true);
+    };
+
+    const handleSave = async () => {
+        try {
+            setSaving(true);
+            const { error } = await supabase.rpc('update_vault_config', {
+                p_levels: config.levels
+            });
+
+            if (error) throw error;
+            console.log('Vault configuration updated successfully!');
+            setHasChanges(false);
+            onClose();
+        } catch (err) {
+            console.error('Error saving:', err);
+            alert('Failed to save: ' + err.message);
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const formatNumber = (num) => num?.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-[#c0c0c0] border-2 border-white border-r-gray-600 border-b-gray-600 shadow-lg max-w-4xl w-full max-h-[90vh] flex flex-col">
+                <div className="bg-gradient-to-r from-blue-700 to-blue-500 text-white px-2 py-1 flex justify-between items-center border-b border-black">
+                    <span className="font-bold">🏦 Vault Configuration</span>
+                    <button onClick={onClose} className="bg-[#c0c0c0] text-black px-2 border-2 border-white border-r-gray-600 border-b-gray-600 font-bold hover:bg-gray-300">✕</button>
+                </div>
+
+                <div className="p-4 flex-1 overflow-auto bg-[#c0c0c0]">
+                    {loading ? (
+                        <div className="text-center p-8">Loading configuration...</div>
+                    ) : (
+                        <div className="flex flex-col h-full">
+                            <div className="bg-white border-2 border-gray-400 p-1 overflow-auto flex-1">
+                                <table className="w-full text-xs border-collapse">
+                                    <thead className="bg-gray-100 sticky top-0 z-10">
+                                        <tr>
+                                            <th className="p-2 border border-gray-300 w-16">Lvl</th>
+                                            <th className="p-2 border border-gray-300">Upgrade Cost (Gold)</th>
+                                            <th className="p-2 border border-gray-300">Capacity (Gold)</th>
+                                            <th className="p-2 border border-gray-300">Interest Rate (%)</th>
+                                            <th className="p-2 border border-gray-300 w-10"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {config?.levels?.map((lvl, idx) => (
+                                            <tr key={idx} className="hover:bg-yellow-50">
+                                                <td className="p-1 border border-gray-200 text-center font-bold text-gray-500">
+                                                    {lvl.level}
+                                                </td>
+                                                <td className="p-1 border border-gray-200">
+                                                    <input
+                                                        type="text"
+                                                        value={formatNumber(lvl.upgrade_cost)}
+                                                        onChange={(e) => handleLevelChange(idx, 'upgrade_cost', e.target.value.replace(/,/g, ''))}
+                                                        className="w-full text-right outline-none bg-transparent focus:bg-white px-1 font-mono"
+                                                    />
+                                                </td>
+                                                <td className="p-1 border border-gray-200">
+                                                    <input
+                                                        type="text"
+                                                        value={formatNumber(lvl.capacity)}
+                                                        onChange={(e) => handleLevelChange(idx, 'capacity', e.target.value.replace(/,/g, ''))}
+                                                        className="w-full text-right outline-none bg-transparent focus:bg-white px-1 font-mono"
+                                                    />
+                                                </td>
+                                                <td className="p-1 border border-gray-200">
+                                                    <input
+                                                        type="text"
+                                                        value={formatNumber(lvl.interest_rate)}
+                                                        onChange={(e) => handleLevelChange(idx, 'interest_rate', e.target.value.replace(/,/g, ''))}
+                                                        className="w-full text-right outline-none bg-transparent focus:bg-white px-1 font-mono"
+                                                    />
+                                                </td>
+                                                <td className="p-1 border border-gray-200 text-center">
+                                                    {idx === config.levels.length - 1 && idx > 0 && (
+                                                        <button
+                                                            onClick={() => handleRemoveLevel(idx)}
+                                                            className="text-red-500 hover:text-red-700 font-bold px-1"
+                                                            title="Remove Level"
+                                                        >
+                                                            ×
+                                                        </button>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <div className="flex justify-between items-center mt-2">
+                                <button
+                                    onClick={handleAddLevel}
+                                    className="px-3 py-1 bg-[#c0c0c0] border-2 border-white border-r-gray-600 border-b-gray-600 text-xs font-bold active:border-gray-600 active:border-r-white active:border-b-white"
+                                >
+                                    + Add Level
+                                </button>
+                                <span className="text-[10px] text-gray-500 italic">
+                                    Configure upgrade costs, capacity, and interest rates per vault level.
+                                </span>
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                <div className="border-t-2 border-white p-2 bg-[#c0c0c0] flex justify-end gap-2">
+                    <button
+                        onClick={handleSave}
+                        disabled={saving || !hasChanges}
+                        className={`px-4 py-1 border-2 text-sm font-bold ${hasChanges
+                            ? 'bg-[#c0c0c0] border-white border-r-gray-600 border-b-gray-600 active:border-gray-600 active:border-r-white active:border-b-white'
+                            : 'bg-gray-400 border-gray-500 text-gray-600 cursor-not-allowed'
+                            }`}
+                    >
+                        {saving ? 'Saving...' : 'Save'}
+                    </button>
+                    <button
+                        onClick={onClose}
+                        className="px-4 py-1 bg-[#c0c0c0] border-2 border-white border-r-gray-600 border-b-gray-600 text-sm font-bold active:border-gray-600 active:border-r-white active:border-b-white"
+                    >
+                        Close
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// ===========================
+// Tech Stats Editor Modal
+// ===========================
+function TechStatsEditorModal({ onClose }) {
+    const [config, setConfig] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
+    const [hasChanges, setHasChanges] = useState(false);
+
+    useEffect(() => {
+        fetchConfig();
+    }, []);
+
+    const fetchConfig = async () => {
+        try {
+            const { data, error } = await supabase.rpc('get_tech_stats_config');
+            if (error) throw error;
+            if (data && data.levels) {
+                data.levels.sort((a, b) => a.level - b.level);
+            }
+            setConfig(data || { levels: [] });
+            setHasChanges(false);
+        } catch (err) {
+            console.error('Error fetching tech stats config:', err);
+            alert('Failed to load config: ' + err.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleLevelChange = (index, field, value) => {
+        const newLevels = [...config.levels];
+        if (field === 'multiplier') {
+            newLevels[index] = { ...newLevels[index], [field]: parseFloat(value) || 0 };
+        } else {
+            newLevels[index] = { ...newLevels[index], [field]: parseInt(value) || 0 };
+        }
+        setConfig(prev => ({ ...prev, levels: newLevels }));
+        setHasChanges(true);
+    };
+
+    const handleAddLevel = () => {
+        const lastLevel = config.levels && config.levels.length > 0
+            ? config.levels[config.levels.length - 1]
+            : { level: 0, cost: 0, multiplier: 1.0, bonus_percent: 0 };
+
+        const newLevel = {
+            level: lastLevel.level + 1,
+            cost: Math.floor((lastLevel.cost || 300) * 1.13),
+            multiplier: parseFloat(((lastLevel.multiplier || 1.0) + 0.1).toFixed(2)),
+            bonus_percent: (lastLevel.bonus_percent || 0) + 5
+        };
+        setConfig(prev => ({ ...prev, levels: [...(prev.levels || []), newLevel] }));
+        setHasChanges(true);
+    };
+
+    const handleRemoveLevel = (index) => {
+        const newLevels = config.levels.filter((_, i) => i !== index);
+        const reindexed = newLevels.map((lvl, i) => ({ ...lvl, level: i + 1 }));
+        setConfig(prev => ({ ...prev, levels: reindexed }));
+        setHasChanges(true);
+    };
+
+    const handleSave = async () => {
+        try {
+            setSaving(true);
+            const { error } = await supabase.rpc('update_tech_stats_config', {
+                p_levels: config.levels
+            });
+
+            if (error) throw error;
+            console.log('Tech stats configuration updated successfully!');
+            setHasChanges(false);
+            onClose();
+        } catch (err) {
+            console.error('Error saving:', err);
+            alert('Failed to save: ' + err.message);
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const formatNumber = (num) => num?.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-[#c0c0c0] border-2 border-white border-r-gray-600 border-b-gray-600 shadow-lg max-w-5xl w-full max-h-[90vh] flex flex-col">
+                <div className="bg-gradient-to-r from-red-700 to-red-500 text-white px-2 py-1 flex justify-between items-center border-b border-black">
+                    <span className="font-bold">⚔️ Tech Stats Configuration (Attack/Defense/Spy/Sentry)</span>
+                    <button onClick={onClose} className="bg-[#c0c0c0] text-black px-2 border-2 border-white border-r-gray-600 border-b-gray-600 font-bold hover:bg-gray-300">✕</button>
+                </div>
+
+                <div className="p-4 flex-1 overflow-auto bg-[#c0c0c0]">
+                    {loading ? (
+                        <div className="text-center p-8">Loading configuration...</div>
+                    ) : (
+                        <div className="flex flex-col h-full">
+                            <div className="bg-yellow-100 border-2 border-yellow-600 p-2 mb-2 text-xs">
+                                <strong>⚠️ Note:</strong> All four technologies (Attack, Defense, Spy, Sentry) share the same progression.
+                                Changes here affect all four equally.
+                            </div>
+                            <div className="bg-white border-2 border-gray-400 p-1 overflow-auto flex-1">
+                                <table className="w-full text-xs border-collapse">
+                                    <thead className="bg-gray-100 sticky top-0 z-10">
+                                        <tr>
+                                            <th className="p-2 border border-gray-300 w-16">Lvl</th>
+                                            <th className="p-2 border border-gray-300">Cost (XP)</th>
+                                            <th className="p-2 border border-gray-300">Multiplier</th>
+                                            <th className="p-2 border border-gray-300">Bonus %</th>
+                                            <th className="p-2 border border-gray-300 w-10"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {config?.levels?.map((lvl, idx) => (
+                                            <tr key={idx} className="hover:bg-yellow-50">
+                                                <td className="p-1 border border-gray-200 text-center font-bold text-gray-500">
+                                                    {lvl.level}
+                                                </td>
+                                                <td className="p-1 border border-gray-200">
+                                                    <input
+                                                        type="text"
+                                                        value={formatNumber(lvl.cost)}
+                                                        onChange={(e) => handleLevelChange(idx, 'cost', e.target.value.replace(/,/g, ''))}
+                                                        className="w-full text-right outline-none bg-transparent focus:bg-white px-1 font-mono"
+                                                    />
+                                                </td>
+                                                <td className="p-1 border border-gray-200">
+                                                    <input
+                                                        type="text"
+                                                        value={lvl.multiplier}
+                                                        onChange={(e) => handleLevelChange(idx, 'multiplier', e.target.value)}
+                                                        className="w-full text-right outline-none bg-transparent focus:bg-white px-1 font-mono"
+                                                    />
+                                                </td>
+                                                <td className="p-1 border border-gray-200">
+                                                    <input
+                                                        type="text"
+                                                        value={formatNumber(lvl.bonus_percent)}
+                                                        onChange={(e) => handleLevelChange(idx, 'bonus_percent', e.target.value.replace(/,/g, ''))}
+                                                        className="w-full text-right outline-none bg-transparent focus:bg-white px-1 font-mono"
+                                                    />
+                                                </td>
+                                                <td className="p-1 border border-gray-200 text-center">
+                                                    {idx === config.levels.length - 1 && idx > 0 && (
+                                                        <button
+                                                            onClick={() => handleRemoveLevel(idx)}
+                                                            className="text-red-500 hover:text-red-700 font-bold px-1"
+                                                            title="Remove Level"
+                                                        >
+                                                            ×
+                                                        </button>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <div className="flex justify-between items-center mt-2">
+                                <button
+                                    onClick={handleAddLevel}
+                                    className="px-3 py-1 bg-[#c0c0c0] border-2 border-white border-r-gray-600 border-b-gray-600 text-xs font-bold active:border-gray-600 active:border-r-white active:border-b-white"
+                                >
+                                    + Add Level
+                                </button>
+                                <span className="text-[10px] text-gray-500 italic">
+                                    Configure XP costs, multipliers, and bonus percentages for all tech stats.
+                                </span>
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                <div className="border-t-2 border-white p-2 bg-[#c0c0c0] flex justify-end gap-2">
+                    <button
+                        onClick={handleSave}
+                        disabled={saving || !hasChanges}
+                        className={`px-4 py-1 border-2 text-sm font-bold ${hasChanges
+                            ? 'bg-[#c0c0c0] border-white border-r-gray-600 border-b-gray-600 active:border-gray-600 active:border-r-white active:border-b-white'
+                            : 'bg-gray-400 border-gray-500 text-gray-600 cursor-not-allowed'
+                            }`}
+                    >
+                        {saving ? 'Saving...' : 'Save'}
+                    </button>
+                    <button
+                        onClick={onClose}
+                        className="px-4 py-1 bg-[#c0c0c0] border-2 border-white border-r-gray-600 border-b-gray-600 text-sm font-bold active:border-gray-600 active:border-r-white active:border-b-white"
+                    >
+                        Close
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// ===========================
+// Turns Research Editor Modal
+// ===========================
+function TurnsResearchEditorModal({ onClose }) {
+    const [config, setConfig] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
+    const [hasChanges, setHasChanges] = useState(false);
+
+    useEffect(() => {
+        fetchConfig();
+    }, []);
+
+    const fetchConfig = async () => {
+        try {
+            const { data, error } = await supabase.rpc('get_turns_research_config');
+            if (error) throw error;
+            if (data && data.levels) {
+                data.levels.sort((a, b) => a.level - b.level);
+            }
+            setConfig(data || { levels: [] });
+            setHasChanges(false);
+        } catch (err) {
+            console.error('Error fetching turns research config:', err);
+            alert('Failed to load config: ' + err.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleLevelChange = (index, field, value) => {
+        const newLevels = [...config.levels];
+        newLevels[index] = { ...newLevels[index], [field]: parseInt(value) || 0 };
+        setConfig(prev => ({ ...prev, levels: newLevels }));
+        setHasChanges(true);
+    };
+
+    const handleAddLevel = () => {
+        const lastLevel = config.levels && config.levels.length > 0
+            ? config.levels[config.levels.length - 1]
+            : { level: 0, cost: 0, turns_per_min: 0 };
+
+        const newLevel = {
+            level: lastLevel.level + 1,
+            cost: Math.floor((lastLevel.cost || 1000) * 5),
+            turns_per_min: (lastLevel.turns_per_min || 0) + Math.ceil((lastLevel.turns_per_min || 1) * 0.5)
+        };
+        setConfig(prev => ({ ...prev, levels: [...(prev.levels || []), newLevel] }));
+        setHasChanges(true);
+    };
+
+    const handleRemoveLevel = (index) => {
+        const newLevels = config.levels.filter((_, i) => i !== index);
+        const reindexed = newLevels.map((lvl, i) => ({ ...lvl, level: i + 1 }));
+        setConfig(prev => ({ ...prev, levels: reindexed }));
+        setHasChanges(true);
+    };
+
+    const handleSave = async () => {
+        try {
+            setSaving(true);
+            const { error } = await supabase.rpc('update_turns_research_config', {
+                p_levels: config.levels
+            });
+
+            if (error) throw error;
+            console.log('Turns research configuration updated successfully!');
+            setHasChanges(false);
+            onClose();
+        } catch (err) {
+            console.error('Error saving:', err);
+            alert('Failed to save: ' + err.message);
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const formatNumber = (num) => num?.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-[#c0c0c0] border-2 border-white border-r-gray-600 border-b-gray-600 shadow-lg max-w-4xl w-full max-h-[90vh] flex flex-col">
+                <div className="bg-gradient-to-r from-green-700 to-green-500 text-white px-2 py-1 flex justify-between items-center border-b border-black">
+                    <span className="font-bold">⏱️ Turns Per Minute Research Configuration</span>
+                    <button onClick={onClose} className="bg-[#c0c0c0] text-black px-2 border-2 border-white border-r-gray-600 border-b-gray-600 font-bold hover:bg-gray-300">✕</button>
+                </div>
+
+                <div className="p-4 flex-1 overflow-auto bg-[#c0c0c0]">
+                    {loading ? (
+                        <div className="text-center p-8">Loading configuration...</div>
+                    ) : (
+                        <div className="flex flex-col h-full">
+                            <div className="bg-white border-2 border-gray-400 p-1 overflow-auto flex-1">
+                                <table className="w-full text-xs border-collapse">
+                                    <thead className="bg-gray-100 sticky top-0 z-10">
+                                        <tr>
+                                            <th className="p-2 border border-gray-300 w-16">Lvl</th>
+                                            <th className="p-2 border border-gray-300">Cost (XP)</th>
+                                            <th className="p-2 border border-gray-300">Turns / Minute</th>
+                                            <th className="p-2 border border-gray-300 w-10"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {config?.levels?.map((lvl, idx) => (
+                                            <tr key={idx} className="hover:bg-yellow-50">
+                                                <td className="p-1 border border-gray-200 text-center font-bold text-gray-500">
+                                                    {lvl.level}
+                                                </td>
+                                                <td className="p-1 border border-gray-200">
+                                                    <input
+                                                        type="text"
+                                                        value={formatNumber(lvl.cost)}
+                                                        onChange={(e) => handleLevelChange(idx, 'cost', e.target.value.replace(/,/g, ''))}
+                                                        className="w-full text-right outline-none bg-transparent focus:bg-white px-1 font-mono"
+                                                    />
+                                                </td>
+                                                <td className="p-1 border border-gray-200">
+                                                    <input
+                                                        type="text"
+                                                        value={formatNumber(lvl.turns_per_min)}
+                                                        onChange={(e) => handleLevelChange(idx, 'turns_per_min', e.target.value.replace(/,/g, ''))}
+                                                        className="w-full text-right outline-none bg-transparent focus:bg-white px-1 font-mono"
+                                                    />
+                                                </td>
+                                                <td className="p-1 border border-gray-200 text-center">
+                                                    {idx === config.levels.length - 1 && idx > 0 && (
+                                                        <button
+                                                            onClick={() => handleRemoveLevel(idx)}
+                                                            className="text-red-500 hover:text-red-700 font-bold px-1"
+                                                            title="Remove Level"
+                                                        >
+                                                            ×
+                                                        </button>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <div className="flex justify-between items-center mt-2">
+                                <button
+                                    onClick={handleAddLevel}
+                                    className="px-3 py-1 bg-[#c0c0c0] border-2 border-white border-r-gray-600 border-b-gray-600 text-xs font-bold active:border-gray-600 active:border-r-white active:border-b-white"
+                                >
+                                    + Add Level
+                                </button>
+                                <span className="text-[10px] text-gray-500 italic">
+                                    Configure XP costs and turn generation rates per research level.
+                                </span>
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                <div className="border-t-2 border-white p-2 bg-[#c0c0c0] flex justify-end gap-2">
+                    <button
+                        onClick={handleSave}
+                        disabled={saving || !hasChanges}
+                        className={`px-4 py-1 border-2 text-sm font-bold ${hasChanges
+                            ? 'bg-[#c0c0c0] border-white border-r-gray-600 border-b-gray-600 active:border-gray-600 active:border-r-white active:border-b-white'
+                            : 'bg-gray-400 border-gray-500 text-gray-600 cursor-not-allowed'
+                            }`}
+                    >
+                        {saving ? 'Saving...' : 'Save'}
+                    </button>
+                    <button
+                        onClick={onClose}
+                        className="px-4 py-1 bg-[#c0c0c0] border-2 border-white border-r-gray-600 border-b-gray-600 text-sm font-bold active:border-gray-600 active:border-r-white active:border-b-white"
+                    >
+                        Close
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+

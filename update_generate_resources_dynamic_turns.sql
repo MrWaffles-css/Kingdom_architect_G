@@ -1,5 +1,5 @@
--- De-couple resource generation from updated_at
--- This fixes the issue where spending gold resets the "timer" for receiving passive gold.
+-- Update generate_resources to use dynamic turns configuration
+-- This ensures that the turns per minute research uses the configurable values from the admin panel
 
 CREATE OR REPLACE FUNCTION public.generate_resources()
 RETURNS json
@@ -131,8 +131,6 @@ BEGIN
         vault = v_new_vault,
         experience = experience + v_xp_gain,
         turns = turns + v_turn_gain,
-        -- Advance last_resource_generation by exactly the minutes processed
-        -- This prevents losing seconds and prevents spending gold from resetting the timer.
         last_resource_generation = v_last_regen + (v_minutes_passed * interval '1 minute')
     WHERE id = v_user_id;
     
@@ -141,3 +139,5 @@ BEGIN
     RETURN v_result;
 END;
 $$;
+
+GRANT EXECUTE ON FUNCTION generate_resources() TO authenticated;
