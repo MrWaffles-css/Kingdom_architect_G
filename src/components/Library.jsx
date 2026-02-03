@@ -9,6 +9,7 @@ export default function Library({ userStats, onUpdate }) {
     const [activeTab, setActiveTab] = useState('economy');
     const [libConfig, setLibConfig] = useState(null);
     const [hostageConfig, setHostageConfig] = useState(null);
+    const [goldStealConfig, setGoldStealConfig] = useState(null);
     const [mechanics, setMechanics] = useState({});
 
     useEffect(() => {
@@ -25,6 +26,15 @@ export default function Library({ userStats, onUpdate }) {
                 }
             } catch (e) {
                 console.error("Failed to load hostage config", e);
+            }
+
+            try {
+                const { data: gData, error: gError } = await supabase.rpc('get_gold_steal_config');
+                if (!gError && gData) {
+                    setGoldStealConfig(gData);
+                }
+            } catch (e) {
+                console.error("Failed to load gold steal config", e);
             }
 
             try {
@@ -135,6 +145,40 @@ export default function Library({ userStats, onUpdate }) {
         if (level === 3) return 20000;
         if (level === 4) return 25000;
         return Infinity;
+    };
+
+    // Helper for Gold Steal Config (XP)
+    const getGoldStealResearchCost = (level) => {
+        if (goldStealConfig && goldStealConfig.levels) {
+            const nextLvl = goldStealConfig.levels.find(l => l.level === level + 1);
+            if (!nextLvl) return 'Max Level';
+            return (nextLvl.cost || 0).toLocaleString() + ' XP';
+        }
+        return (5000 * (level + 1)).toLocaleString() + ' XP';
+    };
+
+    const getGoldStealResearchCostNum = (level) => {
+        if (goldStealConfig && goldStealConfig.levels) {
+            const nextLvl = goldStealConfig.levels.find(l => l.level === level + 1);
+            return nextLvl ? nextLvl.cost : Infinity;
+        }
+        return 5000 * (level + 1);
+    };
+
+    const getGoldStealPercent = (level) => {
+        if (level === 0) return 50; // Base
+        if (goldStealConfig && goldStealConfig.levels) {
+            const lvl = goldStealConfig.levels.find(l => l.level === level);
+            return lvl ? lvl.steal_percent : (50 + (level * 5));
+        }
+        return 50 + (level * 5);
+    };
+
+    const getGoldStealMaxLevel = () => {
+        if (goldStealConfig && goldStealConfig.levels && goldStealConfig.levels.length > 0) {
+            return Math.max(...goldStealConfig.levels.map(l => l.level));
+        }
+        return 10;
     };
 
     // Helper to get cost string for hostage research
@@ -334,13 +378,13 @@ export default function Library({ userStats, onUpdate }) {
             {
                 name: 'Increase Stolen %',
                 level: userStats.research_gold_steal || 0,
-                maxLevel: 10,
-                currentStat: `Steal ${50 + ((userStats.research_gold_steal || 0) * 5)}%`,
-                nextStat: `Steal ${Math.min(50 + (((userStats.research_gold_steal || 0) + 1) * 5), 100)}%`,
-                cost: (userStats.research_gold_steal || 0) >= 10 ? 'Max Level' : `${(5000 * ((userStats.research_gold_steal || 0) + 1)).toLocaleString()} XP`,
-                costNum: 5000 * ((userStats.research_gold_steal || 0) + 1),
+                maxLevel: getGoldStealMaxLevel(),
+                currentStat: `Steal ${getGoldStealPercent(userStats.research_gold_steal || 0)}%`,
+                nextStat: `Steal ${getGoldStealPercent(Math.min((userStats.research_gold_steal || 0) + 1, getGoldStealMaxLevel()))}%`,
+                cost: getGoldStealResearchCost(userStats.research_gold_steal || 0),
+                costNum: getGoldStealResearchCostNum(userStats.research_gold_steal || 0),
                 currency: 'xp',
-                disabled: false
+                disabled: mechanics['gold_stealing'] === false
             },
             {
                 name: 'Increase Turns per Minute',

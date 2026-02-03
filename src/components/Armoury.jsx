@@ -50,12 +50,45 @@ export default function Armoury({ userStats, onUpdate }) {
 
     const researchLevel = userStats.research_weapons || 0;
 
+    const [weaponConfigs, setWeaponConfigs] = useState(null);
+
     useEffect(() => {
-        fetchWeapons();
+        const fetchInitialData = async () => {
+            setLoading(true);
+            await Promise.all([fetchWeapons(), fetchConfigs()]);
+            setLoading(false);
+        };
+        fetchInitialData();
     }, [userStats.id]);
 
+    const fetchConfigs = async () => {
+        try {
+            const { data, error } = await supabase.rpc('get_weapon_configs');
+            if (error) throw error;
+
+            // Transform array to object { attack: [...], defense: [...] }
+            const grouped = (data || []).reduce((acc, curr) => {
+                if (!acc[curr.weapon_type]) acc[curr.weapon_type] = [];
+                acc[curr.weapon_type].push(curr);
+                // Ensure sorted by tier
+                acc[curr.weapon_type].sort((a, b) => a.tier - b.tier);
+                return acc;
+            }, {});
+
+            // If DB is empty for some reason, fallback will be handled by rendering logic or alert?
+            // But let's assume if it returns something, we use it. If not, maybe fallback to formatted hardcode?
+            // For now, let's trust the DB or fallback to existing WEAPON_DATA constant as initial state if preferred,
+            // but we want to use the DB.
+            if (Object.keys(grouped).length > 0) {
+                setWeaponConfigs(grouped);
+            }
+        } catch (err) {
+            console.error('Error fetching weapon configs:', err);
+            // Verify if WEAPON_DATA is still a valid fallback
+        }
+    };
+
     const fetchWeapons = async () => {
-        setLoading(true);
         try {
             const { data, error } = await supabase
                 .from('user_weapons')
@@ -65,9 +98,7 @@ export default function Armoury({ userStats, onUpdate }) {
             if (error) throw error;
             setUserWeapons(data || []);
         } catch (err) {
-            console.error('Error fetching weapons:', err);
-        } finally {
-            setLoading(false);
+            console.error('Error fetching inventory:', err);
         }
     };
 
@@ -144,30 +175,20 @@ export default function Armoury({ userStats, onUpdate }) {
         }
     };
 
+    // Use DB configs if available, otherwise fallback to hardcoded WEAPON_DATA
+    const activeData = weaponConfigs || WEAPON_DATA;
+
     return (
         <div className="space-y-4 font-sans text-black animate-fade-in">
-            {/* Header Banner */}
             {/* Header Banner */}
             <div className="bg-white border-2 border-gray-400 border-r-white border-b-white shadow-[inset_1px_1px_0px_0px_#000] mb-4">
                 <img
                     src="/images/armory-banner.png"
                     alt="Royal Armoury"
-                    className="w-full h-48 object-cover object-center border-b-2 border-gray-400"
+                    className="w-full h-48 object-cover object-center"
                     style={{ imageRendering: 'pixelated' }}
                 />
-                <div className="p-4 flex justify-between items-center">
-                    <div>
-                        <h1 className="text-xl font-bold mb-1">Royal Armoury</h1>
-                        <p className="text-sm">Equip your forces with the finest steel.</p>
-                    </div>
-                    <div className="text-right">
-                        <div className="text-xs text-gray-600 uppercase font-bold">Research Level</div>
-                        <div className="text-2xl font-bold">{researchLevel} <span className="text-sm text-gray-500">/ 5</span></div>
-                    </div>
-                </div>
             </div>
-
-
 
             {/* Weapon/Soldier Ratio Warning */}
             {(() => {
@@ -182,7 +203,7 @@ export default function Armoury({ userStats, onUpdate }) {
                 })();
 
                 // Calculate total weapons owned in this category
-                const totalWeapons = WEAPON_DATA[activeTab].reduce((sum, w) => sum + getOwnedQuantity(activeTab, w.tier), 0);
+                const totalWeapons = (activeData[activeTab] || []).reduce((sum, w) => sum + getOwnedQuantity(activeTab, w.tier), 0);
 
                 if (totalWeapons > soldierCount) {
                     return (
@@ -203,7 +224,7 @@ export default function Armoury({ userStats, onUpdate }) {
             <div className="border border-gray-400 p-1">
                 {/* Tabs */}
                 <div className="flex gap-1 border-b border-white bg-gray-200 p-1 pb-0">
-                    {Object.keys(WEAPON_DATA).map(type => (
+                    {Object.keys(activeData).map(type => (
                         <button
                             key={type}
                             onClick={() => setActiveTab(type)}
@@ -229,7 +250,7 @@ export default function Armoury({ userStats, onUpdate }) {
                         }
                     })();
 
-                    const totalWeapons = WEAPON_DATA[activeTab].reduce((sum, w) => sum + getOwnedQuantity(activeTab, w.tier), 0);
+                    const totalWeapons = (activeData[activeTab] || []).reduce((sum, w) => sum + getOwnedQuantity(activeTab, w.tier), 0);
                     const equipped = Math.min(soldierCount, totalWeapons);
                     const unequipped = Math.max(0, soldierCount - totalWeapons);
                     const excess = Math.max(0, totalWeapons - soldierCount);
@@ -263,88 +284,90 @@ export default function Armoury({ userStats, onUpdate }) {
                     );
                 })()}
 
-                {/* Weapons Grid */}
-                <div className="p-4 bg-white border-2 border-gray-600 border-t-white border-l-white">
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {WEAPON_DATA[activeTab].map((weapon) => {
-                            const isLocked = weapon.tier > 0 && weapon.tier > researchLevel;
-                            const owned = getOwnedQuantity(activeTab, weapon.tier);
-                            const key = `${activeTab}-${weapon.tier}`;
-                            const inputQty = quantities[key] || '';
+                {/* Weapons Table */}
+                <div className="bg-white border-2 border-gray-600 border-t-white border-l-white">
+                    <table className="w-full text-sm border-collapse">
+                        <thead className="bg-[#c0c0c0] sticky top-0 z-10 text-xs">
+                            <tr>
+                                <th className="border border-gray-500 border-t-white border-l-white px-2 py-1 text-center w-12">Tier</th>
+                                <th className="border border-gray-500 border-t-white border-l-white px-2 py-1 text-left">Name</th>
+                                <th className="border border-gray-500 border-t-white border-l-white px-2 py-1 text-right w-24">Power</th>
+                                <th className="border border-gray-500 border-t-white border-l-white px-2 py-1 text-right w-24">Cost</th>
+                                <th className="border border-gray-500 border-t-white border-l-white px-2 py-1 text-center w-20">Owned</th>
+                                <th className="border border-gray-500 border-t-white border-l-white px-2 py-1 text-center w-48">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {(activeData[activeTab] || []).map((weapon) => {
+                                const isLocked = weapon.tier > 0 && weapon.tier > researchLevel;
+                                const owned = getOwnedQuantity(activeTab, weapon.tier);
+                                const key = `${activeTab}-${weapon.tier}`;
+                                const inputQty = quantities[key] || '';
+                                const maxAffordable = Math.floor(availableGold / weapon.cost);
 
-                            return (
-                                <fieldset key={weapon.tier} className={`border-2 border-white border-l-gray-500 border-t-gray-500 p-2 relative ${isLocked ? 'bg-gray-100' : 'bg-transparent'}`}>
-                                    <legend className="font-bold text-black mb-1 px-1">{weapon.name}</legend>
-
-                                    {isLocked && (
-                                        <div className="absolute inset-0 flex items-center justify-center bg-gray-200/50 z-10">
-                                            <div className="bg-white border text-xs font-bold px-2 py-1 shadow">
-                                                REQUIRES RESEARCH LVL {weapon.tier}
+                                return (
+                                    <tr key={weapon.tier} className={`${isLocked ? 'bg-gray-200 text-gray-500' : 'hover:bg-blue-50'} border-b border-gray-300`}>
+                                        <td className="border-r border-gray-300 p-2 text-center font-bold">
+                                            {weapon.tier}
+                                        </td>
+                                        <td className="border-r border-gray-300 p-2 font-bold relative">
+                                            {weapon.name}
+                                            {isLocked && (
+                                                <span className="ml-2 text-[10px] bg-red-100 text-red-800 border border-red-300 px-1 rounded">
+                                                    Requires Research Lvl {weapon.tier}
+                                                </span>
+                                            )}
+                                        </td>
+                                        <td className="border-r border-gray-300 p-2 text-right font-mono text-red-700">
+                                            +{weapon.strength.toLocaleString()}
+                                        </td>
+                                        <td className="border-r border-gray-300 p-2 text-right font-mono text-yellow-700">
+                                            {weapon.cost.toLocaleString()}
+                                        </td>
+                                        <td className="border-r border-gray-300 p-2 text-center font-bold font-mono text-blue-900">
+                                            {owned.toLocaleString()}
+                                        </td>
+                                        <td className="p-2 text-center">
+                                            <div className="flex bg-white border border-gray-400 p-1 gap-1">
+                                                <input
+                                                    type="number"
+                                                    min="1"
+                                                    placeholder="Qty"
+                                                    value={inputQty}
+                                                    onChange={(e) => handleQuantityChange(key, e.target.value)}
+                                                    disabled={isLocked}
+                                                    className="w-16 px-1 text-xs border border-gray-400 outline-none font-mono"
+                                                />
+                                                <button
+                                                    onClick={() => handleQuantityChange(key, maxAffordable)}
+                                                    disabled={isLocked || maxAffordable <= 0}
+                                                    className="px-1 bg-yellow-100 border border-yellow-400 text-[10px] font-bold text-yellow-800 hover:bg-yellow-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                    title={`Max: ${maxAffordable.toLocaleString()}`}
+                                                >
+                                                    MAX
+                                                </button>
+                                                <button
+                                                    onClick={() => handleBuy(activeTab, weapon.tier)}
+                                                    disabled={isLocked || actionLoading === `buy-${key}` || !inputQty || availableGold < (parseInt(inputQty) * weapon.cost)}
+                                                    className="flex-1 bg-green-100 border border-green-500 text-green-800 text-xs font-bold hover:bg-green-200 disabled:opacity-50 disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-300 disabled:cursor-not-allowed"
+                                                >
+                                                    {actionLoading === `buy-${key}` ? '...' : 'Buy'}
+                                                </button>
+                                                <button
+                                                    onClick={() => initiateSell(activeTab, weapon.tier, weapon.name, weapon.cost)}
+                                                    disabled={isLocked || actionLoading === `sell-${key}` || !inputQty || owned < (parseInt(inputQty) || 1)}
+                                                    className="px-2 bg-red-100 border border-red-400 text-red-800 text-xs font-bold hover:bg-red-200 disabled:opacity-50 disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-300 disabled:cursor-not-allowed"
+                                                    title="Sell for 50%"
+                                                >
+                                                    Sell
+                                                </button>
                                             </div>
-                                        </div>
-                                    )}
-
-                                    <div className="flex justify-between items-start mb-2">
-                                        <span className="text-[10px] text-gray-500 font-bold uppercase">Tier {weapon.tier}</span>
-                                    </div>
-
-                                    <div className="space-y-1 mb-4 text-sm">
-                                        <div className="flex justify-between">
-                                            <span className="text-gray-800">Strength</span>
-                                            <span className="font-bold text-red-900">+{weapon.strength.toLocaleString()}</span>
-                                        </div>
-                                        <div className="flex justify-between">
-                                            <span className="text-gray-800">Cost</span>
-                                            <span className="font-bold text-yellow-700">{weapon.cost.toLocaleString()}</span>
-                                        </div>
-                                        <div className="flex justify-between bg-gray-100 px-1 border border-gray-300">
-                                            <span className="text-gray-800">Owned</span>
-                                            <span className="font-bold text-green-900">{owned.toLocaleString()}</span>
-                                        </div>
-                                    </div>
-
-                                    <div className="space-y-2">
-                                        <div className="flex gap-2">
-                                            <input
-                                                type="number"
-                                                min="1"
-                                                placeholder="Qty"
-                                                value={inputQty}
-                                                onChange={(e) => handleQuantityChange(key, e.target.value)}
-                                                disabled={isLocked}
-                                                className="w-16 px-1 py-0.5 text-sm bg-white border-2 border-gray-600 border-r-white border-b-white shadow-[inset_1px_1px_2px_rgba(0,0,0,0.1)] outline-none"
-                                            />
-                                            <button
-                                                onClick={() => handleQuantityChange(key, Math.floor(availableGold / weapon.cost))}
-                                                disabled={isLocked || Math.floor(availableGold / weapon.cost) <= 0}
-                                                className="px-2 bg-[#c0c0c0] border-2 border-white border-r-gray-800 border-b-gray-800 active:border-gray-800 active:border-r-white active:border-b-white text-[10px] font-bold disabled:text-gray-500 whitespace-nowrap"
-                                                title={`Max: ${Math.floor(availableGold / weapon.cost).toLocaleString()}`}
-                                            >
-                                                MAX ({Math.floor(availableGold / weapon.cost).toLocaleString()})
-                                            </button>
-                                            <button
-                                                onClick={() => handleBuy(activeTab, weapon.tier)}
-                                                disabled={isLocked || actionLoading === `buy-${key}` || !inputQty || availableGold < (parseInt(inputQty) * weapon.cost)}
-                                                className="flex-1 bg-[#c0c0c0] border-2 border-white border-r-gray-800 border-b-gray-800 active:border-gray-800 active:border-r-white active:border-b-white text-xs font-bold uppercase disabled:text-gray-500"
-                                            >
-                                                {actionLoading === `buy-${key}` ? '...' : 'Buy'}
-                                            </button>
-                                            <button
-                                                onClick={() => initiateSell(activeTab, weapon.tier, weapon.name, weapon.cost)}
-                                                disabled={isLocked || actionLoading === `sell-${key}` || !inputQty || owned < (parseInt(inputQty) || 1)}
-                                                className="flex-1 bg-[#c0c0c0] border-2 border-white border-r-gray-800 border-b-gray-800 active:border-gray-800 active:border-r-white active:border-b-white text-xs font-bold uppercase disabled:text-gray-500"
-                                            >
-                                                {actionLoading === `sell-${key}` ? '...' : 'Sell'}
-                                            </button>
-                                        </div>
-                                        <div className="text-[10px] text-center text-gray-500">
-                                            Sell value: 50%
-                                        </div>
-                                    </div>
-                                </fieldset>
-                            );
-                        })}
-                    </div>
+                                        </td>
+                                    </tr>
+                                );
+                            })}
+                        </tbody>
+                    </table>
                 </div>
             </div>
 
@@ -368,6 +391,8 @@ export default function Armoury({ userStats, onUpdate }) {
                                     <p className="mb-2">Are you sure you want to sell <strong>{sellModal.qty} x {sellModal.name}</strong>?</p>
                                     <p className="text-gray-700 text-xs">
                                         You will receive <span className="font-bold text-yellow-800">{(sellModal.qty * sellModal.cost * 0.5).toLocaleString()} Gold</span> (50% value).
+                                        <br />
+                                        <span className="italic text-red-700">Note: Sold items are refunded at 50% of the current database cost.</span>
                                     </p>
                                 </div>
                             </div>
