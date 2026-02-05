@@ -176,10 +176,10 @@ export default function Reports({ session }) {
                     <div className="col-span-1 border-r border-gray-400">Action</div>
                     <div className="col-span-1 border-r border-gray-400">Enemy</div>
                     <div className="col-span-2 border-r border-gray-400">Result</div>
-                    <div className="col-span-1 border-r border-gray-400">Enemy Lost</div>
-                    <div className="col-span-1 border-r border-gray-400">You Lost</div>
+                    <div className="col-span-1 border-r border-gray-400">Enemy Casualties</div>
+                    <div className="col-span-1 border-r border-gray-400">My Casualties</div>
                     <div className="col-span-1 border-r border-gray-400">Hostages</div>
-                    <div className="col-span-2">Damage (Them/You)</div>
+                    <div className="col-span-2">Power (Enemy/You)</div>
                 </div>
 
                 {/* Table Body */}
@@ -203,7 +203,7 @@ export default function Reports({ session }) {
                             let resultColor = 'text-gray-600';
 
                             if (d.gold_stolen > 0) {
-                                const percentText = d.steal_percent ? ` (${Math.round(d.steal_percent)}%)` : '';
+                                const percentText = d.steal_percent ? ` (${Math.round(d.steal_percent * 100)}%)` : '';
                                 resultText = `+${formatNumber(d.gold_stolen)} Gold${percentText}`;
                                 resultColor = 'text-green-700 font-bold';
                             } else if (d.gold_lost > 0) {
@@ -217,19 +217,23 @@ export default function Reports({ session }) {
                             }
 
                             // Losses
-                            const enemyLosses = isDefense ? (d.attacker_casualties || 0) : (d.enemy_killed || 0);
+                            const enemyLosses = isDefense
+                                ? (d.attacker_casualties || 0)
+                                : ((d.enemy_killed || 0) + (d.miners_killed || 0) + (d.citizens_killed || 0));
                             const yourLosses = d.soldiers_lost || 0;
 
-                            // Hostages (Citizens)
-                            const hostagesVal = isDefense ? (d.citizens_lost || 0) : (d.citizens_stolen || 0);
+                            // Hostages
+                            const hostagesVal = isDefense ? (d.hostages_taken || 0) : (d.hostages_captured || 0);
                             const hostagesColor = isDefense ? 'text-red-700 font-bold' : 'text-green-700 font-bold';
 
-                            // Damage - The SQL logic was a bit weird but frontend maps:
-                            // d.damage_taken -> Damage taken by the report owner (You)
-                            // d.damage_dealt -> Damage dealt by the report owner (You) to Enemy
-                            // BUT... looking at my previous file comments, I suspected a swap.
-                            // Let's stick to the JSON keys if the SQL was patched to be logical.
-                            // Assuming: damage_dealt = You Hit, damage_taken = You Got Hit.
+                            // Power Comparison
+                            // If isDefense: Enemy=Attacker(d.attacker_power), You=Defender(d.defender_power)
+                            // If Offense: Enemy=Defender(d.defender_power), You=Attacker(d.attacker_power)
+                            const enemyPower = isDefense ? (d.attacker_power || 0) : (d.defender_power || 0);
+                            const yourPower = isDefense ? (d.defender_power || 0) : (d.attacker_power || 0);
+
+                            // Civilian Losses Tooltip
+                            const lossesTooltip = `Soldiers: ${formatNumber(yourLosses)}\nMiners: ${formatNumber(d.miners_lost || d.miners_killed || 0)}\nCitizens: ${formatNumber(d.citizens_lost || d.citizens_killed || 0)}`;
 
                             return (
                                 <div
@@ -260,7 +264,7 @@ export default function Reports({ session }) {
                                         {formatNumber(enemyLosses)}
                                     </div>
 
-                                    <div className="col-span-1 text-red-600 font-bold group-hover:text-[#ff8080]">
+                                    <div className="col-span-1 text-red-600 font-bold group-hover:text-[#ff8080]" title={lossesTooltip}>
                                         {formatNumber(yourLosses)}
                                     </div>
 
@@ -270,9 +274,9 @@ export default function Reports({ session }) {
 
                                     <div className="col-span-2 text-[10px]">
                                         <div className="flex items-center justify-center gap-2">
-                                            <span className="text-red-600 font-bold group-hover:text-[#ff8080] min-w-[30px] text-right" title="Damage Taken">{formatNumber(d.damage_taken || 0)}</span>
-                                            <span className="text-gray-400 group-hover:text-white">/</span>
-                                            <span className="text-blue-700 font-bold group-hover:text-[#8080ff] min-w-[30px] text-left" title="Damage Dealt">{formatNumber(d.damage_dealt || 0)}</span>
+                                            <span className="text-red-800 font-bold group-hover:text-[#ff8080] min-w-[30px] text-right" title="Enemy Power">{formatNumber(enemyPower)}</span>
+                                            <span className="text-gray-400 group-hover:text-white">vs</span>
+                                            <span className="text-blue-800 font-bold group-hover:text-[#8080ff] min-w-[30px] text-left" title="Your Power">{formatNumber(yourPower)}</span>
                                         </div>
                                     </div>
                                 </div>

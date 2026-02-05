@@ -124,6 +124,11 @@ export default function Battle({ userStats, onNavigate, onAction, onViewProfile 
                 message: data.message,
                 gold_stolen: data.gold_stolen,
                 casualties: data.casualties,
+                miners_killed: data.miners_killed,
+                citizens_killed: data.citizens_killed,
+                hostages_captured: data.hostages_captured,
+                attacker_power: data.attacker_power,
+                defender_power: data.defender_power,
                 opponent: targetName,
                 report_id: data.report_id
             });
@@ -231,32 +236,84 @@ export default function Battle({ userStats, onNavigate, onAction, onViewProfile 
                         <div className="p-4 space-y-4 text-center">
                             <p className="text-sm">{attackResult.message}</p>
 
-                            <div className="grid grid-cols-2 gap-4 text-left">
+                            <div className="space-y-4 text-left">
                                 {attackResult.success ? (
                                     <>
+                                        {/* Power Comparison */}
                                         <fieldset className="border border-white border-l-gray-600 border-t-gray-600 p-2 bg-white">
-                                            <legend className="text-[10px] uppercase font-bold px-1">Gold Seized</legend>
-                                            <div className="font-bold flex flex-col">
-                                                <span>{formatNumber(attackResult.gold_stolen)}</span>
-                                                {attackResult.steal_percent && (
-                                                    <span className="text-[10px] text-green-700">({Math.round(attackResult.steal_percent * 100)}%)</span>
-                                                )}
+                                            <legend className="text-[10px] uppercase font-bold px-1 text-black">Battle Strength</legend>
+                                            <div className="flex justify-between items-center text-xs">
+                                                <div className="text-center">
+                                                    <div className="font-bold text-blue-800">Your Attack</div>
+                                                    <div>{formatNumber(attackResult.attacker_power || 0)}</div>
+                                                </div>
+                                                <div className="font-bold text-gray-400">VS</div>
+                                                <div className="text-center">
+                                                    <div className="font-bold text-red-800">Enemy Defense</div>
+                                                    <div>{formatNumber(attackResult.defender_power || 0)}</div>
+                                                </div>
                                             </div>
                                         </fieldset>
+
+                                        {/* Loot Section */}
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <fieldset className="border border-white border-l-gray-600 border-t-gray-600 p-2 bg-white">
+                                                <legend className="text-[10px] uppercase font-bold px-1 text-green-700">Gold Seized</legend>
+                                                <div className="font-bold flex flex-col">
+                                                    <span>{formatNumber(attackResult.gold_stolen)}</span>
+                                                    {attackResult.steal_percent && (
+                                                        <span className="text-[10px] text-green-700">({Math.round(attackResult.steal_percent * 100)}%)</span>
+                                                    )}
+                                                </div>
+                                            </fieldset>
+                                            <fieldset className="border border-white border-l-gray-600 border-t-gray-600 p-2 bg-white bg-amber-50">
+                                                <legend className="text-[10px] uppercase font-bold px-1 text-amber-800">Hostages</legend>
+                                                <div className="font-bold text-amber-700">{formatNumber(attackResult.hostages_captured || 0)}</div>
+                                            </fieldset>
+                                        </div>
+
+                                        {/* Casualties Section */}
                                         <fieldset className="border border-white border-l-gray-600 border-t-gray-600 p-2 bg-white">
-                                            <legend className="text-[10px] uppercase font-bold px-1">Enemy Killed</legend>
-                                            <div className="font-bold text-red-600">{formatNumber(attackResult.casualties)}</div>
-                                        </fieldset>
-                                        <fieldset className="col-span-2 border border-white border-l-gray-600 border-t-gray-600 p-2 bg-white bg-amber-50">
-                                            <legend className="text-[10px] uppercase font-bold px-1 text-amber-800">Hostages Captured</legend>
-                                            <div className="font-bold text-amber-700">{formatNumber(attackResult.hostages_captured || 0)}</div>
+                                            <legend className="text-[10px] uppercase font-bold px-1 text-red-700">Enemy Losses</legend>
+                                            <div className="grid grid-cols-3 gap-2 text-center text-xs">
+                                                <div>
+                                                    <div className="font-bold text-gray-500">Soldiers</div>
+                                                    <div className="text-red-600 font-bold">{formatNumber(attackResult.casualties || 0)}</div>
+                                                </div>
+                                                <div>
+                                                    <div className="font-bold text-gray-500">Miners</div>
+                                                    <div className="font-bold">{formatNumber(attackResult.miners_killed || 0)}</div>
+                                                </div>
+                                                <div>
+                                                    <div className="font-bold text-gray-500">Citizens</div>
+                                                    <div className="font-bold">{formatNumber(attackResult.citizens_killed || 0)}</div>
+                                                </div>
+                                            </div>
                                         </fieldset>
                                     </>
                                 ) : (
-                                    <fieldset className="col-span-2 border border-white border-l-gray-600 border-t-gray-600 p-2 bg-white">
-                                        <legend className="text-[10px] uppercase font-bold px-1">Soldiers Lost</legend>
-                                        <div className="font-bold text-red-600">{formatNumber(attackResult.casualties)}</div>
-                                    </fieldset>
+                                    <>
+                                        {/* Power Comparison */}
+                                        <fieldset className="border border-white border-l-gray-600 border-t-gray-600 p-2 bg-white">
+                                            <legend className="text-[10px] uppercase font-bold px-1 text-black">Battle Strength</legend>
+                                            <div className="flex justify-between items-center text-xs">
+                                                <div className="text-center">
+                                                    <div className="font-bold text-blue-800">Your Attack</div>
+                                                    <div>{formatNumber(attackResult.attacker_power || 0)}</div>
+                                                </div>
+                                                <div className="font-bold text-gray-400">VS</div>
+                                                <div className="text-center">
+                                                    <div className="font-bold text-red-800">Enemy Defense</div>
+                                                    <div>{formatNumber(attackResult.defender_power || 0)}</div>
+                                                </div>
+                                            </div>
+                                        </fieldset>
+
+                                        <fieldset className="col-span-2 border border-white border-l-gray-600 border-t-gray-600 p-2 bg-white">
+                                            <legend className="text-[10px] uppercase font-bold px-1">Soldiers Lost</legend>
+                                            <div className="font-bold text-red-600">{formatNumber(attackResult.casualties)}</div>
+                                        </fieldset>
+                                    </>
                                 )}
                             </div>
 
