@@ -12,7 +12,9 @@ INSERT INTO public.game_config_variables (key, value, description)
 VALUES 
     ('spy_sentry_ratio', 1.0, 'Multiplier for defender sentry strength vs spies. Higher means harder to spy.'),
     ('defense_kill_rate_min', 0.00, 'Minimum percentage of defense soldiers killed in a lost battle (0.00 = 0%).'),
-    ('defense_kill_rate_max', 0.02, 'Maximum percentage of defense soldiers killed in a lost battle (0.02 = 2%).')
+    ('defense_kill_rate_max', 0.02, 'Maximum percentage of defense soldiers killed in a lost battle (0.02 = 2%).'),
+    ('attack_loss_rate_min', 0.05, 'Minimum percentage of attack soldiers lost in a lost battle (0.05 = 5%).'),
+    ('attack_loss_rate_max', 0.10, 'Maximum percentage of attack soldiers lost in a lost battle (0.10 = 10%).')
 ON CONFLICT (key) DO NOTHING;
 
 -- Function to get a config value
@@ -189,11 +191,15 @@ DECLARE
     v_loss_rate float;
     v_min_kill_rate numeric;
     v_max_kill_rate numeric;
+    v_min_loss_rate numeric;
+    v_max_loss_rate numeric;
     v_steal_pct float;
 BEGIN
     v_attacker_id := auth.uid();
     v_min_kill_rate := public.get_game_config_variable('defense_kill_rate_min', 0.0);
     v_max_kill_rate := public.get_game_config_variable('defense_kill_rate_max', 0.02);
+    v_min_loss_rate := public.get_game_config_variable('attack_loss_rate_min', 0.05);
+    v_max_loss_rate := public.get_game_config_variable('attack_loss_rate_max', 0.10);
 
     -- Self-attack check
     IF v_attacker_id = target_id THEN
@@ -328,8 +334,9 @@ BEGIN
     ELSE
         -- === DEFEAT ===
         
-        -- Calculate Attacker Casualties (5-10% of Attack Soldiers)
-        v_loss_rate := 0.05 + (random() * 0.05);
+        -- Calculate Attacker Casualties using Dynamic Configuration
+        v_loss_rate := v_min_loss_rate + (random() * (v_max_loss_rate - v_min_loss_rate));
+        
         v_raw_casualties := COALESCE(v_attacker_stats.attack_soldiers, 0) * v_loss_rate;
         v_casualty_count := floor(v_raw_casualties) + (CASE WHEN random() < (v_raw_casualties - floor(v_raw_casualties)) THEN 1 ELSE 0 END);
 

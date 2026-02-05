@@ -1,7 +1,11 @@
--- Optimize Battle Logic
--- Consolidates achievement tracking into the main attack_player function
--- Reduces network roundtrips from 4 to 1 per attack
+-- Create new configuration keys for attack loss rate
+INSERT INTO public.game_config_variables (key, value, description)
+VALUES 
+    ('attack_loss_rate_min', 0.05, 'Minimum percentage of attack soldiers lost in a lost battle (0.05 = 5%).'),
+    ('attack_loss_rate_max', 0.10, 'Maximum percentage of attack soldiers lost in a lost battle (0.10 = 10%).')
+ON CONFLICT (key) DO NOTHING;
 
+-- Update attack_player to use dynamic configuration for loss rate
 CREATE OR REPLACE FUNCTION public.attack_player(
     target_id uuid
 )
