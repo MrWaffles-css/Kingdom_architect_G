@@ -203,7 +203,8 @@ export default function Reports({ session }) {
                             let resultColor = 'text-gray-600';
 
                             if (d.gold_stolen > 0) {
-                                resultText = `+${formatNumber(d.gold_stolen)} Gold`;
+                                const percentText = d.steal_percent ? ` (${Math.round(d.steal_percent)}%)` : '';
+                                resultText = `+${formatNumber(d.gold_stolen)} Gold${percentText}`;
                                 resultColor = 'text-green-700 font-bold';
                             } else if (d.gold_lost > 0) {
                                 resultText = `-${formatNumber(d.gold_lost)} Gold`;

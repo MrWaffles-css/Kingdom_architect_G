@@ -135,12 +135,10 @@ export default function Battle({ userStats, onNavigate, onAction, onViewProfile 
             if (onAction) onAction();
 
             // Redirect immediately to report page as requested
+            // Do not redirect to reports page. Show modal instead.
             if (onNavigate && data.report_id) {
-                onNavigate('Reports', { initialReportId: data.report_id });
-                setAttackResult(null); // Do not show the small modal if we are going full page
-            } else {
-                // Fallback if no navigation available or no ID
-                // Keep modal open
+                // onNavigate('Reports', { initialReportId: data.report_id }); // Disabled
+                // setAttackResult(null); 
             }
         } catch (err) {
             console.error('Attack error:', err);
@@ -238,11 +236,20 @@ export default function Battle({ userStats, onNavigate, onAction, onViewProfile 
                                     <>
                                         <fieldset className="border border-white border-l-gray-600 border-t-gray-600 p-2 bg-white">
                                             <legend className="text-[10px] uppercase font-bold px-1">Gold Seized</legend>
-                                            <div className="font-bold">{formatNumber(attackResult.gold_stolen)}</div>
+                                            <div className="font-bold flex flex-col">
+                                                <span>{formatNumber(attackResult.gold_stolen)}</span>
+                                                {attackResult.steal_percent && (
+                                                    <span className="text-[10px] text-green-700">({Math.round(attackResult.steal_percent * 100)}%)</span>
+                                                )}
+                                            </div>
                                         </fieldset>
                                         <fieldset className="border border-white border-l-gray-600 border-t-gray-600 p-2 bg-white">
                                             <legend className="text-[10px] uppercase font-bold px-1">Enemy Killed</legend>
                                             <div className="font-bold text-red-600">{formatNumber(attackResult.casualties)}</div>
+                                        </fieldset>
+                                        <fieldset className="col-span-2 border border-white border-l-gray-600 border-t-gray-600 p-2 bg-white bg-amber-50">
+                                            <legend className="text-[10px] uppercase font-bold px-1 text-amber-800">Hostages Captured</legend>
+                                            <div className="font-bold text-amber-700">{formatNumber(attackResult.hostages_captured || 0)}</div>
                                         </fieldset>
                                     </>
                                 ) : (

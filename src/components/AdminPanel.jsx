@@ -482,6 +482,7 @@ function AdminMechanicsPanel() {
     const [showTurnsResearchEditor, setShowTurnsResearchEditor] = useState(false);
     const [showArmouryEditor, setShowArmouryEditor] = useState(false);
     const [showGoldStealEditor, setShowGoldStealEditor] = useState(false);
+    const [showGameVariablesEditor, setShowGameVariablesEditor] = useState(false);
 
     useEffect(() => {
         fetchMechanics();
@@ -533,8 +534,6 @@ function AdminMechanicsPanel() {
             'hostage_system': '⛓️',
             'alliance_system': '🤝',
             'boss_fights': '👹',
-            'alliance_system': '🤝',
-            'boss_fights': '👹',
             'spy_reports': '🕵️',
             'kingdom_system': '🏰',
             'gold_mine_system': '⛏️',
@@ -570,6 +569,41 @@ function AdminMechanicsPanel() {
                 <legend className="font-bold px-1 text-sm">Game Mechanics</legend>
 
                 <div className="flex flex-col h-full gap-4">
+                    {/* Global Config Section */}
+                    <div className="bg-white border-2 border-gray-500 border-r-white border-b-white">
+                        <div className="bg-gradient-to-r from-teal-700 to-teal-500 text-white px-2 py-1 font-bold text-xs border-b border-gray-400">
+                            🌍 Global Config
+                        </div>
+                        <table className="w-full text-sm border-collapse">
+                            <thead className="bg-[#c0c0c0]">
+                                <tr>
+                                    <th className="border border-gray-500 border-t-white border-l-white px-2 py-0.5 text-left w-8">On</th>
+                                    <th className="border border-gray-500 border-t-white border-l-white px-2 py-0.5 text-left">Feature</th>
+                                    <th className="border border-gray-500 border-t-white border-l-white px-2 py-0.5 w-24">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr className="hover:bg-blue-800 hover:text-white group">
+                                    <td className="border border-gray-200 p-1 text-center">
+                                        <input type="checkbox" checked={true} disabled className="cursor-not-allowed" />
+                                    </td>
+                                    <td className="border border-gray-200 p-1 flex items-center gap-2 select-none">
+                                        <span>⚙️</span>
+                                        <span>Game Variables (Spy Ratio, Kill Rates)</span>
+                                    </td>
+                                    <td className="border border-gray-200 p-1 text-center">
+                                        <button
+                                            onClick={() => setShowGameVariablesEditor(true)}
+                                            className="px-2 py-0.5 bg-[#c0c0c0] text-black border-2 border-white border-r-black border-b-black text-xs active:border-black active:border-r-white active:border-b-white font-bold"
+                                        >
+                                            Setup
+                                        </button>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
                     {/* Library Upgrades Section */}
                     <div className="bg-white border-2 border-gray-500 border-r-white border-b-white">
                         <div className="bg-gradient-to-r from-blue-700 to-blue-500 text-white px-2 py-1 font-bold text-xs border-b border-gray-400">
@@ -940,7 +974,98 @@ function AdminMechanicsPanel() {
             {showTurnsResearchEditor && <TurnsResearchEditorModal onClose={() => setShowTurnsResearchEditor(false)} />}
             {showArmouryEditor && <ArmouryEditorModal onClose={() => setShowArmouryEditor(false)} />}
             {showGoldStealEditor && <GoldStealEditorModal onClose={() => setShowGoldStealEditor(false)} />}
+            {showGameVariablesEditor && <GameVariablesEditorModal onClose={() => setShowGameVariablesEditor(false)} />}
         </>
+    );
+}
+
+function GameVariablesEditorModal({ onClose }) {
+    const [variables, setVariables] = useState([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        fetchVariables();
+    }, []);
+
+    const fetchVariables = async () => {
+        try {
+            const { data, error } = await supabase.rpc('get_all_game_config_variables');
+            if (error) throw error;
+            setVariables(data || []);
+        } catch (err) {
+            console.error(err);
+            alert('Error loading variables: ' + err.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleUpdate = async (key, newValue) => {
+        try {
+            const { error } = await supabase.rpc('update_game_config_variable', {
+                p_key: key,
+                p_value: parseFloat(newValue)
+            });
+            if (error) throw error;
+
+            setVariables(prev => prev.map(v => v.key === key ? { ...v, value: parseFloat(newValue) } : v));
+        } catch (err) {
+            console.error(err);
+            alert('Error updating variable: ' + err.message);
+        }
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div className="w-[600px] bg-[#c0c0c0] border-2 border-white border-r-black border-b-black p-1 shadow-xl flex flex-col max-h-[90vh]">
+                <div className="bg-gradient-to-r from-blue-900 via-blue-700 to-blue-900 text-white px-2 py-1 flex justify-between items-center select-none">
+                    <span className="font-bold text-sm">Game Configuration Variables</span>
+                    <button onClick={onClose} className="text-white hover:bg-red-600 px-1 rounded">✖</button>
+                </div>
+
+                <div className="p-4 overflow-auto flex-1 bg-[#c0c0c0]">
+                    {loading ? (
+                        <div className="text-center p-4">Loading...</div>
+                    ) : (
+                        <table className="w-full text-sm border-collapse bg-white">
+                            <thead>
+                                <tr className="bg-gray-200">
+                                    <th className="border border-gray-400 px-2 py-1 text-left">Variable</th>
+                                    <th className="border border-gray-400 px-2 py-1 text-left">Description</th>
+                                    <th className="border border-gray-400 px-2 py-1 w-24">Value</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {variables.map(v => (
+                                    <tr key={v.key} className="hover:bg-gray-50">
+                                        <td className="border border-gray-400 px-2 py-1 font-mono font-bold text-xs">{v.key}</td>
+                                        <td className="border border-gray-400 px-2 py-1 text-xs text-gray-600">{v.description}</td>
+                                        <td className="border border-gray-400 px-2 py-1">
+                                            <input
+                                                type="number"
+                                                step="0.01"
+                                                value={v.value}
+                                                onChange={(e) => handleUpdate(v.key, e.target.value)}
+                                                className="w-full border border-gray-300 px-1 font-mono text-right"
+                                            />
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    )}
+                </div>
+
+                <div className="p-2 border-t border-gray-400 flex justify-end">
+                    <button
+                        onClick={onClose}
+                        className="px-4 py-1 bg-[#c0c0c0] border-2 border-white border-r-black border-b-black active:border-r-white active:border-b-white text-sm font-bold"
+                    >
+                        Close
+                    </button>
+                </div>
+            </div>
+        </div>
     );
 }
 
@@ -2728,184 +2853,6 @@ function VaultEditorModal({ onClose }) {
 // ===========================
 // Gold Steal (Increase Stolen %) Editor Modal
 // ===========================
-function GoldStealEditorModal({ onClose }) {
-    const [config, setConfig] = useState(null);
-    const [loading, setLoading] = useState(true);
-    const [saving, setSaving] = useState(false);
-    const [hasChanges, setHasChanges] = useState(false);
-
-    useEffect(() => {
-        fetchConfig();
-    }, []);
-
-    const fetchConfig = async () => {
-        try {
-            setLoading(true);
-            const { data, error } = await supabase.rpc('get_gold_steal_config');
-            if (error) throw error;
-            // Ensure levels array is sorted
-            if (data && data.levels) {
-                data.levels.sort((a, b) => a.level - b.level);
-            }
-            setConfig(data || { levels: [] });
-            setHasChanges(false);
-        } catch (err) {
-            console.error('Error fetching gold steal config:', err);
-            alert('Failed to load config: ' + err.message);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleLevelChange = (index, field, value) => {
-        const newLevels = [...config.levels];
-        newLevels[index] = { ...newLevels[index], [field]: parseInt(value) || 0 };
-        setConfig(prev => ({ ...prev, levels: newLevels }));
-        setHasChanges(true);
-    };
-
-    const handleAddLevel = () => {
-        const lastLevel = config.levels && config.levels.length > 0
-            ? config.levels[config.levels.length - 1]
-            : { level: 0, cost: 5000, steal_percent: 50 };
-
-        const newLevel = {
-            level: lastLevel.level + 1,
-            cost: (lastLevel.cost || 5000) + 5000,
-            steal_percent: Math.min((lastLevel.steal_percent || 50) + 5, 100)
-        };
-        setConfig(prev => ({ ...prev, levels: [...(prev.levels || []), newLevel] }));
-        setHasChanges(true);
-    };
-
-    const handleRemoveLevel = (index) => {
-        const newLevels = config.levels.filter((_, i) => i !== index);
-        const reindexed = newLevels.map((lvl, i) => ({ ...lvl, level: i + 1 }));
-        setConfig(prev => ({ ...prev, levels: reindexed }));
-        setHasChanges(true);
-    };
-
-    const handleSave = async () => {
-        try {
-            setSaving(true);
-            const { error } = await supabase.rpc('update_gold_steal_config', {
-                p_levels: config.levels
-            });
-
-            if (error) throw error;
-            console.log('Gold Steal configuration updated successfully!');
-            setHasChanges(false);
-            onClose();
-        } catch (err) {
-            console.error('Error saving:', err);
-            alert('Failed to save: ' + err.message);
-        } finally {
-            setSaving(false);
-        }
-    };
-
-    const formatNumber = (num) => num?.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-
-    return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-[#c0c0c0] border-2 border-white border-r-gray-600 border-b-gray-600 shadow-lg max-w-3xl w-full max-h-[90vh] flex flex-col">
-                <div className="bg-gradient-to-r from-yellow-600 to-yellow-500 text-white px-2 py-1 flex justify-between items-center border-b border-black">
-                    <span className="font-bold">💰 Gold Steal % Configuration</span>
-                    <button onClick={onClose} className="bg-[#c0c0c0] text-black px-2 border-2 border-white border-r-gray-600 border-b-gray-600 font-bold hover:bg-gray-300">✕</button>
-                </div>
-
-                <div className="p-4 flex-1 overflow-auto bg-[#c0c0c0]">
-                    {loading ? (
-                        <div className="text-center p-8">Loading configuration...</div>
-                    ) : (
-                        <div className="flex flex-col h-full">
-                            <div className="bg-white border-2 border-gray-400 p-1 overflow-auto flex-1">
-                                <table className="w-full text-xs border-collapse">
-                                    <thead className="bg-gray-100 sticky top-0 z-10">
-                                        <tr>
-                                            <th className="p-2 border border-gray-300 w-16">Lvl</th>
-                                            <th className="p-2 border border-gray-300">Cost (XP)</th>
-                                            <th className="p-2 border border-gray-300">Total Steal %</th>
-                                            <th className="p-2 border border-gray-300 w-10"></th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {config?.levels?.map((lvl, idx) => (
-                                            <tr key={idx} className="hover:bg-yellow-50">
-                                                <td className="p-1 border border-gray-200 text-center font-bold text-gray-500">
-                                                    {lvl.level}
-                                                </td>
-                                                <td className="p-1 border border-gray-200">
-                                                    <input
-                                                        type="text"
-                                                        value={formatNumber(lvl.cost)}
-                                                        onChange={(e) => handleLevelChange(idx, 'cost', e.target.value.replace(/,/g, ''))}
-                                                        className="w-full text-right outline-none bg-transparent focus:bg-white px-1 font-mono"
-                                                    />
-                                                </td>
-                                                <td className="p-1 border border-gray-200">
-                                                    <input
-                                                        type="text"
-                                                        value={formatNumber(lvl.steal_percent)}
-                                                        onChange={(e) => handleLevelChange(idx, 'steal_percent', e.target.value.replace(/,/g, ''))}
-                                                        className="w-full text-right outline-none bg-transparent focus:bg-white px-1 font-mono"
-                                                    />
-                                                </td>
-                                                <td className="p-1 border border-gray-200 text-center">
-                                                    {idx === config.levels.length - 1 && idx > 0 && (
-                                                        <button
-                                                            onClick={() => handleRemoveLevel(idx)}
-                                                            className="text-red-500 hover:text-red-700 font-bold px-1"
-                                                            title="Remove Level"
-                                                        >
-                                                            ×
-                                                        </button>
-                                                    )}
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-
-                            <div className="flex justify-between items-center mt-2">
-                                <button
-                                    onClick={handleAddLevel}
-                                    className="px-3 py-1 bg-[#c0c0c0] border-2 border-white border-r-gray-600 border-b-gray-600 text-xs font-bold active:border-gray-600 active:border-r-white active:border-b-white"
-                                >
-                                    + Add Level
-                                </button>
-                                <span className="text-[10px] text-gray-500 italic">
-                                    Configure XP costs and gold steal percentages per research level.
-                                </span>
-                            </div>
-                        </div>
-                    )}
-                </div>
-
-                <div className="border-t-2 border-white p-2 bg-[#c0c0c0] flex justify-end gap-2">
-                    <button
-                        onClick={handleSave}
-                        disabled={saving || !hasChanges}
-                        className={`px-4 py-1 border-2 text-sm font-bold ${hasChanges
-                            ? 'bg-[#c0c0c0] border-white border-r-gray-600 border-b-gray-600 active:border-gray-600 active:border-r-white active:border-b-white'
-                            : 'bg-gray-400 border-gray-500 text-gray-600 cursor-not-allowed'
-                            }`}
-                    >
-                        {saving ? 'Saving...' : 'Save'}
-                    </button>
-                    <button
-                        onClick={onClose}
-                        className="px-4 py-1 bg-[#c0c0c0] border-2 border-white border-r-gray-600 border-b-gray-600 text-sm font-bold active:border-gray-600 active:border-r-white active:border-b-white"
-                    >
-                        Close
-                    </button>
-                </div>
-            </div>
-        </div>
-    );
-}
-
 // ===========================
 // Tech Stats Editor Modal
 // ===========================
@@ -3472,6 +3419,234 @@ function ArmouryEditorModal({ onClose }) {
                             Close
                         </button>
                     </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function GoldStealEditorModal({ onClose }) {
+    const [config, setConfig] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
+    const [hasChanges, setHasChanges] = useState(false);
+
+    useEffect(() => {
+        fetchConfig();
+    }, []);
+
+    const fetchConfig = async () => {
+        try {
+            setLoading(true);
+            const { data, error } = await supabase.rpc('get_gold_steal_configs');
+            if (error) throw error;
+            // Ensure sorted by level
+            const sorted = (data || []).sort((a, b) => a.level - b.level);
+            setConfig(sorted);
+            setHasChanges(false);
+        } catch (err) {
+            console.error('Error fetching gold steal config:', err);
+            alert('Failed to load config: ' + err.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleLevelChange = (index, field, value) => {
+        const newConfig = [...config];
+        // Handle numeric parsing
+        let parsedValue = value;
+        if (field === 'cost') parsedValue = parseInt(value) || 0;
+        if (field === 'steal_percent') parsedValue = parseFloat(value) || 0;
+
+        newConfig[index] = { ...newConfig[index], [field]: parsedValue };
+        setConfig(newConfig);
+        setHasChanges(true);
+    };
+
+    const handleAddLevel = () => {
+        const lastLevel = config.length > 0 ? config[config.length - 1] : { level: -1, cost: 0, steal_percent: 0.5 };
+        const newLevel = {
+            level: lastLevel.level + 1,
+            cost: (lastLevel.cost || 5000) + 5000,
+            steal_percent: parseFloat(((lastLevel.steal_percent || 0.5) + 0.05).toFixed(2))
+        };
+        setConfig([...config, newLevel]);
+        setHasChanges(true);
+    };
+
+    const handleRemoveLevel = async (index) => {
+        // If it's a new level (not in DB yet), just remove from state
+        // But since we sync fully on save, we might want to track deletions or just rebuild.
+        // For simplicity, we'll mark as deleted in UI and process in save, OR just support removing the last one.
+
+        // Better approach: Just remove from local state.
+        // However, we need to know if we need to call delete RPC.
+        // Let's assume on 'Save' we sync the whole state.
+        // But our RPC `update_gold_steal_config` is per row.
+        // And we made a `delete_gold_steal_config`.
+
+        // Let's require deleting from the END to keep levels sequential/sane
+        if (index !== config.length - 1) {
+            alert("Please remove levels from the bottom up to maintain sequential order.");
+            return;
+        }
+
+        const levelToRemove = config[index];
+        if (window.confirm(`Remove Level ${levelToRemove.level}?`)) {
+            // If we want to delete immediately or wait for save?
+            // Let's wait for save to be consistent with "Save Changes" button.
+            // BUT, `update_gold_steal_config` doesn't handle deletes.
+            // So we should probably delete immediately RPC or handle it in handleSave logic.
+
+            // Simplest: Delete immediately RPC if it exists in DB.
+            // How do we know config matches DB? We fetched it.
+
+            try {
+                // Determine if we should call DB delete (if it was previously saved)
+                // For now, let's just do it live for delete, it's safer.
+                const { error } = await supabase.rpc('delete_gold_steal_config', { p_level: levelToRemove.level });
+                if (error) throw error;
+
+                // Update local state
+                setConfig(prev => prev.filter((_, i) => i !== index));
+            } catch (err) {
+                console.error('Error deleting level:', err);
+                alert('Failed to delete level: ' + err.message);
+            }
+        }
+    };
+
+    const handleSave = async () => {
+        try {
+            setSaving(true);
+
+            // Validate sequential levels
+            for (let i = 0; i < config.length; i++) {
+                if (config[i].level !== i) {
+                    throw new Error(`Levels must be sequential starting from 0. Found Level ${config[i].level} at index ${i}.`);
+                }
+            }
+
+            // Sync all rows
+            const updates = config.map(row =>
+                supabase.rpc('update_gold_steal_config', {
+                    p_level: row.level,
+                    p_cost: row.cost,
+                    p_steal_percent: row.steal_percent
+                })
+            );
+
+            await Promise.all(updates);
+
+            alert('Configuration saved successfully!');
+            setHasChanges(false);
+            fetchConfig();
+        } catch (err) {
+            console.error('Error saving:', err);
+            alert('Failed to save: ' + err.message);
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const formatNumber = (num) => num?.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-[#c0c0c0] border-2 border-white border-r-gray-600 border-b-gray-600 shadow-lg max-w-4xl w-full max-h-[90vh] flex flex-col">
+                <div className="bg-gradient-to-r from-yellow-700 to-yellow-500 text-white px-2 py-1 flex justify-between items-center border-b border-black">
+                    <span className="font-bold">💰 Gold Steal % Configuration</span>
+                    <button onClick={onClose} className="bg-[#c0c0c0] text-black px-2 border-2 border-white border-r-gray-600 border-b-gray-600 font-bold hover:bg-gray-300">✕</button>
+                </div>
+
+                <div className="p-4 flex-1 overflow-auto bg-[#c0c0c0]">
+                    {loading ? (
+                        <div className="text-center p-8">Loading configuration...</div>
+                    ) : (
+                        <div className="flex flex-col h-full">
+                            <div className="bg-white border-2 border-gray-400 p-1 overflow-auto flex-1">
+                                <table className="w-full text-xs border-collapse">
+                                    <thead className="bg-gray-100 sticky top-0 z-10">
+                                        <tr>
+                                            <th className="p-2 border border-gray-300 w-16">Level</th>
+                                            <th className="p-2 border border-gray-300">Cost (XP)</th>
+                                            <th className="p-2 border border-gray-300">Steal % (0.5 = 50%)</th>
+                                            <th className="p-2 border border-gray-300 w-10"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {config.map((row, idx) => (
+                                            <tr key={idx} className="hover:bg-yellow-50">
+                                                <td className="p-1 border border-gray-200 text-center font-bold text-gray-500">
+                                                    {row.level}
+                                                </td>
+                                                <td className="p-1 border border-gray-200">
+                                                    <input
+                                                        type="text"
+                                                        value={formatNumber(row.cost)}
+                                                        onChange={(e) => handleLevelChange(idx, 'cost', e.target.value.replace(/,/g, ''))}
+                                                        className="w-full text-right outline-none bg-transparent focus:bg-white px-1 font-mono"
+                                                    />
+                                                </td>
+                                                <td className="p-1 border border-gray-200">
+                                                    <input
+                                                        type="number"
+                                                        step="0.01"
+                                                        value={row.steal_percent}
+                                                        onChange={(e) => handleLevelChange(idx, 'steal_percent', e.target.value)}
+                                                        className="w-full text-right outline-none bg-transparent focus:bg-white px-1 font-mono"
+                                                    />
+                                                </td>
+                                                <td className="p-1 border border-gray-200 text-center">
+                                                    {idx === config.length - 1 && idx > 0 && (
+                                                        <button
+                                                            onClick={() => handleRemoveLevel(idx)}
+                                                            className="text-red-500 hover:text-red-700 font-bold px-1"
+                                                            title="Remove Level"
+                                                        >
+                                                            ×
+                                                        </button>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <div className="flex justify-between items-center mt-2">
+                                <button
+                                    onClick={handleAddLevel}
+                                    className="px-3 py-1 bg-[#c0c0c0] border-2 border-white border-r-gray-600 border-b-gray-600 text-xs font-bold active:border-gray-600 active:border-r-white active:border-b-white"
+                                >
+                                    + Add Level
+                                </button>
+                                <span className="text-[10px] text-gray-500 italic">
+                                    Base 50% = 0.50. Max should differ by level.
+                                </span>
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                <div className="border-t-2 border-white p-2 bg-[#c0c0c0] flex justify-end gap-2">
+                    <button
+                        onClick={handleSave}
+                        disabled={saving || !hasChanges}
+                        className={`px-4 py-1 border-2 text-sm font-bold ${hasChanges
+                            ? 'bg-[#c0c0c0] border-white border-r-gray-600 border-b-gray-600 active:border-gray-600 active:border-r-white active:border-b-white'
+                            : 'bg-gray-400 border-gray-500 text-gray-600 cursor-not-allowed'
+                            }`}
+                    >
+                        {saving ? 'Saving...' : 'Save'}
+                    </button>
+                    <button
+                        onClick={onClose}
+                        className="px-4 py-1 bg-[#c0c0c0] border-2 border-white border-r-gray-600 border-b-gray-600 text-sm font-bold active:border-gray-600 active:border-r-white active:border-b-white"
+                    >
+                        Close
+                    </button>
                 </div>
             </div>
         </div>
