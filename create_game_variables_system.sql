@@ -189,6 +189,7 @@ DECLARE
     v_loss_rate float;
     v_min_kill_rate numeric;
     v_max_kill_rate numeric;
+    v_steal_pct float;
 BEGIN
     v_attacker_id := auth.uid();
     v_min_kill_rate := public.get_game_config_variable('defense_kill_rate_min', 0.0);
@@ -228,7 +229,28 @@ BEGIN
     -- Combat Logic
     IF v_attacker_stats.attack > v_defender_stats.defense THEN
         -- === VICTORY ===
-        v_gold_stolen := v_defender_stats.gold;
+        
+        -- Calculate Gold Stolen based on Research
+        -- Get the steal percentage for the attacker's research level
+        SELECT steal_percent INTO v_steal_pct 
+        FROM public.gold_steal_configs 
+        WHERE level = COALESCE(v_attacker_stats.research_gold_steal, 0);
+
+        -- Fallback if configuration is missing (e.g. level higher than config)
+        IF v_steal_pct IS NULL THEN
+            -- Try to get the max level config
+            SELECT steal_percent INTO v_steal_pct 
+            FROM public.gold_steal_configs 
+            ORDER BY level DESC LIMIT 1;
+            
+            -- Absolute fallback
+            IF v_steal_pct IS NULL THEN
+                v_steal_pct := 0.5; -- Default to 50%
+            END IF;
+        END IF;
+
+        -- Calculate amount
+        v_gold_stolen := floor(v_defender_stats.gold * v_steal_pct);
         
         -- Calculate Defender Casualties
         -- Use Configured rates
@@ -248,7 +270,7 @@ BEGIN
 
         -- Update Defender (Lose Gold, Soldiers)
         UPDATE public.user_stats
-        SET gold = 0,
+        SET gold = GREATEST(0, gold - v_gold_stolen),
             defense_soldiers = GREATEST(0, defense_soldiers - v_casualty_count)
         WHERE id = target_id;
         
@@ -264,7 +286,8 @@ BEGIN
             json_build_object(
                 'opponent_name', COALESCE(v_defender_profile.username, 'Unknown'),
                 'gold_stolen', v_gold_stolen,
-                'enemy_killed', v_casualty_count
+                'enemy_killed', v_casualty_count,
+                'steal_percent', v_steal_pct
             )
         );
 
@@ -298,13 +321,14 @@ BEGIN
             'success', true,
             'gold_stolen', v_gold_stolen,
             'casualties', v_casualty_count,
-            'message', 'Victory! You breached their defenses and killed ' || v_casualty_count || ' defense soldiers.'
+            'steal_percent', v_steal_pct,
+            'message', 'Victory! You breached their defenses and stole ' || v_gold_stolen || ' gold.'
         );
 
     ELSE
         -- === DEFEAT ===
         
-        -- Calculate Attacker Casualties (5-10% of Attack Soldiers) - HARDCODED FOR NOW AS USER DID NOT REQUEST CHANGE
+        -- Calculate Attacker Casualties (5-10% of Attack Soldiers)
         v_loss_rate := 0.05 + (random() * 0.05);
         v_raw_casualties := COALESCE(v_attacker_stats.attack_soldiers, 0) * v_loss_rate;
         v_casualty_count := floor(v_raw_casualties) + (CASE WHEN random() < (v_raw_casualties - floor(v_raw_casualties)) THEN 1 ELSE 0 END);

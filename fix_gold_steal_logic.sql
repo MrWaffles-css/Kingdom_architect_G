@@ -1,6 +1,5 @@
--- Optimize Battle Logic - Add Gold Steal % Logic
--- Update attack_player to respect 'research_gold_steal' percentage
--- Default steal is 50%, can be upgraded.
+-- Fix attack_player to respect gold stealing research Percentage
+-- Previously it was defaulting to 100% causing the bug.
 
 CREATE OR REPLACE FUNCTION public.attack_player(
     target_id uuid
@@ -8,7 +7,6 @@ CREATE OR REPLACE FUNCTION public.attack_player(
 RETURNS json
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
 AS $$
 DECLARE
     v_attacker_id uuid;
@@ -24,22 +22,24 @@ DECLARE
     v_vault_cap bigint;
     v_kill_rate float;
     v_loss_rate float;
-    v_report_id uuid; 
-    v_gold_steal_percent float; -- New variable for dynamic steal %
-    v_raw_steal_percent int;
+    v_min_kill_rate numeric;
+    v_max_kill_rate numeric;
+    v_steal_pct float;
 BEGIN
     v_attacker_id := auth.uid();
+    v_min_kill_rate := public.get_game_config_variable('defense_kill_rate_min', 0.0);
+    v_max_kill_rate := public.get_game_config_variable('defense_kill_rate_max', 0.02);
 
     -- Self-attack check
     IF v_attacker_id = target_id THEN
         RAISE EXCEPTION 'Cannot attack yourself';
     END IF;
 
-    -- Generate resources for both attacker and defender
+    -- Generate resources for both attacker and defender FIRST
     PERFORM public.generate_resources_for_user(v_attacker_id);
     PERFORM public.generate_resources_for_user(target_id);
 
-    -- Get Attacker Stats & Profile
+    -- Get Attacker Stats & Profile (AFTER resource generation)
     SELECT * INTO v_attacker_stats FROM public.user_stats WHERE id = v_attacker_id;
     SELECT * INTO v_attacker_profile FROM public.profiles WHERE id = v_attacker_id;
 
@@ -48,7 +48,7 @@ BEGIN
         RAISE EXCEPTION 'Not enough turns (Need 100)';
     END IF;
 
-    -- Get Defender Stats & Profile
+    -- Get Defender Stats & Profile (AFTER resource generation)
     SELECT * INTO v_defender_stats FROM public.user_stats WHERE id = target_id;
     SELECT * INTO v_defender_profile FROM public.profiles WHERE id = target_id;
 
@@ -65,21 +65,32 @@ BEGIN
     IF v_attacker_stats.attack > v_defender_stats.defense THEN
         -- === VICTORY ===
         
-        -- CALCULATE GOLD STEAL PERCENTAGE
-        -- Default: 50%. Research adds 5% per level.
-        -- Max Research usually 10, so 50% + (10 * 5%) = 100% max.
-        v_raw_steal_percent := COALESCE(v_attacker_stats.research_gold_steal, 0);
-        v_gold_steal_percent := 0.50 + (v_raw_steal_percent * 0.05);
+        -- Calculate Gold Stolen based on Research
+        -- Get the steal percentage for the attacker's research level
+        SELECT steal_percent INTO v_steal_pct 
+        FROM public.gold_steal_configs 
+        WHERE level = COALESCE(v_attacker_stats.research_gold_steal, 0);
 
-        -- Cap at 100% just in case
-        IF v_gold_steal_percent > 1.0 THEN v_gold_steal_percent := 1.0; END IF;
+        -- Fallback if configuration is missing (e.g. level higher than config)
+        IF v_steal_pct IS NULL THEN
+            -- Try to get the max level config
+            SELECT steal_percent INTO v_steal_pct 
+            FROM public.gold_steal_configs 
+            ORDER BY level DESC LIMIT 1;
+            
+            -- Absolute fallback
+            IF v_steal_pct IS NULL THEN
+                v_steal_pct := 0.5; -- Default to 50%
+            END IF;
+        END IF;
 
-        -- Calculate Gold Stolen based on Defender's Gold
-        v_gold_stolen := FLOOR(v_defender_stats.gold * v_gold_steal_percent);
+        -- Calculate amount
+        v_gold_stolen := floor(v_defender_stats.gold * v_steal_pct);
         
+        -- Calculate Defender Casualties
+        -- Use Configured rates
+        v_kill_rate := v_min_kill_rate + (random() * (v_max_kill_rate - v_min_kill_rate));
         
-        -- Calculate Defender Casualties (0-2% of Defense Soldiers)
-        v_kill_rate := random() * 0.02;
         v_raw_casualties := COALESCE(v_defender_stats.defense_soldiers, 0) * v_kill_rate;
         v_casualty_count := floor(v_raw_casualties) + (CASE WHEN random() < (v_raw_casualties - floor(v_raw_casualties)) THEN 1 ELSE 0 END);
         
@@ -93,7 +104,6 @@ BEGIN
         WHERE id = v_attacker_id;
 
         -- Update Defender (Lose Gold, Soldiers)
-        -- NOTE: Defender loses ONLY the stolen amount, not all gold (unless steal is 100%)
         UPDATE public.user_stats
         SET gold = GREATEST(0, gold - v_gold_stolen),
             defense_soldiers = GREATEST(0, defense_soldiers - v_casualty_count)
@@ -112,9 +122,9 @@ BEGIN
                 'opponent_name', COALESCE(v_defender_profile.username, 'Unknown'),
                 'gold_stolen', v_gold_stolen,
                 'enemy_killed', v_casualty_count,
-                 'steal_percent', (v_gold_steal_percent * 100) -- Internal log
+                'steal_percent', v_steal_pct
             )
-        ) RETURNING id INTO v_report_id; 
+        );
 
         -- Report for Defender
         INSERT INTO public.reports (user_id, type, title, data)
@@ -129,34 +139,44 @@ BEGIN
             )
         );
 
-        -- Achievement Tracking
+        -- === OPTIMIZATION: Internal Achievement Tracking ===
+        -- 1. Track Daily Attack
         PERFORM public.track_daily_attack();
+        
+        -- 2. Track Gold Stolen (if any)
         IF v_gold_stolen > 0 THEN
             PERFORM public.track_daily_gold_stolen(v_gold_stolen);
         END IF;
+
+        -- 3. Check Rank Achievements
         PERFORM public.check_rank_achievements(v_attacker_id);
+        -- ===================================================
 
         RETURN json_build_object(
             'success', true,
-            'report_id', v_report_id, 
             'gold_stolen', v_gold_stolen,
             'casualties', v_casualty_count,
-            'message', 'Victory! You breached their defenses and killed ' || v_casualty_count || ' defense soldiers.'
+            'steal_percent', v_steal_pct,
+            'message', 'Victory! You breached their defenses and stole ' || v_gold_stolen || ' gold.'
         );
 
     ELSE
-        -- === DEFEAT (Unchanged) ===
+        -- === DEFEAT ===
         
+        -- Calculate Attacker Casualties (5-10% of Attack Soldiers)
         v_loss_rate := 0.05 + (random() * 0.05);
         v_raw_casualties := COALESCE(v_attacker_stats.attack_soldiers, 0) * v_loss_rate;
         v_casualty_count := floor(v_raw_casualties) + (CASE WHEN random() < (v_raw_casualties - floor(v_raw_casualties)) THEN 1 ELSE 0 END);
 
+        -- Update Attacker (Lose Soldiers)
         UPDATE public.user_stats
         SET attack_soldiers = GREATEST(0, attack_soldiers - v_casualty_count)
         WHERE id = v_attacker_id;
         
+        -- Recalculate attacker's stats after losing soldiers
         PERFORM public.recalculate_user_stats(v_attacker_id);
 
+        -- Report for Attacker
         INSERT INTO public.reports (user_id, type, title, data)
         VALUES (
             v_attacker_id, 
@@ -166,8 +186,9 @@ BEGIN
                 'opponent_name', COALESCE(v_defender_profile.username, 'Unknown'),
                 'soldiers_lost', v_casualty_count
             )
-        ) RETURNING id INTO v_report_id;
+        );
 
+        -- Report for Defender
         INSERT INTO public.reports (user_id, type, title, data)
         VALUES (
             target_id, 
@@ -181,7 +202,6 @@ BEGIN
 
         RETURN json_build_object(
             'success', false,
-            'report_id', v_report_id, 
             'gold_stolen', 0,
             'casualties', v_casualty_count,
             'message', 'Defeat! Your forces were repelled.'
