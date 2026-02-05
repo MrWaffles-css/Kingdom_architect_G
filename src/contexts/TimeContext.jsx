@@ -62,7 +62,7 @@ export function TimeProvider({ children }) {
 
         syncTime();
 
-        // Main 1-second timer for UI updates and minute detection
+        // Main 1-second timer for UI updates and :00 second detection
         timer = setInterval(() => {
             const currentTimestamp = Date.now() + offset;
             const now = new Date(currentTimestamp);
@@ -70,32 +70,27 @@ export function TimeProvider({ children }) {
             // Update the serverTime state for UI clocks
             setServerTime(now);
 
-            // AUTO-REFRESH AT TOP OF MINUTE
+            // AUTO-REFRESH AT EXACTLY :00 SECONDS OF EACH MINUTE
             const currentMinute = now.getMinutes();
             const currentHour = now.getHours();
+            const currentSecond = now.getSeconds();
 
             // Create a unique minute identifier (0-1439 for minutes in a day)
             const minuteOfDay = currentHour * 60 + currentMinute;
             const lastMinuteOfDay = getLastGenerationMinute();
 
-            // Check if we've crossed into a new minute
-            // This is more reliable than checking currentSecond === 1
-            if (minuteOfDay !== lastMinuteOfDay && session?.user?.id) {
-                // Make sure we haven't already processed this minute
-                // (handles the case where the interval fires multiple times in the same minute)
-                const timeSinceLastGen = minuteOfDay - lastMinuteOfDay;
-
-                // If it's been at least 1 minute (or we wrapped around midnight)
-                if (timeSinceLastGen >= 1 || timeSinceLastGen < 0) {
-                    triggerGeneration('minute boundary');
-                    setLastGenerationMinute(minuteOfDay);
-                }
+            // Trigger at exactly :00 seconds AND we haven't processed this minute yet
+            // Use seconds 0-1 window to be more forgiving (in case interval fires at 0.9s)
+            if (currentSecond <= 1 && minuteOfDay !== lastMinuteOfDay && session?.user?.id) {
+                console.log(`[TimeContext] Exact :00 trigger at ${currentHour}:${currentMinute.toString().padStart(2, '0')}:${currentSecond.toString().padStart(2, '0')}`);
+                triggerGeneration('exact :00');
+                setLastGenerationMinute(minuteOfDay);
             }
 
         }, 1000);
 
-        // Safety net: Check every 10 seconds if we missed a minute boundary
-        // This catches cases where the tab was throttled or suspended
+        // Safety net: Check every 10 seconds if we missed a minute
+        // This catches cases where the :00 second was missed due to throttling
         safetyTimer = setInterval(() => {
             if (!session?.user?.id) return;
 
@@ -107,8 +102,9 @@ export function TimeProvider({ children }) {
             const lastMinuteOfDay = getLastGenerationMinute();
 
             // If we're in a different minute than last generation, trigger it
+            // This is a backup in case we missed the :00 second
             if (minuteOfDay !== lastMinuteOfDay) {
-                console.log('[TimeContext] Safety net: Caught missed minute boundary');
+                console.log('[TimeContext] Safety net: Caught missed minute at :' + now.getSeconds());
                 triggerGeneration('safety net');
                 setLastGenerationMinute(minuteOfDay);
             }

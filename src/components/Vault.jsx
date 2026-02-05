@@ -7,6 +7,7 @@ export default function Vault({ userStats, onUpdate }) {
     const [error, setError] = useState(null);
     const [vaultConfig, setVaultConfig] = useState(null);
     const [configLoading, setConfigLoading] = useState(true);
+    const [showClippyNotification, setShowClippyNotification] = useState(false);
 
     const user = userStats || {};
     const vaultLevel = user?.vault_level || 0;
@@ -88,6 +89,36 @@ export default function Vault({ userStats, onUpdate }) {
     const minerGold = (user?.miners || 0) * minerRate;
     const totalGoldProduction = untrainedGold + trainedGold + minerGold;
     const estimatedInterest = Math.floor(totalGoldProduction * currentStats.interest);
+
+    // Calculate fill percentage
+    const fillPercentage = (vaultGold / currentStats.capacity) * 100;
+
+    // Helper function to get bar color based on fill percentage
+    const getBarColor = (percentage) => {
+        if (percentage < 25) return '#22c55e'; // Green
+        if (percentage < 50) return '#84cc16'; // Light green
+        if (percentage < 75) return '#eab308'; // Yellow
+        if (percentage < 90) return '#f97316'; // Orange
+        return '#ef4444'; // Red
+    };
+
+    // Check if vault is full and show Clippy notification
+    React.useEffect(() => {
+        const dismissedKey = `vault_full_dismissed_${vaultLevel}`;
+        const wasDismissed = localStorage.getItem(dismissedKey);
+
+        if (fillPercentage >= 100 && !wasDismissed) {
+            setShowClippyNotification(true);
+        } else {
+            setShowClippyNotification(false);
+        }
+    }, [fillPercentage, vaultLevel]);
+
+    const handleDismissClippy = () => {
+        const dismissedKey = `vault_full_dismissed_${vaultLevel}`;
+        localStorage.setItem(dismissedKey, 'true');
+        setShowClippyNotification(false);
+    };
 
     const handleUpgrade = async () => {
         try {
@@ -185,20 +216,86 @@ export default function Vault({ userStats, onUpdate }) {
                     className="w-full h-48 object-cover object-center border-b-2 border-gray-400"
                     style={{ imageRendering: 'pixelated' }}
                 />
-                <div className="p-4 flex justify-between items-center">
-                    <div>
-                        <h1 className="text-xl font-bold mb-1">The Royal Vault</h1>
-                        <p className="text-sm">Secure storage and treasury management.</p>
-                    </div>
-                    <div className="text-right">
-                        <div className="text-xs text-gray-600">Vault Balance</div>
-                        <div className="text-2xl font-bold font-mono">{formatNumber(vaultGold)}</div>
-                        <div className="text-xs text-gray-500 mt-1">
-                            Capacity: {formatNumber(currentStats.capacity)}
+                <div className="p-4">
+                    <div className="flex justify-between items-center mb-3">
+                        <div>
+                            <h1 className="text-xl font-bold mb-1">The Royal Vault</h1>
+                            <p className="text-sm">Secure storage and treasury management.</p>
                         </div>
+                        <div className="text-right">
+                            <div className="text-xs text-gray-600">Vault Balance</div>
+                            <div className="text-2xl font-bold font-mono">{formatNumber(vaultGold)}</div>
+                            <div className="text-xs text-gray-500 mt-1">
+                                Capacity: {formatNumber(currentStats.capacity)}
+                            </div>
+                        </div>
+                    </div>
+                    {/* Fill Level Bar */}
+                    <div>
+                        <div className="flex justify-between items-center text-xs mb-1">
+                            <span className="text-gray-600">Fill Level</span>
+                            <span className="font-bold">
+                                {((vaultGold / currentStats.capacity) * 100).toFixed(1)}%
+                            </span>
+                        </div>
+                        <div className="h-4 border-2 border-gray-600 border-r-white border-b-white bg-white relative">
+                            <div
+                                className="h-full transition-all duration-300"
+                                style={{
+                                    width: `${Math.min(100, fillPercentage)}%`,
+                                    backgroundColor: getBarColor(fillPercentage)
+                                }}
+                            ></div>
+                        </div>
+                        {(() => {
+                            const remaining = currentStats.capacity - vaultGold;
+                            if (remaining <= 0 || estimatedInterest <= 0) return null;
+                            const minutesToFull = Math.ceil(remaining / estimatedInterest);
+                            const hours = Math.floor(minutesToFull / 60);
+                            const minutes = minutesToFull % 60;
+                            const days = Math.floor(hours / 24);
+                            const remainingHours = hours % 24;
+
+                            let timeString = '';
+                            if (days > 0) timeString += `${days}d `;
+                            if (remainingHours > 0 || days > 0) timeString += `${remainingHours}h `;
+                            timeString += `${minutes}m`;
+
+                            return (
+                                <div className="text-xs text-gray-500 mt-1 text-right">
+                                    Time to full: {timeString}
+                                </div>
+                            );
+                        })()}
                     </div>
                 </div>
             </div>
+
+            {/* Clippy Notification - Vault Full */}
+            {showClippyNotification && (
+                <div className="bg-[#fffbcc] border-2 border-gray-800 p-4 shadow-lg relative animate-[slideIn_0.3s_ease-out]">
+                    <button
+                        onClick={handleDismissClippy}
+                        className="absolute top-2 right-2 w-6 h-6 border-2 border-white border-r-gray-800 border-b-gray-800 bg-[#c0c0c0] active:border-gray-800 active:border-r-white active:border-b-white font-bold text-xs flex items-center justify-center hover:bg-gray-300"
+                        title="Dismiss"
+                    >
+                        ✕
+                    </button>
+                    <div className="flex gap-4 items-start">
+                        <div className="text-6xl flex-shrink-0">📎</div>
+                        <div className="flex-1">
+                            <div className="font-bold text-lg mb-2">Your Vault is Full! 🏦</div>
+                            <p className="text-sm mb-2">
+                                It looks like your Royal Vault has reached maximum capacity!
+                                You're no longer earning interest on your gold income.
+                            </p>
+                            <p className="text-sm font-bold">
+                                💡 Tip: Consider upgrading your vault to increase capacity and continue earning interest!
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             <div className="grid grid-cols-[repeat(auto-fit,minmax(15em,1fr))] gap-4">
                 {/* Stats & Settings */}
@@ -208,50 +305,20 @@ export default function Vault({ userStats, onUpdate }) {
                         <legend className="px-1">Vault Status</legend>
                         <div className="space-y-2">
                             <div className="flex justify-between items-center text-sm">
-                                <span>Interest Rate</span>
+                                <span>Interest Rate (of GPM)</span>
                                 <span className="font-bold">{(currentStats.interest * 100).toFixed(0)}% / min</span>
                             </div>
                             <div className="flex justify-between items-center text-sm">
-                                <span>Estimated Interest</span>
+                                <span>Gold Per Minute (GPM)</span>
+                                <span className="font-bold">{formatNumber(totalGoldProduction)} GPM</span>
+                            </div>
+                            <div className="flex justify-between items-center text-sm">
+                                <span>Vault Interest Earned</span>
                                 <span className="font-bold">+{formatNumber(estimatedInterest)} Gold / min</span>
                             </div>
                             <div className="flex justify-between items-center text-sm">
                                 <span>Storage Capacity</span>
                                 <span className="font-bold">{formatNumber(currentStats.capacity)} Gold</span>
-                            </div>
-                            <div>
-                                <div className="flex justify-between items-center text-sm mb-1">
-                                    <span>Fill Level</span>
-                                    <span className="font-bold text-xs">
-                                        {((vaultGold / currentStats.capacity) * 100).toFixed(1)}%
-                                    </span>
-                                </div>
-                                <div className="h-4 border-2 border-gray-600 border-r-white border-b-white bg-white relative">
-                                    <div
-                                        className="h-full bg-[#000080]"
-                                        style={{ width: `${Math.min(100, (vaultGold / currentStats.capacity) * 100)}%` }}
-                                    ></div>
-                                </div>
-                                {(() => {
-                                    const remaining = currentStats.capacity - vaultGold;
-                                    if (remaining <= 0 || estimatedInterest <= 0) return null;
-                                    const minutesToFull = Math.ceil(remaining / estimatedInterest);
-                                    const hours = Math.floor(minutesToFull / 60);
-                                    const minutes = minutesToFull % 60;
-                                    const days = Math.floor(hours / 24);
-                                    const remainingHours = hours % 24;
-
-                                    let timeString = '';
-                                    if (days > 0) timeString += `${days}d `;
-                                    if (remainingHours > 0 || days > 0) timeString += `${remainingHours}h `;
-                                    timeString += `${minutes}m`;
-
-                                    return (
-                                        <div className="text-xs text-gray-500 mt-1 text-right">
-                                            Time to full: {timeString}
-                                        </div>
-                                    );
-                                })()}
                             </div>
                         </div>
                     </fieldset>
