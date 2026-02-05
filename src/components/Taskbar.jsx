@@ -8,8 +8,16 @@ const Taskbar = ({ openWindows, activeWindowId, onWindowClick, onStartClick, sta
     const { serverTime } = useGameTime() || {};
 
 
-    // Fallback to local time if context unavailable (for robust rendering)
-    const [displayTime, setDisplayTime] = useState(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+    // Fallback to Bali time (UTC+8) if context unavailable
+    const [displayTime, setDisplayTime] = useState(
+        new Date().toLocaleTimeString('en-US', {
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: false,
+            timeZone: 'Asia/Singapore' // UTC+8 (same as Bali)
+        })
+    );
     const [showStats, setShowStats] = useState(() => {
         try {
             return localStorage.getItem('taskbarShowStats') === 'true';
@@ -37,13 +45,25 @@ const Taskbar = ({ openWindows, activeWindowId, onWindowClick, onStartClick, sta
 
     useEffect(() => {
         // Use the passed serverTime from context which is synced to the server clock
-        // If serverTime is not available, we fall back to a local interval
+        // Force Bali timezone (UTC+8) for all players
         if (serverTime) {
-            setDisplayTime(new Date(serverTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+            setDisplayTime(new Date(serverTime).toLocaleTimeString('en-US', {
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: false,
+                timeZone: 'Asia/Singapore' // UTC+8 (same as Bali)
+            }));
         } else {
-            // Fallback local clock
+            // Fallback local clock (also in Bali timezone)
             const timer = setInterval(() => {
-                setDisplayTime(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+                setDisplayTime(new Date().toLocaleTimeString('en-US', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit',
+                    hour12: false,
+                    timeZone: 'Asia/Singapore' // UTC+8 (same as Bali)
+                }));
             }, 1000);
             return () => clearInterval(timer);
         }

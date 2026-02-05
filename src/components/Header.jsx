@@ -7,11 +7,13 @@ export default function Header({ currentPage, onNavigate, onLogout, serverTime, 
 
     const formatTime = (date) => {
         if (!date) return '00:00:00';
+        // Force Bali timezone (UTC+8) for all players
         return date.toLocaleTimeString('en-US', {
             hour12: false,
             hour: '2-digit',
             minute: '2-digit',
-            second: '2-digit'
+            second: '2-digit',
+            timeZone: 'Asia/Singapore' // UTC+8 (same as Bali)
         });
     };
 
