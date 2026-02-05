@@ -86,6 +86,7 @@ AS $$
 DECLARE
     v_user_id UUID := auth.uid();
     v_is_admin BOOLEAN;
+    v_row_count INTEGER;
 BEGIN
     SELECT is_admin INTO v_is_admin FROM profiles WHERE id = v_user_id;
     
@@ -93,11 +94,17 @@ BEGIN
         RAISE EXCEPTION 'Admin access required';
     END IF;
     
-    UPDATE vault_configs
-    SET levels = p_levels,
-        updated_at = NOW();
-        
-    IF NOT FOUND THEN
+    -- Check if a config row exists
+    SELECT COUNT(*) INTO v_row_count FROM vault_configs;
+    
+    IF v_row_count > 0 THEN
+        -- Update the first (and should be only) row
+        UPDATE vault_configs
+        SET levels = p_levels,
+            updated_at = NOW()
+        WHERE id = (SELECT id FROM vault_configs LIMIT 1);
+    ELSE
+        -- Insert new row if none exists
         INSERT INTO vault_configs (levels) 
         VALUES (p_levels);
     END IF;

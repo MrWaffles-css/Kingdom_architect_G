@@ -5,6 +5,8 @@ import { GOLD_RATES, calculateMinerGoldRate } from '../gameConfig';
 export default function Vault({ userStats, onUpdate }) {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
+    const [vaultConfig, setVaultConfig] = useState(null);
+    const [configLoading, setConfigLoading] = useState(true);
 
     const user = userStats || {};
     const vaultLevel = user?.vault_level || 0;
@@ -16,9 +18,52 @@ export default function Vault({ userStats, onUpdate }) {
         ? (gold + vaultGold)
         : gold;
 
-    // Level Data
+    // Fetch vault configuration from database
+    React.useEffect(() => {
+        const fetchVaultConfig = async () => {
+            try {
+                setConfigLoading(true);
+                const { data, error } = await supabase.rpc('get_vault_config');
+                if (error) throw error;
+                setVaultConfig(data);
+            } catch (err) {
+                console.error('Error fetching vault config:', err);
+                // Fallback to hardcoded values if fetch fails
+                setVaultConfig(null);
+            } finally {
+                setConfigLoading(false);
+            }
+        };
+
+        fetchVaultConfig();
+    }, []);
+
+    // Level Data - now uses database config
     const getLevelData = (level) => {
         if (level === 0) return { cost: 0, interest: 0, capacity: 0 };
+
+        // Use database config if available
+        if (vaultConfig?.levels) {
+            const levelConfig = vaultConfig.levels.find(l => l.level === level);
+            if (levelConfig) {
+                return {
+                    cost: levelConfig.upgrade_cost,
+                    interest: levelConfig.interest_rate / 100, // Convert percentage to decimal
+                    capacity: levelConfig.capacity
+                };
+            }
+            // If level not found, use max level config
+            const maxLevel = vaultConfig.levels[vaultConfig.levels.length - 1];
+            if (maxLevel && level >= maxLevel.level) {
+                return {
+                    cost: maxLevel.upgrade_cost,
+                    interest: maxLevel.interest_rate / 100,
+                    capacity: maxLevel.capacity
+                };
+            }
+        }
+
+        // Fallback to hardcoded values if config not available
         if (level === 1) return { cost: 5000, interest: 0.05, capacity: 200000 };
         if (level === 2) return { cost: 100000, interest: 0.10, capacity: 300000 };
         if (level === 3) return { cost: 1000000, interest: 0.15, capacity: 1500000 };

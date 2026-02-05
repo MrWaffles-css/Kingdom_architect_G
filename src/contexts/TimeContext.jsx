@@ -21,6 +21,7 @@ export function TimeProvider({ children }) {
     // Server Time Sync & Safety Net Poller
     useEffect(() => {
         let timer = null;
+        let safetyTimer = null;
         let offset = 0;
 
         const syncTime = async () => {
@@ -35,8 +36,33 @@ export function TimeProvider({ children }) {
             }
         };
 
+        // Get the last generation timestamp from localStorage
+        const getLastGenerationMinute = () => {
+            const stored = localStorage.getItem('last_generation_minute');
+            return stored ? parseInt(stored, 10) : -1;
+        };
+
+        const setLastGenerationMinute = (minute) => {
+            localStorage.setItem('last_generation_minute', minute.toString());
+            lastRefreshedMinute.current = minute;
+        };
+
+        // Function to trigger resource generation
+        const triggerGeneration = (reason = 'scheduled') => {
+            if (!session?.user?.id) return;
+
+            console.log(`[TimeContext] Triggering resource generation (${reason})`);
+
+            // Trigger passive generation
+            generateResources();
+
+            // Refresh data (stats will be updated via generateResources return or next fetch)
+            refreshUserData(session.user.id);
+        };
+
         syncTime();
 
+        // Main 1-second timer for UI updates and minute detection
         timer = setInterval(() => {
             const currentTimestamp = Date.now() + offset;
             const now = new Date(currentTimestamp);
@@ -46,23 +72,79 @@ export function TimeProvider({ children }) {
 
             // AUTO-REFRESH AT TOP OF MINUTE
             const currentMinute = now.getMinutes();
-            const currentSecond = now.getSeconds();
+            const currentHour = now.getHours();
 
-            if (currentSecond === 1 && lastRefreshedMinute.current !== currentMinute && session?.user?.id) {
-                console.log('[TimeContext] Top of minute: Refreshing data & Generating Resources...');
+            // Create a unique minute identifier (0-1439 for minutes in a day)
+            const minuteOfDay = currentHour * 60 + currentMinute;
+            const lastMinuteOfDay = getLastGenerationMinute();
 
-                // Trigger passive generation
-                generateResources();
+            // Check if we've crossed into a new minute
+            // This is more reliable than checking currentSecond === 1
+            if (minuteOfDay !== lastMinuteOfDay && session?.user?.id) {
+                // Make sure we haven't already processed this minute
+                // (handles the case where the interval fires multiple times in the same minute)
+                const timeSinceLastGen = minuteOfDay - lastMinuteOfDay;
 
-                // Refresh data (stats will be updated via generateResources return or next fetch)
-                refreshUserData(session.user.id);
-
-                lastRefreshedMinute.current = currentMinute;
+                // If it's been at least 1 minute (or we wrapped around midnight)
+                if (timeSinceLastGen >= 1 || timeSinceLastGen < 0) {
+                    triggerGeneration('minute boundary');
+                    setLastGenerationMinute(minuteOfDay);
+                }
             }
 
         }, 1000);
 
-        return () => clearInterval(timer);
+        // Safety net: Check every 10 seconds if we missed a minute boundary
+        // This catches cases where the tab was throttled or suspended
+        safetyTimer = setInterval(() => {
+            if (!session?.user?.id) return;
+
+            const currentTimestamp = Date.now() + offset;
+            const now = new Date(currentTimestamp);
+            const currentMinute = now.getMinutes();
+            const currentHour = now.getHours();
+            const minuteOfDay = currentHour * 60 + currentMinute;
+            const lastMinuteOfDay = getLastGenerationMinute();
+
+            // If we're in a different minute than last generation, trigger it
+            if (minuteOfDay !== lastMinuteOfDay) {
+                console.log('[TimeContext] Safety net: Caught missed minute boundary');
+                triggerGeneration('safety net');
+                setLastGenerationMinute(minuteOfDay);
+            }
+        }, 10000); // Check every 10 seconds
+
+        // Handle visibility change (when user returns to tab)
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible' && session?.user?.id) {
+                console.log('[TimeContext] Tab became visible, checking for missed resources...');
+
+                // Give a small delay to ensure browser is fully active
+                setTimeout(() => {
+                    const currentTimestamp = Date.now() + offset;
+                    const now = new Date(currentTimestamp);
+                    const currentMinute = now.getMinutes();
+                    const currentHour = now.getHours();
+                    const minuteOfDay = currentHour * 60 + currentMinute;
+                    const lastMinuteOfDay = getLastGenerationMinute();
+
+                    // If we're in a different minute, trigger generation
+                    if (minuteOfDay !== lastMinuteOfDay) {
+                        console.log('[TimeContext] Generating resources after tab return');
+                        triggerGeneration('tab return');
+                        setLastGenerationMinute(minuteOfDay);
+                    }
+                }, 500);
+            }
+        };
+
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+
+        return () => {
+            clearInterval(timer);
+            clearInterval(safetyTimer);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+        };
     }, [session, refreshUserData, generateResources]);
 
     const value = {
