@@ -610,7 +610,9 @@ export default function Profile({ userId, isOwnProfile, session, onNavigate, onA
                                     <td className="p-2 border-r border-gray-400 text-right font-mono italic text-gray-600">
                                         <SpyCheck level={lvl} required={3}>Lvl {vaultLevel}</SpyCheck>
                                     </td>
-                                    <td className="p-2 border-r border-gray-400 text-right font-mono text-gray-500 hidden sm:table-cell">{(interestRate * 100).toFixed(0)}%</td>
+                                    <td className="p-2 border-r border-gray-400 text-right font-mono text-gray-500 hidden sm:table-cell">
+                                        {(interestRate * 100).toFixed(0)}% {bonusMultiplier > 1 && <span className="text-green-600 font-bold" title="2x Bonus Impacts Base">x2</span>}
+                                    </td>
                                     <td className="p-2 border-r border-gray-400 text-right font-mono font-bold text-blue-700">
                                         <SpyCheck level={lvl} required={3}>+{formatNumber(vaultIncome)}</SpyCheck>
                                     </td>
