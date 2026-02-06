@@ -1015,9 +1015,47 @@ function GameVariablesEditorModal({ onClose }) {
         }
     };
 
+    // Grouping Logic
+    const CATEGORIES = {
+        '⚔️ Attack Mechanics': ['attack_experience_gain', 'attack_turn_cost', 'attack_loss_rate_max', 'attack_loss_rate_min'],
+        '🛡️ Defense Mechanics': ['defense_kill_rate_max', 'defense_kill_rate_min'],
+        '🔥 Pillage & Stealing': ['citizen_kill_rate_max', 'citizen_kill_rate_min', 'miner_kill_rate_max', 'miner_kill_rate_min'],
+        '🕵️ Espionage': ['spy_sentry_ratio'],
+    };
+
+    const getGroupedVariables = () => {
+        const grouped = {};
+        const assignedKeys = new Set();
+
+        // Initialize groups
+        Object.keys(CATEGORIES).forEach(cat => grouped[cat] = []);
+        grouped['⚙️ Miscellaneous'] = [];
+
+        // Assign variables to groups
+        variables.forEach(v => {
+            let assigned = false;
+            for (const [cat, keys] of Object.entries(CATEGORIES)) {
+                if (keys.includes(v.key)) {
+                    grouped[cat].push(v);
+                    assignedKeys.add(v.key);
+                    assigned = true;
+                    break;
+                }
+            }
+            if (!assigned) {
+                grouped['⚙️ Miscellaneous'].push(v);
+            }
+        });
+
+        // Filter out empty groups
+        return Object.entries(grouped).filter(([_, vars]) => vars.length > 0);
+    };
+
+    const groupedVars = getGroupedVariables();
+
     return (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div className="w-[600px] bg-[#c0c0c0] border-2 border-white border-r-black border-b-black p-1 shadow-xl flex flex-col max-h-[90vh]">
+            <div className="w-[800px] bg-[#c0c0c0] border-2 border-white border-r-black border-b-black p-1 shadow-xl flex flex-col max-h-[90vh]">
                 <div className="bg-gradient-to-r from-blue-900 via-blue-700 to-blue-900 text-white px-2 py-1 flex justify-between items-center select-none">
                     <span className="font-bold text-sm">Game Configuration Variables</span>
                     <button onClick={onClose} className="text-white hover:bg-red-600 px-1 rounded">✖</button>
@@ -1027,39 +1065,52 @@ function GameVariablesEditorModal({ onClose }) {
                     {loading ? (
                         <div className="text-center p-4">Loading...</div>
                     ) : (
-                        <table className="w-full text-sm border-collapse bg-white">
-                            <thead>
-                                <tr className="bg-gray-200">
-                                    <th className="border border-gray-400 px-2 py-1 text-left">Variable</th>
-                                    <th className="border border-gray-400 px-2 py-1 text-left">Description</th>
-                                    <th className="border border-gray-400 px-2 py-1 w-24">Value</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {variables.map(v => (
-                                    <tr key={v.key} className="hover:bg-gray-50">
-                                        <td className="border border-gray-400 px-2 py-1 font-mono font-bold text-xs">{v.key}</td>
-                                        <td className="border border-gray-400 px-2 py-1 text-xs text-gray-600">{v.description}</td>
-                                        <td className="border border-gray-400 px-2 py-1">
-                                            <input
-                                                type="number"
-                                                step="0.01"
-                                                value={v.value}
-                                                onChange={(e) => handleUpdate(v.key, e.target.value)}
-                                                className="w-full border border-gray-300 px-1 font-mono text-right"
-                                            />
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
+                        <div className="space-y-6">
+                            {groupedVars.map(([category, vars]) => (
+                                <div key={category} className="bg-white border-2 border-gray-500 border-r-white border-b-white">
+                                    <div className="bg-gray-200 px-2 py-1 font-bold text-xs border-b border-gray-400 text-gray-800">
+                                        {category}
+                                    </div>
+                                    <table className="w-full text-sm border-collapse">
+                                        <thead>
+                                            <tr className="bg-gray-100 text-xs text-gray-500">
+                                                <th className="border border-gray-300 px-2 py-1 text-left w-1/4">Variable</th>
+                                                <th className="border border-gray-300 px-2 py-1 text-left">Description</th>
+                                                <th className="border border-gray-300 px-2 py-1 w-24">Value</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {vars.map(v => (
+                                                <tr key={v.key} className="hover:bg-blue-50">
+                                                    <td className="border border-gray-300 px-2 py-1 font-mono font-bold text-xs text-blue-800" title={v.key}>
+                                                        {v.key}
+                                                    </td>
+                                                    <td className="border border-gray-300 px-2 py-1 text-xs text-gray-600 leading-tight">
+                                                        {v.description}
+                                                    </td>
+                                                    <td className="border border-gray-300 px-1 py-1">
+                                                        <input
+                                                            type="number"
+                                                            step="0.01"
+                                                            value={v.value}
+                                                            onChange={(e) => handleUpdate(v.key, e.target.value)}
+                                                            className="w-full border border-gray-400 px-1 font-mono text-right text-sm focus:border-blue-500 focus:outline-none"
+                                                        />
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            ))}
+                        </div>
                     )}
                 </div>
 
-                <div className="p-2 border-t border-gray-400 flex justify-end">
+                <div className="p-2 border-t border-gray-400 flex justify-end bg-[#c0c0c0]">
                     <button
                         onClick={onClose}
-                        className="px-4 py-1 bg-[#c0c0c0] border-2 border-white border-r-black border-b-black active:border-r-white active:border-b-white text-sm font-bold"
+                        className="px-4 py-1 bg-[#c0c0c0] border-2 border-white border-r-black border-b-black active:border-r-white active:border-b-white text-sm font-bold active:translate-y-[1px]"
                     >
                         Close
                     </button>
@@ -1235,6 +1286,18 @@ function BossRow({ boss, onChange, isEven }) {
     const inputClass = "w-full bg-transparent border-0 border-b border-dashed border-gray-300 px-1 py-1 text-right focus:bg-white focus:border-solid focus:border-blue-500 outline-none hover:bg-white/50 transition-colors";
     const nameInputClass = "w-full bg-transparent border-0 border-b border-dashed border-gray-300 px-1 py-1 text-left focus:bg-white focus:border-solid focus:border-blue-500 outline-none hover:bg-white/50 transition-colors";
 
+    const formatNumber = (num) => {
+        if (num === null || num === undefined) return '';
+        return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    };
+
+    const handleNumberChange = (field, value) => {
+        const rawValue = value.replace(/,/g, '');
+        if (!isNaN(rawValue) || rawValue === '') {
+            onChange(boss.id, field, rawValue);
+        }
+    };
+
     return (
         <tr className={isEven ? "bg-gray-50" : "bg-white"}>
             <td className="p-2 border-r border-gray-300 text-center font-bold text-gray-500">{boss.id}</td>
@@ -1248,49 +1311,49 @@ function BossRow({ boss, onChange, isEven }) {
             </td>
             <td className="p-1 border-r border-gray-300">
                 <input
-                    type="number"
-                    value={boss.req_total_stats}
-                    onChange={e => onChange(boss.id, 'req_total_stats', e.target.value)}
+                    type="text"
+                    value={formatNumber(boss.req_total_stats)}
+                    onChange={e => handleNumberChange('req_total_stats', e.target.value)}
                     className={inputClass}
                 />
             </td>
             <td className="p-1 border-r border-gray-300">
                 <input
-                    type="number"
-                    value={boss.cost_turns}
-                    onChange={e => onChange(boss.id, 'cost_turns', e.target.value)}
+                    type="text"
+                    value={formatNumber(boss.cost_turns)}
+                    onChange={e => handleNumberChange('cost_turns', e.target.value)}
                     className={inputClass}
                 />
             </td>
             <td className="p-1 border-r border-gray-300">
                 <input
-                    type="number"
-                    value={boss.duration_seconds}
-                    onChange={e => onChange(boss.id, 'duration_seconds', e.target.value)}
+                    type="text"
+                    value={formatNumber(boss.duration_seconds)}
+                    onChange={e => handleNumberChange('duration_seconds', e.target.value)}
                     className={inputClass}
                 />
             </td>
             <td className="p-1 border-r border-gray-300">
                 <input
-                    type="number"
-                    value={boss.reward_xp}
-                    onChange={e => onChange(boss.id, 'reward_xp', e.target.value)}
+                    type="text"
+                    value={formatNumber(boss.reward_xp)}
+                    onChange={e => handleNumberChange('reward_xp', e.target.value)}
                     className={inputClass}
                 />
             </td>
             <td className="p-1 border-r border-gray-300">
                 <input
-                    type="number"
-                    value={boss.reward_gold}
-                    onChange={e => onChange(boss.id, 'reward_gold', e.target.value)}
+                    type="text"
+                    value={formatNumber(boss.reward_gold)}
+                    onChange={e => handleNumberChange('reward_gold', e.target.value)}
                     className={inputClass}
                 />
             </td>
             <td className="p-1 border-r border-gray-300">
                 <input
-                    type="number"
-                    value={boss.reward_citizens}
-                    onChange={e => onChange(boss.id, 'reward_citizens', e.target.value)}
+                    type="text"
+                    value={formatNumber(boss.reward_citizens)}
+                    onChange={e => handleNumberChange('reward_citizens', e.target.value)}
                     className={inputClass}
                 />
             </td>

@@ -20,7 +20,7 @@ const levels = [
 for (let i = 1; i <= 100; i++) {
     levels.push({
         level: i,
-        cost: i * 100,
+        cost: i * 50,
         description: i === 1 ? "Found Kingdom" : `Upgrade to Level ${i}`
     });
 }

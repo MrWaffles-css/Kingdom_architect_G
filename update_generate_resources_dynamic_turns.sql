@@ -80,6 +80,13 @@ BEGIN
     v_miner_gold := COALESCE(v_stats.miners, 0) * v_miner_rate * v_minutes_passed;
     
     v_gold_gain := v_untrained_gold + v_trained_gold + v_miner_gold;
+
+    -- =====================================================
+    -- AD BONUS CHECK (2x Income)
+    -- =====================================================
+    IF v_stats.ad_bonus_ends_at IS NOT NULL AND v_stats.ad_bonus_ends_at > v_now THEN
+        v_gold_gain := v_gold_gain * 2;
+    END IF;
     
     -- =====================================================
     -- VAULT INTEREST

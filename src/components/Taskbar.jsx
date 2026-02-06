@@ -2,10 +2,43 @@ import React, { useState, useEffect } from 'react';
 import { useGame } from '../contexts/GameContext';
 import { useGameTime } from '../contexts/TimeContext';
 import { supabase } from '../supabase';
+import AdModal from './AdModal';
 
 const Taskbar = ({ openWindows, activeWindowId, onWindowClick, onStartClick, stats }) => {
     // Consume serverTime derived from TimeContext
     const { serverTime } = useGameTime() || {};
+    const [showAdModal, setShowAdModal] = useState(false);
+    const [adBonusEnd, setAdBonusEnd] = useState(null);
+    const [adBonusActive, setAdBonusActive] = useState(false);
+    const [adTimeLeft, setAdTimeLeft] = useState('');
+
+    useEffect(() => {
+        if (stats?.ad_bonus_ends_at) {
+            setAdBonusEnd(new Date(stats.ad_bonus_ends_at));
+        } else {
+            setAdBonusActive(false);
+        }
+    }, [stats?.ad_bonus_ends_at]);
+
+    useEffect(() => {
+        if (!adBonusEnd) return;
+
+        const timer = setInterval(() => {
+            const now = new Date();
+            const diff = adBonusEnd - now;
+            if (diff > 0) {
+                setAdBonusActive(true);
+                const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+                const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+                setAdTimeLeft(`${minutes}:${seconds.toString().padStart(2, '0')}`);
+            } else {
+                setAdBonusActive(false);
+                setAdTimeLeft('');
+                clearInterval(timer);
+            }
+        }, 1000);
+        return () => clearInterval(timer);
+    }, [adBonusEnd]);
 
 
     // Fallback to Bali time (UTC+8) if context unavailable
@@ -168,6 +201,20 @@ const Taskbar = ({ openWindows, activeWindowId, onWindowClick, onStartClick, sta
                     </div>
                 )}
 
+                {/* Ad Bonus Button */}
+                <button
+                    onClick={() => !adBonusActive && setShowAdModal(true)}
+                    disabled={adBonusActive}
+                    className={`flex items-center gap-1 px-2 border-r border-gray-400 mr-1 font-bold transition-colors
+                        ${adBonusActive ? 'text-green-700 bg-green-100/50' : 'text-blue-800 hover:bg-blue-50 cursor-pointer'}`}
+                    title={adBonusActive ? "2x Income Active" : "Watch Ad for 2x Income"}
+                >
+                    <span>{adBonusActive ? '⚡' : '📺'}</span>
+                    <span className="font-mono text-[10px] md:text-xs">
+                        {adBonusActive ? `2x: ${adTimeLeft}` : '2x Income'}
+                    </span>
+                </button>
+
 
                 {/* Military Stats Toggle Button (Up Arrow) */}
                 <button
@@ -269,6 +316,17 @@ const Taskbar = ({ openWindows, activeWindowId, onWindowClick, onStartClick, sta
                         </div>
                     </div>
                 </div>
+            )}
+
+            {showAdModal && (
+                <AdModal
+                    onClose={() => setShowAdModal(false)}
+                    onSuccess={(newStats) => {
+                        // Optimistically update if available, or just rely on Realtime
+                        // If onSuccess passes data back, use it
+                        // The context handles realtime, but we can force a refresh if needed
+                    }}
+                />
             )}
         </div>
     );

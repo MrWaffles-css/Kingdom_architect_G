@@ -344,7 +344,7 @@ export default function Armoury({ userStats, onUpdate }) {
                                                     className="px-1 bg-yellow-100 border border-yellow-400 text-[10px] font-bold text-yellow-800 hover:bg-yellow-200 disabled:opacity-50 disabled:cursor-not-allowed"
                                                     title={`Max: ${maxAffordable.toLocaleString()}`}
                                                 >
-                                                    MAX
+                                                    MAX ({maxAffordable.toLocaleString()})
                                                 </button>
                                                 <button
                                                     onClick={() => handleBuy(activeTab, weapon.tier)}

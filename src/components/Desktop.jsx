@@ -831,7 +831,11 @@ const Desktop = ({
                                 onClick={() => { openWindow('profile'); setStartMenuOpen(false); }}
                                 className="w-full text-left px-2 py-1 hover:bg-[#000080] hover:text-white flex items-center gap-2 group"
                             >
-                                <img src="https://win98icons.alexmeub.com/icons/png/users-1.png" alt="" className="w-6 h-6" />
+                                {stats?.avatar_id ? (
+                                    <img src={getAvatarPath(stats.avatar_id)} alt="" className="w-6 h-6 object-cover border border-white pixelated bg-[#008080]" />
+                                ) : (
+                                    <img src="https://win98icons.alexmeub.com/icons/png/users-1.png" alt="" className="w-6 h-6" />
+                                )}
                                 <span className="text-sm">Profile</span>
                             </button>
                             {stats?.tutorial_step === 1 && <GuideArrow className="right-[-40px] top-2" />}
@@ -901,6 +905,17 @@ const Desktop = ({
                             {(stats?.tutorial_step === 9 || stats?.tutorial_step === 12) && <GuideArrow className="right-[-40px] top-2" />}
                         </div>
 
+                        {/* Bosses */}
+                        <div className="relative">
+                            <button
+                                onClick={() => { openWindow('bosses'); setStartMenuOpen(false); }}
+                                className="w-full text-left px-2 py-1 hover:bg-[#000080] hover:text-white flex items-center gap-2"
+                            >
+                                <img src="/bosses_icon.png" alt="" className="w-6 h-6" />
+                                <span className="text-sm">Bosses</span>
+                            </button>
+                        </div>
+
                         {/* Vault */}
                         <div className="relative">
                             <button
@@ -931,7 +946,7 @@ const Desktop = ({
                                 onClick={() => { openWindow('reports'); setStartMenuOpen(false); }}
                                 className="w-full text-left px-2 py-1 hover:bg-[#000080] hover:text-white flex items-center gap-2"
                             >
-                                <img src="https://win98icons.alexmeub.com/icons/png/envelope_closed-0.png" alt="" className="w-6 h-6" />
+                                <img src="/reports_icon.png" alt="" className="w-6 h-6" />
                                 <span className="text-sm">Reports</span>
                             </button>
                             {stats?.tutorial_step === 13 && <GuideArrow className="right-[-40px] top-2" />}
@@ -972,16 +987,7 @@ const Desktop = ({
                             )}
                         </div>
 
-                        {/* Recycle Bin */}
-                        <div className="relative">
-                            <button
-                                onClick={() => { openWindow('recycle'); setStartMenuOpen(false); }}
-                                className="w-full text-left px-2 py-1 hover:bg-[#000080] hover:text-white flex items-center gap-2"
-                            >
-                                <img src="https://win98icons.alexmeub.com/icons/png/recycle_bin_empty-0.png" alt="" className="w-6 h-6" />
-                                <span className="text-sm">Recycle Bin</span>
-                            </button>
-                        </div>
+
 
                         <div className="h-px bg-gray-400 my-1 shadow-[0_1px_0_white]"></div>
 

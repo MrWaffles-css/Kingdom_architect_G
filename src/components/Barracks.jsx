@@ -13,6 +13,7 @@ export default function Barracks({ userStats, onUpdate }) {
         sentry: '1'
     });
     const [hostageConfig, setHostageConfig] = useState(null);
+    const [barracksConfig, setBarracksConfig] = useState(null);
 
     useEffect(() => {
         const fetchConfig = async () => {
@@ -23,6 +24,19 @@ export default function Barracks({ userStats, onUpdate }) {
                 }
             } catch (err) {
                 console.error("Failed to load hostage config", err);
+            }
+
+            try {
+                const { data, error } = await supabase.rpc('get_barracks_config');
+                if (!error && data) {
+                    // Sort levels just in case
+                    if (data.levels) {
+                        data.levels.sort((a, b) => a.level - b.level);
+                    }
+                    setBarracksConfig(data);
+                }
+            } catch (err) {
+                console.error("Failed to load barracks config", err);
             }
         };
         fetchConfig();
@@ -42,8 +56,30 @@ export default function Barracks({ userStats, onUpdate }) {
     if (!userStats) return <div className="p-4 text-center">Loading barracks...</div>;
 
     const barracksLevel = userStats.barracks_level || 1;
-    const currentLevelData = BARRACKS_LEVELS.find(l => l.level === barracksLevel) || BARRACKS_LEVELS[0];
-    const nextLevelData = BARRACKS_LEVELS.find(l => l.level === barracksLevel + 1);
+
+    // Use dynamic config or fallback to static
+    const levelsData = barracksConfig?.levels?.length > 0 ? barracksConfig.levels : BARRACKS_LEVELS;
+
+    // Normalize field names (DB uses upgrade_cost, static uses cost)
+    const getLevelData = (lvl) => {
+        const data = levelsData.find(l => l.level === lvl);
+        if (!data) return null;
+        return {
+            ...data,
+            cost: data.upgrade_cost !== undefined ? data.upgrade_cost : data.cost
+        };
+    };
+
+    const currentLevelData = getLevelData(barracksLevel) || getLevelData(1);
+    const nextLevelData = getLevelData(barracksLevel + 1);
+
+    // Get training cost for a unit type
+    const getTrainingCost = (type) => {
+        if (barracksConfig && barracksConfig.training_costs && barracksConfig.training_costs[type]) {
+            return barracksConfig.training_costs[type];
+        }
+        return GAME_COSTS.TRAIN_SOLDIER;
+    };
 
     const handleUpgrade = async () => {
         setLoading(true);
@@ -100,10 +136,13 @@ export default function Barracks({ userStats, onUpdate }) {
         ? (userStats.gold || 0) + (userStats.vault || 0)
         : (userStats.gold || 0);
 
-    const maxTrainable = Math.min(
-        userStats.citizens,
-        Math.floor(availableGold / GAME_COSTS.TRAIN_SOLDIER)
-    );
+    // Note: Max trainable calculation is slightly complex if different units have different costs.
+    // Ideally we calculated per unit type, but for UI simplicity we might pick the highest cost or just use the cost of the currently interacting unit?
+    // Let's make a constant for display purposes or use a generic one if they are all same.
+    // For now we assume they are likely similar or we just use one as reference for 'max' check in some places, 
+    // but the input max uses `maxTrainable` which needs to be dynamic per unit loop.
+
+    // We will calculate maxTrainable inside the loop to be accurate per unit type.
 
     return (
         <div className="space-y-4 font-sans text-black pb-6 text-[1em]">
@@ -163,63 +202,71 @@ export default function Barracks({ userStats, onUpdate }) {
             <fieldset className="border-2 border-white border-l-gray-500 border-t-gray-500 p-4">
                 <legend className="px-1">Unit Training</legend>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {UNIT_TYPES.map((unit) => (
-                        <div key={unit.id} className="bg-gray-200 border-2 border-white border-r-gray-500 border-b-gray-500 p-3 flex flex-col">
-                            <div className="flex items-start justify-between mb-4">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 border border-gray-500 bg-white flex items-center justify-center text-[1.5em] shadow-[inset_1px_1px_2px_rgba(0,0,0,0.2)]">
-                                        {unit.icon}
+                    {UNIT_TYPES.map((unit) => {
+                        const unitCost = getTrainingCost(unit.id);
+                        const maxTrainable = Math.min(
+                            userStats.citizens,
+                            Math.floor(availableGold / unitCost)
+                        );
+
+                        return (
+                            <div key={unit.id} className="bg-gray-200 border-2 border-white border-r-gray-500 border-b-gray-500 p-3 flex flex-col">
+                                <div className="flex items-start justify-between mb-4">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 border border-gray-500 bg-white flex items-center justify-center text-[1.5em] shadow-[inset_1px_1px_2px_rgba(0,0,0,0.2)]">
+                                            {unit.icon}
+                                        </div>
+                                        <div>
+                                            <h3 className="font-bold text-[1.125em] flex items-center gap-2">
+                                                {unit.name}
+                                                <span className="text-[0.75em] font-normal text-gray-600 bg-gray-100 px-1 border border-gray-400 rounded">
+                                                    +{Math.floor((barracksLevel * (barracksLevel + 1)) / 2).toLocaleString()} {unit.stat}
+                                                </span>
+                                            </h3>
+                                            <p className="text-[0.75em] text-gray-600">{unit.description}</p>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <h3 className="font-bold text-[1.125em] flex items-center gap-2">
-                                            {unit.name}
-                                            <span className="text-[0.75em] font-normal text-gray-600 bg-gray-100 px-1 border border-gray-400 rounded">
-                                                +{Math.floor((barracksLevel * (barracksLevel + 1)) / 2).toLocaleString()} {unit.stat}
-                                            </span>
-                                        </h3>
-                                        <p className="text-[0.75em] text-gray-600">{unit.description}</p>
+                                    <div className="text-right">
+                                        <div className="text-[0.75em] text-gray-600 uppercase font-bold">Current</div>
+                                        <div className="font-mono font-bold text-[1em]">
+                                            {/* Map unit type to state key */}
+                                            {(userStats[`${unit.id === 'spy' ? 'spies' : unit.id === 'sentry' ? 'sentries' : unit.id + '_soldiers'}`] || 0).toLocaleString()}
+                                        </div>
                                     </div>
                                 </div>
-                                <div className="text-right">
-                                    <div className="text-[0.75em] text-gray-600 uppercase font-bold">Current</div>
-                                    <div className="font-mono font-bold text-[1em]">
-                                        {/* Map unit type to state key */}
-                                        {(userStats[`${unit.id === 'spy' ? 'spies' : unit.id === 'sentry' ? 'sentries' : unit.id + '_soldiers'}`] || 0).toLocaleString()}
+
+                                <div className="mt-auto space-y-3">
+
+
+                                    <div className="flex gap-2">
+                                        <input
+                                            type="number"
+                                            min="1"
+                                            max={maxTrainable}
+                                            value={quantities[unit.id]}
+                                            onChange={(e) => setQuantities(prev => ({ ...prev, [unit.id]: e.target.value }))}
+                                            placeholder="Qty"
+                                            className="w-20 px-2 py-1 bg-white border-2 border-gray-500 border-r-white border-b-white shadow-[inset_1px_1px_2px_rgba(0,0,0,0.1)] outline-none"
+                                        />
+                                        <button
+                                            onClick={() => setQuantities(prev => ({ ...prev, [unit.id]: maxTrainable.toString() }))}
+                                            disabled={maxTrainable === 0}
+                                            className="px-3 py-1 bg-[#c0c0c0] border-2 border-white border-r-gray-800 border-b-gray-800 active:border-gray-800 active:border-r-white active:border-b-white focus:outline-dotted text-[0.75em] font-bold"
+                                        >
+                                            Max ({maxTrainable})
+                                        </button>
+                                        <button
+                                            onClick={() => handleTrain(unit.id)}
+                                            disabled={loading || !quantities[unit.id] || parseInt(quantities[unit.id]) > maxTrainable || parseInt(quantities[unit.id]) <= 0}
+                                            className="flex-1 bg-[#c0c0c0] border-2 border-white border-r-gray-800 border-b-gray-800 active:border-gray-800 active:border-r-white active:border-b-white text-black font-bold py-1 px-4 disabled:text-gray-500 text-[0.75em] min-w-[120px]"
+                                        >
+                                            {loading ? '...' : `Train (${(parseInt(quantities[unit.id] || 0) * unitCost).toLocaleString()} Gold)`}
+                                        </button>
                                     </div>
                                 </div>
                             </div>
-
-                            <div className="mt-auto space-y-3">
-
-
-                                <div className="flex gap-2">
-                                    <input
-                                        type="number"
-                                        min="1"
-                                        max={maxTrainable}
-                                        value={quantities[unit.id]}
-                                        onChange={(e) => setQuantities(prev => ({ ...prev, [unit.id]: e.target.value }))}
-                                        placeholder="Qty"
-                                        className="w-20 px-2 py-1 bg-white border-2 border-gray-500 border-r-white border-b-white shadow-[inset_1px_1px_2px_rgba(0,0,0,0.1)] outline-none"
-                                    />
-                                    <button
-                                        onClick={() => setQuantities(prev => ({ ...prev, [unit.id]: maxTrainable.toString() }))}
-                                        disabled={maxTrainable === 0}
-                                        className="px-3 py-1 bg-[#c0c0c0] border-2 border-white border-r-gray-800 border-b-gray-800 active:border-gray-800 active:border-r-white active:border-b-white focus:outline-dotted text-[0.75em] font-bold"
-                                    >
-                                        Max ({maxTrainable})
-                                    </button>
-                                    <button
-                                        onClick={() => handleTrain(unit.id)}
-                                        disabled={loading || !quantities[unit.id] || parseInt(quantities[unit.id]) > maxTrainable || parseInt(quantities[unit.id]) <= 0}
-                                        className="flex-1 bg-[#c0c0c0] border-2 border-white border-r-gray-800 border-b-gray-800 active:border-gray-800 active:border-r-white active:border-b-white text-black font-bold py-1 px-4 disabled:text-gray-500 text-[0.75em] min-w-[120px]"
-                                    >
-                                        {loading ? '...' : `Train (${(parseInt(quantities[unit.id] || 0) * GAME_COSTS.TRAIN_SOLDIER).toLocaleString()} Gold)`}
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    ))}
+                        )
+                    })}
                 </div>
             </fieldset>
 
