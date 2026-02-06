@@ -442,18 +442,35 @@ export default function Profile({ userId, isOwnProfile, session, onNavigate, onA
         // --- CALCULATION LOGIC (Matching generate_resources.sql) ---
         const citizenCount = s.citizens || 0;
         const citizenRate = 1;
-        const citizenIncome = citizenCount * citizenRate;
+
+        let citizenIncome = citizenCount * citizenRate;
 
         // Trained Units (Attack + Defense + Spy + Sentry)
         const trainedCount = (s.attack_soldiers || 0) + (s.defense_soldiers || 0) + (s.spies || 0) + (s.sentries || 0);
         const trainedRate = 0.5;
-        const trainedIncome = Math.floor(trainedCount * trainedRate);
+
+        let trainedIncome = Math.floor(trainedCount * trainedRate);
 
         // Miners
         const minerCount = s.miners || 0;
         const goldMineLevel = s.gold_mine_level || 1;
         const minerRate = 2 + Math.max(0, goldMineLevel - 1);
-        const minerIncome = minerCount * minerRate;
+
+        let minerIncome = minerCount * minerRate;
+
+        // Check for Ad Bonus
+        let bonusMultiplier = 1;
+        const now = new Date();
+        const bonusEnd = s.ad_bonus_ends_at ? new Date(s.ad_bonus_ends_at) : null;
+
+        if (bonusEnd && bonusEnd > now) {
+            bonusMultiplier = 2;
+        }
+
+        // Apply Multiplier
+        citizenIncome *= bonusMultiplier;
+        trainedIncome *= bonusMultiplier;
+        minerIncome *= bonusMultiplier;
 
         // Base Gold Income (Subtotal)
         const baseGoldIncome = citizenIncome + trainedIncome + minerIncome;
@@ -494,7 +511,10 @@ export default function Profile({ userId, isOwnProfile, session, onNavigate, onA
                             <div className="text-xs text-gray-500 uppercase font-bold">Net Income</div>
                             <div className="text-lg font-bold flex items-center gap-2 text-green-700">
                                 <span>📈</span>
-                                <SpyCheck level={lvl} required={2} fallback="?">+{formatNumber(totalIncome)}/m</SpyCheck>
+                                <SpyCheck level={lvl} required={2} fallback="?">
+                                    {bonusMultiplier > 1 && <span className="text-xs mr-1 animate-pulse">⚡</span>}
+                                    +{formatNumber(totalIncome)}/m
+                                </SpyCheck>
                             </div>
                         </div>
                     </div>
@@ -524,7 +544,9 @@ export default function Profile({ userId, isOwnProfile, session, onNavigate, onA
                                     <td className="p-2 border-r border-gray-400 text-right font-mono">
                                         <SpyCheck level={lvl} required={1}>{formatNumber(citizenCount)}</SpyCheck>
                                     </td>
-                                    <td className="p-2 border-r border-gray-400 text-right font-mono text-gray-500 hidden sm:table-cell">1.0</td>
+                                    <td className="p-2 border-r border-gray-400 text-right font-mono text-gray-500 hidden sm:table-cell">
+                                        {citizenRate.toFixed(1)} {bonusMultiplier > 1 && <span className="text-green-600 font-bold" title="2x Bonus Active">x2</span>}
+                                    </td>
                                     <td className="p-2 border-r border-gray-400 text-right font-mono font-bold text-green-700">
                                         <SpyCheck level={lvl} required={2}>+{formatNumber(citizenIncome)}</SpyCheck>
                                     </td>
@@ -544,7 +566,9 @@ export default function Profile({ userId, isOwnProfile, session, onNavigate, onA
                                     <td className="p-2 border-r border-gray-400 text-right font-mono">
                                         <SpyCheck level={lvl} required={2}>{formatNumber(trainedCount)}</SpyCheck>
                                     </td>
-                                    <td className="p-2 border-r border-gray-400 text-right font-mono text-gray-500 hidden sm:table-cell">0.5</td>
+                                    <td className="p-2 border-r border-gray-400 text-right font-mono text-gray-500 hidden sm:table-cell">
+                                        {trainedRate.toFixed(1)} {bonusMultiplier > 1 && <span className="text-green-600 font-bold" title="2x Bonus Active">x2</span>}
+                                    </td>
                                     <td className="p-2 border-r border-gray-400 text-right font-mono font-bold text-green-700">
                                         <SpyCheck level={lvl} required={2}>+{formatNumber(trainedIncome)}</SpyCheck>
                                     </td>
@@ -564,7 +588,9 @@ export default function Profile({ userId, isOwnProfile, session, onNavigate, onA
                                     <td className="p-2 border-r border-gray-400 text-right font-mono">
                                         <SpyCheck level={lvl} required={2}>{formatNumber(minerCount)}</SpyCheck>
                                     </td>
-                                    <td className="p-2 border-r border-gray-400 text-right font-mono text-gray-500 hidden sm:table-cell">{minerRate.toFixed(1)}</td>
+                                    <td className="p-2 border-r border-gray-400 text-right font-mono text-gray-500 hidden sm:table-cell">
+                                        {minerRate.toFixed(1)} {bonusMultiplier > 1 && <span className="text-green-600 font-bold" title="2x Bonus Active">x2</span>}
+                                    </td>
                                     <td className="p-2 border-r border-gray-400 text-right font-mono font-bold text-green-700">
                                         <SpyCheck level={lvl} required={2}>+{formatNumber(minerIncome)}</SpyCheck>
                                     </td>
@@ -598,7 +624,9 @@ export default function Profile({ userId, isOwnProfile, session, onNavigate, onA
 
                                 {/* TOTAL */}
                                 <tr className="bg-gray-100 border-t-2 border-gray-400 font-bold">
-                                    <td className="p-2 border-r border-gray-400 text-right" colSpan={3}>TOTAL GROSS INCOME</td>
+                                    <td className="p-2 border-r border-gray-400 text-right" colSpan={3}>
+                                        TOTAL GROSS INCOME {bonusMultiplier > 1 && <span className="ml-2 text-green-600 uppercase text-xs">(2x Active)</span>}
+                                    </td>
                                     <td className="p-2 border-r border-gray-400 text-right font-mono text-lg text-green-800">
                                         <SpyCheck level={lvl} required={2}>+{formatNumber(totalIncome + vaultIncome)}</SpyCheck>
                                     </td>
