@@ -149,3 +149,27 @@ textarea {
   scrollbar-width: none;
   /* Firefox */
 }
+
+/* Slide Up, Hold, then Slide Down */
+@keyframes slide-up-down {
+  0% {
+    transform: translateY(100px);
+    opacity: 0;
+  }
+  10% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  90% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(100px);
+    opacity: 0;
+  }
+}
+
+.animate-slide-up-down {
+  animation: slide-up-down linear forwards;
+}

@@ -3,7 +3,7 @@ import { supabase } from '../supabase';
 import { desktopFeatures } from '../config/desktopFeatures';
 
 export default function ControlPanel({ userStats, onUpdate, onClose }) {
-    const [activeTab, setActiveTab] = useState('general'); // general, security, controls
+    const [activeTab, setActiveTab] = useState('general'); // general, security, controls, settings
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState(null);
     const [error, setError] = useState(null);
@@ -18,6 +18,10 @@ export default function ControlPanel({ userStats, onUpdate, onClose }) {
     // Controls Form
     const [hotkeys, setHotkeys] = useState({});
     const [recordingKey, setRecordingKey] = useState(null);
+
+    // Settings Form
+    const [bossPopupEnabled, setBossPopupEnabled] = useState(true);
+    const [bossPopupDuration, setBossPopupDuration] = useState(3000);
 
     useEffect(() => {
         fetchProfile();
@@ -38,6 +42,11 @@ export default function ControlPanel({ userStats, onUpdate, onClose }) {
 
             setUsername(data.username || '');
             setHotkeys(data.hotkeys || {});
+
+            // Load Local Settings
+            setBossPopupEnabled(localStorage.getItem('boss_popup_enabled') !== 'false');
+            const storedDuration = localStorage.getItem('boss_popup_duration');
+            setBossPopupDuration(storedDuration ? parseInt(storedDuration, 10) : 3000);
         } catch (err) {
             console.error('Error fetching profile:', err);
         }
@@ -158,6 +167,12 @@ export default function ControlPanel({ userStats, onUpdate, onClose }) {
         });
     };
 
+    const handleSaveSettings = () => {
+        localStorage.setItem('boss_popup_enabled', bossPopupEnabled);
+        localStorage.setItem('boss_popup_duration', bossPopupDuration);
+        setMessage('Settings saved successfully!');
+    };
+
     // Filter features that make sense to have hotkeys (windows)
     const mappableFeatures = desktopFeatures.filter(f => !f.hidden && f.id !== 'control_panel');
 
@@ -189,6 +204,12 @@ export default function ControlPanel({ userStats, onUpdate, onClose }) {
                     className={`px-3 py-1 rounded-t border-t-2 border-l-2 border-r-2 ${activeTab === 'controls' ? 'bg-[#c0c0c0] border-white text-black font-bold relative -mb-[2px] z-10' : 'bg-gray-400 border-gray-600 text-gray-700'}`}
                 >
                     Controls
+                </button>
+                <button
+                    onClick={() => setActiveTab('settings')}
+                    className={`px-3 py-1 rounded-t border-t-2 border-l-2 border-r-2 ${activeTab === 'settings' ? 'bg-[#c0c0c0] border-white text-black font-bold relative -mb-[2px] z-10' : 'bg-gray-400 border-gray-600 text-gray-700'}`}
+                >
+                    Settings
                 </button>
             </div>
 
@@ -328,6 +349,54 @@ export default function ControlPanel({ userStats, onUpdate, onClose }) {
                         <div className="mt-2 text-xs text-gray-500">
                             * Click "Save Keys" to apply changes. Keys like Escape, Enter, Tab are reserved.
                         </div>
+                    </div>
+                )}
+
+                {activeTab === 'settings' && (
+                    <div className="max-w-sm">
+                        <h3 className="font-bold mb-4">Game Settings</h3>
+
+                        <div className="mb-4 space-y-4">
+                            <div className="flex items-center gap-2">
+                                <input
+                                    type="checkbox"
+                                    id="bossPopupEnabled"
+                                    checked={bossPopupEnabled}
+                                    onChange={(e) => setBossPopupEnabled(e.target.checked)}
+                                    className="h-4 w-4"
+                                />
+                                <label htmlFor="bossPopupEnabled" className="font-bold">Show Boss Reward Popup</label>
+                            </div>
+
+                            <div className={`pl-6 ${!bossPopupEnabled ? 'opacity-50 pointer-events-none' : ''}`}>
+                                <label className="block text-xs mb-1">Popup Duration:</label>
+                                <div className="flex items-center gap-2">
+                                    <input
+                                        type="range"
+                                        min="500"
+                                        max="5000"
+                                        step="100"
+                                        value={bossPopupDuration}
+                                        onChange={(e) => setBossPopupDuration(parseInt(e.target.value) || 3000)}
+                                        className="w-full cursor-pointer"
+                                    />
+                                    <span className="text-sm font-bold w-12 text-right font-mono">
+                                        {(bossPopupDuration / 1000).toFixed(1)}s
+                                    </span>
+                                </div>
+                                <div className="flex justify-between text-[10px] text-gray-500 mt-1 px-1">
+                                    <span>0.5s</span>
+                                    <span>5.0s</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <button
+                            onClick={handleSaveSettings}
+                            className="px-4 py-1 bg-[#c0c0c0] border-2 border-white border-r-black border-b-black active:border-black active:border-r-white active:border-b-white"
+                        >
+                            Save Settings
+                        </button>
                     </div>
                 )}
             </fieldset>

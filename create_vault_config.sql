@@ -50,7 +50,8 @@ BEGIN
     IF EXISTS (SELECT 1 FROM vault_configs) THEN
         UPDATE vault_configs 
         SET levels = v_levels, 
-            updated_at = NOW();
+            updated_at = NOW()
+        WHERE TRUE;
     ELSE
         INSERT INTO vault_configs (levels) 
         VALUES (v_levels);

@@ -38,7 +38,7 @@ BEGIN
 
     -- Update or Insert
     IF EXISTS (SELECT 1 FROM gold_mine_configs) THEN
-        UPDATE gold_mine_configs SET levels = v_levels, updated_at = NOW();
+        UPDATE gold_mine_configs SET levels = v_levels, updated_at = NOW() WHERE TRUE;
     ELSE
         INSERT INTO gold_mine_configs (levels) VALUES (v_levels);
     END IF;
@@ -75,7 +75,8 @@ BEGIN
     
     UPDATE gold_mine_configs
     SET levels = p_levels,
-        updated_at = NOW();
+        updated_at = NOW()
+    WHERE TRUE;
         
     IF NOT FOUND THEN
         INSERT INTO gold_mine_configs (levels) VALUES (p_levels);

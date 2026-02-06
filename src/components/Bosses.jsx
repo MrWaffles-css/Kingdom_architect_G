@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '../supabase';
 import { useGameTime } from '../contexts/TimeContext';
 import { useGame } from '../contexts/GameContext';
 
 export default function Bosses({ session }) {
     const { serverOffset } = useGameTime();
-    const { showRewardPopup } = useGame();
+    const { showRewardPopup, showNotification } = useGame();
     const [userStats, setUserStats] = useState(null);
     const [activeFight, setActiveFight] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -83,6 +83,49 @@ export default function Bosses({ session }) {
         return () => clearInterval(interval);
     }, [session]);
 
+    const processFight = useCallback(async () => {
+        if (processingRef.current) return;
+
+        processingRef.current = true;
+        setProcessing(true);
+
+        try {
+            console.log('Processing boss fight...');
+            const { data, error } = await supabase.rpc('process_boss_fight');
+            if (error) throw error;
+
+            console.log('Boss fight process result:', data);
+
+            if (data.fights_processed > 0 && data.rewards) {
+                showRewardPopup(data.rewards);
+
+                // Notify if gold earned but no vault
+                if (data.rewards.gold > 0 && (!userStats?.vault_level || userStats.vault_level === 0)) {
+                    showNotification("⚠️ Your Gold rewards are going to the Vault, but you haven't built one yet! Build a Vault to access your Gold!", 10000);
+                }
+            }
+
+            if (data.status === 'finished' || data.status === 'finished_no_turns') {
+                console.log('Fight finished!');
+                setActiveFight(null);
+                fetchData(); // Refresh stats
+            } else {
+                console.log('Fight continuing...');
+                setActiveFight(prev => ({
+                    ...prev,
+                    last_claim_time: data.next_claim_time,
+                    total_fights_done: data.fights_done
+                }));
+                fetchData();
+            }
+        } catch (err) {
+            console.error('Process error:', err);
+        } finally {
+            processingRef.current = false;
+            setProcessing(false);
+        }
+    }, [showRewardPopup, showNotification, userStats, bosses]);
+
     // Timer Logic for Active Fight
     useEffect(() => {
         if (!activeFight) {
@@ -123,48 +166,12 @@ export default function Bosses({ session }) {
         const timer = setInterval(updateTimer, 1000);
 
         return () => clearInterval(timer);
-    }, [activeFight, bosses, serverOffset]);
+        return () => clearInterval(timer);
+    }, [activeFight, bosses, serverOffset, processFight]); // Added processFight dependency
 
 
 
-    const processFight = async () => {
-        if (processingRef.current) return;
 
-        processingRef.current = true;
-        setProcessing(true);
-
-        try {
-            console.log('Processing boss fight...');
-            const { data, error } = await supabase.rpc('process_boss_fight');
-            if (error) throw error;
-
-            console.log('Boss fight process result:', data);
-
-            if (data.fights_processed > 0 && data.rewards) {
-                showRewardPopup(data.rewards);
-            }
-
-            if (data.status === 'finished' || data.status === 'finished_no_turns') {
-                console.log('Fight finished!');
-                setActiveFight(null);
-                fetchData(); // Refresh stats
-            } else {
-                console.log('Fight continuing...');
-                setActiveFight(prev => ({
-                    ...prev,
-                    last_claim_time: data.next_claim_time,
-                    total_fights_done: data.fights_done
-                }));
-                fetchData();
-            }
-        } catch (err) {
-            console.error('Process error:', err);
-            alert('Error processing fight: ' + err.message);
-        } finally {
-            processingRef.current = false;
-            setProcessing(false);
-        }
-    };
 
     const handleStart = async (bossId) => {
         if (processingRef.current) return;

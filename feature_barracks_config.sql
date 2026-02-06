@@ -50,7 +50,8 @@ BEGIN
         UPDATE barracks_configs 
         SET levels = v_levels, 
             training_costs = v_training_costs,
-            updated_at = NOW();
+            updated_at = NOW()
+        WHERE TRUE;
     ELSE
         INSERT INTO barracks_configs (levels, training_costs) 
         VALUES (v_levels, v_training_costs);
@@ -99,7 +100,8 @@ BEGIN
     UPDATE barracks_configs
     SET levels = p_levels,
         training_costs = p_training_costs,
-        updated_at = NOW();
+        updated_at = NOW()
+    WHERE TRUE;
         
     IF NOT FOUND THEN
         INSERT INTO barracks_configs (levels, training_costs) 

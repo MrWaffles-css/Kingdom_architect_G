@@ -522,10 +522,18 @@ export function GameProvider({ children }) {
         rewardPopup,
         showRewardPopup: useCallback((data) => {
             if (!data) return;
+
+            // Check settings from localStorage
+            const enabled = localStorage.getItem('boss_popup_enabled') !== 'false'; // Default true
+            if (!enabled) return;
+
+            const durationStr = localStorage.getItem('boss_popup_duration');
+            const duration = durationStr ? parseInt(durationStr, 10) : 3000; // Default 3000ms
+
             setRewardPopup(data);
             setTimeout(() => {
                 setRewardPopup(null);
-            }, 3000); // Show for 3 seconds
+            }, duration);
         }, [])
     };
 
