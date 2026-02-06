@@ -28,9 +28,9 @@ const Taskbar = ({ openWindows, activeWindowId, onWindowClick, onStartClick, sta
             const diff = adBonusEnd - now;
             if (diff > 0) {
                 setAdBonusActive(true);
-                const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+                const totalMinutes = Math.floor(diff / (1000 * 60));
                 const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-                setAdTimeLeft(`${minutes}:${seconds.toString().padStart(2, '0')}`);
+                setAdTimeLeft(`${totalMinutes}:${seconds.toString().padStart(2, '0')}`);
             } else {
                 setAdBonusActive(false);
                 setAdTimeLeft('');
