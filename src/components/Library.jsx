@@ -543,12 +543,12 @@ export default function Library({ userStats, onUpdate }) {
             {/* Research Section */}
             <div className="border border-gray-400 p-1">
                 {/* Tabs */}
-                <div className="flex gap-1 border-b border-white bg-gray-200 p-1 pb-0">
+                <div className="flex gap-1 border-b border-white bg-gray-200 p-1 pb-0 overflow-x-auto no-scrollbar">
                     {Object.keys(researchCategories).map(category => (
                         <button
                             key={category}
                             onClick={() => setActiveTab(category)}
-                            className={`px-4 py-1 text-xs font-bold uppercase border-t-2 border-l-2 border-r-2 rounded-t transition-colors ${activeTab === category
+                            className={`px-3 md:px-4 py-1 text-xs font-bold uppercase border-t-2 border-l-2 border-r-2 rounded-t transition-colors whitespace-nowrap shrink-0 ${activeTab === category
                                 ? 'bg-white border-white border-r-gray-600 border-b-0 -mb-[1px] z-10'
                                 : 'bg-gray-300 border-white border-r-gray-600 text-gray-600'
                                 }`}

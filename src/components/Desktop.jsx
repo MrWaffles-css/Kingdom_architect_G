@@ -628,6 +628,18 @@ const Desktop = ({
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}
             onMouseLeave={handleMouseUp}
+            onTouchMove={(e) => {
+                if (dragState) {
+                    // Prevent scrolling while dragging an icon
+                    e.preventDefault();
+                    const touch = e.touches[0];
+                    handleMouseMove({
+                        clientX: touch.clientX,
+                        clientY: touch.clientY
+                    });
+                }
+            }}
+            onTouchEnd={handleMouseUp}
             onContextMenu={handleContextMenu}
         >
             <MobileTopBar stats={stats} />
@@ -676,6 +688,16 @@ const Desktop = ({
                             }
                             style={{ left: position.x, top: displayY }}
                             onMouseDown={(e) => handleIconDragStart(e, feature.id)}
+                            onTouchStart={(e) => {
+                                const touch = e.touches[0];
+                                // Normalize touch event to mimic mouse event structure for handleIconDragStart
+                                handleIconDragStart({
+                                    stopPropagation: () => e.stopPropagation(),
+                                    preventDefault: () => { }, // Don't prevent default immediately to allow scrolling if not dragging? No, we want to prevent scrolling on icon drag.
+                                    clientX: touch.clientX,
+                                    clientY: touch.clientY
+                                }, feature.id);
+                            }}
                             className="absolute"
                         />
 

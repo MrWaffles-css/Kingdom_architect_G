@@ -206,7 +206,9 @@ const Taskbar = ({ openWindows, activeWindowId, onWindowClick, onStartClick, sta
                     onClick={() => !adBonusActive && setShowAdModal(true)}
                     disabled={adBonusActive}
                     className={`flex items-center gap-1 px-2 border-r border-gray-400 mr-1 font-bold transition-colors
-                        ${adBonusActive ? 'text-green-700 bg-green-100/50' : 'text-blue-800 hover:bg-blue-50 cursor-pointer'}`}
+                        ${adBonusActive
+                            ? 'text-green-700 bg-green-100/50'
+                            : 'text-blue-800 hover:bg-blue-50 cursor-pointer animate-pulse-glow'}`}
                     title={adBonusActive ? "2x Income Active" : "Watch Ad for 2x Income"}
                 >
                     <span>{adBonusActive ? '⚡' : '📺'}</span>

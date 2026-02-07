@@ -83,7 +83,23 @@ export function TimeProvider({ children }) {
             // Use seconds 0-1 window to be more forgiving (in case interval fires at 0.9s)
             if (currentSecond <= 1 && minuteOfDay !== lastMinuteOfDay && session?.user?.id) {
                 console.log(`[TimeContext] Exact :00 trigger at ${currentHour}:${currentMinute.toString().padStart(2, '0')}:${currentSecond.toString().padStart(2, '0')}`);
-                triggerGeneration('exact :00');
+
+                // OPTIMIZATION: Do NOT generate resources on client. 
+                // Rely on server-side cron job 'process_game_tick' which runs every minute.
+                // triggering generation here causes a race condition/lock handling mess.
+                // triggerGeneration('exact :00'); <-- REMOVED
+
+                // Instead, just REFRESH data after a short delay to let server finish
+                // Use a FIXED delay (e.g., 2s) so all players update at the same time (fairness)
+                // but we still avoid the race condition of reading before the cron job commits.
+                // Thundering herd of READS is acceptable for Postgres; Writes were the issue.
+                const delay = 2000;
+
+                console.log(`[TimeContext] Scheduling data refresh in ${delay}ms (syncing with server tick)`);
+                setTimeout(() => {
+                    refreshUserData(session.user.id);
+                }, delay);
+
                 setLastGenerationMinute(minuteOfDay);
             }
 
@@ -113,24 +129,27 @@ export function TimeProvider({ children }) {
         // Handle visibility change (when user returns to tab)
         const handleVisibilityChange = () => {
             if (document.visibilityState === 'visible' && session?.user?.id) {
-                console.log('[TimeContext] Tab became visible, checking for missed resources...');
+                console.log('[TimeContext] Tab became visible, syncing...');
 
-                // Give a small delay to ensure browser is fully active
-                setTimeout(() => {
-                    const currentTimestamp = Date.now() + offset;
-                    const now = new Date(currentTimestamp);
-                    const currentMinute = now.getMinutes();
-                    const currentHour = now.getHours();
-                    const minuteOfDay = currentHour * 60 + currentMinute;
-                    const lastMinuteOfDay = getLastGenerationMinute();
+                // 1. Calculate time
+                const currentTimestamp = Date.now() + offset;
+                const now = new Date(currentTimestamp);
+                const currentMinute = now.getMinutes();
+                const currentHour = now.getHours();
+                const minuteOfDay = currentHour * 60 + currentMinute;
+                const lastMinuteOfDay = getLastGenerationMinute();
 
-                    // If we're in a different minute, trigger generation
-                    if (minuteOfDay !== lastMinuteOfDay) {
-                        console.log('[TimeContext] Generating resources after tab return');
-                        triggerGeneration('tab return');
-                        setLastGenerationMinute(minuteOfDay);
-                    }
-                }, 500);
+                // 2. Check logic
+                if (minuteOfDay !== lastMinuteOfDay) {
+                    // If we missed a minute, trigger full generation (which includes refresh)
+                    console.log('[TimeContext] Catching up on resources (minute change detected)');
+                    triggerGeneration('tab return');
+                    setLastGenerationMinute(minuteOfDay);
+                } else {
+                    // If just a quick tab switch, just refresh data to show latest attacks/etc
+                    console.log('[TimeContext] Refreshing user data (no resource generation needed)');
+                    refreshUserData(session.user.id);
+                }
             }
         };
 

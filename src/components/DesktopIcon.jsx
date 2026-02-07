@@ -10,7 +10,7 @@ const DesktopIcon = ({ label, icon, badge, ...props }) => {
                 {typeof icon === 'string' && icon.length < 5 ? (
                     <span className="text-4xl">{icon}</span>
                 ) : (
-                    <div className="w-full h-full flex items-center justify-center [&>img]:w-full [&>img]:h-full [&>img]:object-contain">
+                    <div className="w-full h-full flex items-center justify-center [&>img]:w-full [&>img]:h-full [&>img]:object-contain pixelated">
                         {icon}
                     </div>
                 )}

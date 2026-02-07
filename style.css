@@ -11,10 +11,13 @@ body,
   margin: 0;
   padding: 0;
   /* Allow scrolling on mobile/tablet */
-  overflow: auto;
+  overflow: hidden;
+  /* Prevent body scroll, use container for scrolling if needed */
   overflow-x: hidden;
   /* Prevent horizontal scroll */
   overscroll-behavior: none;
+  touch-action: manipulation;
+  /* Improves touch response */
 }
 
 /* On desktop (1024px+), prevent scrolling */
@@ -156,14 +159,17 @@ textarea {
     transform: translateY(100px);
     opacity: 0;
   }
+
   10% {
     transform: translateY(0);
     opacity: 1;
   }
+
   90% {
     transform: translateY(0);
     opacity: 1;
   }
+
   100% {
     transform: translateY(100px);
     opacity: 0;
@@ -172,4 +178,26 @@ textarea {
 
 .animate-slide-up-down {
   animation: slide-up-down linear forwards;
+}
+
+/* Pulse Glow Animation for 2x Income */
+@keyframes pulse-glow {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(255, 215, 0, 0.7);
+  }
+
+  70% {
+    transform: scale(1.05);
+    box-shadow: 0 0 10px 10px rgba(255, 215, 0, 0);
+  }
+
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(255, 215, 0, 0);
+  }
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s infinite;
 }

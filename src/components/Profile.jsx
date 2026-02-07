@@ -521,17 +521,20 @@ export default function Profile({ userId, isOwnProfile, session, onNavigate, onA
                 </fieldset>
 
                 {/* Income Breakdown Table */}
+                {/* Income Breakdown - Responsive Switch */}
                 <fieldset className="border-2 border-white border-l-gray-500 border-t-gray-500 p-2">
                     <legend className="px-1 text-sm font-bold">Income Breakdown</legend>
-                    <div className="bg-white border border-gray-400 overflow-x-auto">
+
+                    {/* DESKTOP TABLE VIEW (Hidden on Mobile) */}
+                    <div className="hidden md:block bg-white border border-gray-400 overflow-x-auto">
                         <table className="w-full text-sm text-left">
                             <thead className="bg-gray-200 border-b border-gray-400">
                                 <tr>
                                     <th className="p-2 border-r border-gray-400">Source</th>
                                     <th className="p-2 border-r border-gray-400 text-right">Units</th>
-                                    <th className="p-2 border-r border-gray-400 text-right hidden sm:table-cell">Rate</th>
+                                    <th className="p-2 border-r border-gray-400 text-right">Rate</th>
                                     <th className="p-2 border-r border-gray-400 text-right">Per Minute</th>
-                                    <th className="p-2 border-r border-gray-400 text-right hidden sm:table-cell">Per Hour</th>
+                                    <th className="p-2 border-r border-gray-400 text-right">Per Hour</th>
                                     <th className="p-2 text-right">Per Day</th>
                                 </tr>
                             </thead>
@@ -544,13 +547,13 @@ export default function Profile({ userId, isOwnProfile, session, onNavigate, onA
                                     <td className="p-2 border-r border-gray-400 text-right font-mono">
                                         <SpyCheck level={lvl} required={1}>{formatNumber(citizenCount)}</SpyCheck>
                                     </td>
-                                    <td className="p-2 border-r border-gray-400 text-right font-mono text-gray-500 hidden sm:table-cell">
+                                    <td className="p-2 border-r border-gray-400 text-right font-mono text-gray-500">
                                         {citizenRate.toFixed(1)} {bonusMultiplier > 1 && <span className="text-green-600 font-bold" title="2x Bonus Active">x2</span>}
                                     </td>
                                     <td className="p-2 border-r border-gray-400 text-right font-mono font-bold text-green-700">
                                         <SpyCheck level={lvl} required={2}>+{formatNumber(citizenIncome)}</SpyCheck>
                                     </td>
-                                    <td className="p-2 border-r border-gray-400 text-right font-mono hidden sm:table-cell">
+                                    <td className="p-2 border-r border-gray-400 text-right font-mono">
                                         <SpyCheck level={lvl} required={2}>+{formatNumber(getHourly(citizenIncome))}</SpyCheck>
                                     </td>
                                     <td className="p-2 text-right font-mono">
@@ -566,13 +569,13 @@ export default function Profile({ userId, isOwnProfile, session, onNavigate, onA
                                     <td className="p-2 border-r border-gray-400 text-right font-mono">
                                         <SpyCheck level={lvl} required={2}>{formatNumber(trainedCount)}</SpyCheck>
                                     </td>
-                                    <td className="p-2 border-r border-gray-400 text-right font-mono text-gray-500 hidden sm:table-cell">
+                                    <td className="p-2 border-r border-gray-400 text-right font-mono text-gray-500">
                                         {trainedRate.toFixed(1)} {bonusMultiplier > 1 && <span className="text-green-600 font-bold" title="2x Bonus Active">x2</span>}
                                     </td>
                                     <td className="p-2 border-r border-gray-400 text-right font-mono font-bold text-green-700">
                                         <SpyCheck level={lvl} required={2}>+{formatNumber(trainedIncome)}</SpyCheck>
                                     </td>
-                                    <td className="p-2 border-r border-gray-400 text-right font-mono hidden sm:table-cell">
+                                    <td className="p-2 border-r border-gray-400 text-right font-mono">
                                         <SpyCheck level={lvl} required={2}>+{formatNumber(getHourly(trainedIncome))}</SpyCheck>
                                     </td>
                                     <td className="p-2 text-right font-mono">
@@ -588,13 +591,13 @@ export default function Profile({ userId, isOwnProfile, session, onNavigate, onA
                                     <td className="p-2 border-r border-gray-400 text-right font-mono">
                                         <SpyCheck level={lvl} required={2}>{formatNumber(minerCount)}</SpyCheck>
                                     </td>
-                                    <td className="p-2 border-r border-gray-400 text-right font-mono text-gray-500 hidden sm:table-cell">
+                                    <td className="p-2 border-r border-gray-400 text-right font-mono text-gray-500">
                                         {minerRate.toFixed(1)} {bonusMultiplier > 1 && <span className="text-green-600 font-bold" title="2x Bonus Active">x2</span>}
                                     </td>
                                     <td className="p-2 border-r border-gray-400 text-right font-mono font-bold text-green-700">
                                         <SpyCheck level={lvl} required={2}>+{formatNumber(minerIncome)}</SpyCheck>
                                     </td>
-                                    <td className="p-2 border-r border-gray-400 text-right font-mono hidden sm:table-cell">
+                                    <td className="p-2 border-r border-gray-400 text-right font-mono">
                                         <SpyCheck level={lvl} required={2}>+{formatNumber(getHourly(minerIncome))}</SpyCheck>
                                     </td>
                                     <td className="p-2 text-right font-mono">
@@ -610,13 +613,13 @@ export default function Profile({ userId, isOwnProfile, session, onNavigate, onA
                                     <td className="p-2 border-r border-gray-400 text-right font-mono italic text-gray-600">
                                         <SpyCheck level={lvl} required={3}>Lvl {vaultLevel}</SpyCheck>
                                     </td>
-                                    <td className="p-2 border-r border-gray-400 text-right font-mono text-gray-500 hidden sm:table-cell">
+                                    <td className="p-2 border-r border-gray-400 text-right font-mono text-gray-500">
                                         {(interestRate * 100).toFixed(0)}% {bonusMultiplier > 1 && <span className="text-green-600 font-bold" title="2x Bonus Impacts Base">x2</span>}
                                     </td>
                                     <td className="p-2 border-r border-gray-400 text-right font-mono font-bold text-blue-700">
                                         <SpyCheck level={lvl} required={3}>+{formatNumber(vaultIncome)}</SpyCheck>
                                     </td>
-                                    <td className="p-2 border-r border-gray-400 text-right font-mono hidden sm:table-cell text-blue-700">
+                                    <td className="p-2 border-r border-gray-400 text-right font-mono text-blue-700">
                                         <SpyCheck level={lvl} required={3}>+{formatNumber(getHourly(vaultIncome))}</SpyCheck>
                                     </td>
                                     <td className="p-2 text-right font-mono text-blue-700">
@@ -632,7 +635,7 @@ export default function Profile({ userId, isOwnProfile, session, onNavigate, onA
                                     <td className="p-2 border-r border-gray-400 text-right font-mono text-lg text-green-800">
                                         <SpyCheck level={lvl} required={2}>+{formatNumber(totalIncome + vaultIncome)}</SpyCheck>
                                     </td>
-                                    <td className="p-2 border-r border-gray-400 text-right font-mono hidden sm:table-cell text-green-800">
+                                    <td className="p-2 border-r border-gray-400 text-right font-mono text-green-800">
                                         <SpyCheck level={lvl} required={2}>+{formatNumber(getHourly(totalIncome + vaultIncome))}</SpyCheck>
                                     </td>
                                     <td className="p-2 text-right font-mono text-green-800">
@@ -642,48 +645,99 @@ export default function Profile({ userId, isOwnProfile, session, onNavigate, onA
                             </tbody>
                         </table>
                     </div>
-                </fieldset>
-            </div>
-        );
-    };
 
-    // 2. STRUCTURES TAB (Renamed from Infrastructure logic)
-    const renderStructuresTab = () => {
-        const s = statsSource || {};
-        const lvl = viewerSpyLevel;
+                    {/* MOBILE CARD VIEW (Visible on Mobile) */}
+                    <div className="md:hidden space-y-2">
+                        {/* Mobile Header Row */}
+                        <div className="flex justify-between items-center text-xs text-gray-500 px-1 border-b border-gray-300 pb-1 mb-2">
+                            <span>SOURCE ({bonusMultiplier > 1 ? '2X ACTIVE' : 'NORMAL'})</span>
+                            <span>INCOME / MIN</span>
+                        </div>
 
-        return (
-            <div className="space-y-4">
-                <fieldset className="border-2 border-white border-l-gray-500 border-t-gray-500 p-2">
-                    <legend className="px-1 text-sm font-bold">Kingdom Infrastructure</legend>
-                    <div className="space-y-1">
-                        {[
-                            { name: 'Kingdom', level: s.kingdom_level, req: 2, icon: '🏰', nav: 'Kingdom', desc: 'Increases citizen cap and defense.' },
-                            { name: 'Gold Mine', level: s.gold_mine_level, req: 2, icon: '⛏️', nav: 'GoldMine', desc: 'Increases gold production rate per miner.' },
-                            { name: 'Barracks', level: s.barracks_level, req: 2, icon: '⚔️', nav: 'Barracks', desc: 'Training ground for soldiers.' },
-                            { name: 'Library', level: s.library_level, req: 4, icon: '📚', nav: 'Library', desc: 'Generates experience.' },
-                            { name: 'Vault', level: s.vault_level, req: 5, icon: '🏦', nav: 'Vault', desc: 'Protects gold and generates interest.' },
-                        ].map((b, i) => (
-                            <div key={i} className="flex items-center justify-between bg-white px-3 py-2 border border-gray-300 hover:bg-gray-50 group">
-                                <div className="flex items-center gap-3">
-                                    <span className="text-2xl filter drop-shadow-sm">{b.icon}</span>
-                                    <div className="flex flex-col">
-                                        <span className={`font-bold text-sm ${viewingOwnProfile ? 'cursor-pointer hover:underline text-blue-900' : ''}`} onClick={() => viewingOwnProfile && onNavigate(b.nav)}>
-                                            {b.name}
-                                        </span>
-                                        <span className="text-[10px] text-gray-500">{b.desc}</span>
-                                    </div>
+                        {/* Citizens Card */}
+                        <div className="bg-white border border-gray-400 p-2 shadow-sm">
+                            <div className="flex justify-between items-center mb-1">
+                                <div className="font-bold flex items-center gap-2 text-sm text-gray-800">
+                                    <span>👥</span> Citizens
                                 </div>
-                                <div className="font-mono font-bold text-lg bg-gray-100 px-3 py-1 border border-gray-300 rounded shadow-inner">
-                                    <SpyCheck level={lvl} required={b.req}>Lvl {b.level || 0}</SpyCheck>
+                                <div className="text-green-700 font-bold font-mono text-sm">
+                                    <SpyCheck level={lvl} required={2}>+{formatNumber(citizenIncome)}</SpyCheck>
                                 </div>
                             </div>
-                        ))}
+                            <div className="flex justify-between text-xs text-gray-600 border-t border-gray-200 pt-1 mt-1">
+                                <div>Units: <SpyCheck level={lvl} required={1}>{formatNumber(citizenCount)}</SpyCheck></div>
+                                <div>/day: <SpyCheck level={lvl} required={2}>+{formatNumber(getDaily(citizenIncome))}</SpyCheck></div>
+                            </div>
+                        </div>
+
+                        {/* Military Card */}
+                        <div className="bg-white border border-gray-400 p-2 shadow-sm">
+                            <div className="flex justify-between items-center mb-1">
+                                <div className="font-bold flex items-center gap-2 text-sm text-gray-800">
+                                    <span>⚔️</span> Military
+                                </div>
+                                <div className="text-green-700 font-bold font-mono text-sm">
+                                    <SpyCheck level={lvl} required={2}>+{formatNumber(trainedIncome)}</SpyCheck>
+                                </div>
+                            </div>
+                            <div className="flex justify-between text-xs text-gray-600 border-t border-gray-200 pt-1 mt-1">
+                                <div>Units: <SpyCheck level={lvl} required={2}>{formatNumber(trainedCount)}</SpyCheck></div>
+                                <div>/day: <SpyCheck level={lvl} required={2}>+{formatNumber(getDaily(trainedIncome))}</SpyCheck></div>
+                            </div>
+                        </div>
+
+                        {/* Miners Card */}
+                        <div className="bg-white border border-gray-400 p-2 shadow-sm">
+                            <div className="flex justify-between items-center mb-1">
+                                <div className="font-bold flex items-center gap-2 text-sm text-gray-800">
+                                    <span>⛏️</span> Gold Miners
+                                </div>
+                                <div className="text-green-700 font-bold font-mono text-sm">
+                                    <SpyCheck level={lvl} required={2}>+{formatNumber(minerIncome)}</SpyCheck>
+                                </div>
+                            </div>
+                            <div className="flex justify-between text-xs text-gray-600 border-t border-gray-200 pt-1 mt-1">
+                                <div>Units: <SpyCheck level={lvl} required={2}>{formatNumber(minerCount)}</SpyCheck></div>
+                                <div>/day: <SpyCheck level={lvl} required={2}>+{formatNumber(getDaily(minerIncome))}</SpyCheck></div>
+                            </div>
+                        </div>
+
+                        {/* Vault Card */}
+                        <div className="bg-yellow-50 border border-yellow-300 p-2 shadow-sm">
+                            <div className="flex justify-between items-center mb-1">
+                                <div className="font-bold flex items-center gap-2 text-sm text-gray-800">
+                                    <span>🏦</span> Vault Interest
+                                </div>
+                                <div className="text-blue-700 font-bold font-mono text-sm">
+                                    <SpyCheck level={lvl} required={3}>+{formatNumber(vaultIncome)}</SpyCheck>
+                                </div>
+                            </div>
+                            <div className="flex justify-between text-xs text-gray-600 border-t border-yellow-200 pt-1 mt-1">
+                                <div className="italic">Level: <SpyCheck level={lvl} required={3}>{vaultLevel}</SpyCheck></div>
+                                <div className="text-blue-700">/day: <SpyCheck level={lvl} required={3}>+{formatNumber(getDaily(vaultIncome))}</SpyCheck></div>
+                            </div>
+                        </div>
+
+                        {/* Total Card */}
+                        <div className="bg-gray-100 border-l-4 border-l-green-600 border border-gray-400 p-2 shadow-sm mt-2">
+                            <div className="flex justify-between items-center">
+                                <div className="font-bold text-sm uppercase text-gray-700">Total Income</div>
+                                <div className="text-green-800 font-bold font-mono text-base">
+                                    <SpyCheck level={lvl} required={2}>+{formatNumber(totalIncome + vaultIncome)}</SpyCheck>
+                                </div>
+                            </div>
+                            <div className="text-right text-xs text-green-700 mt-1">
+                                Daily: <SpyCheck level={lvl} required={2}>+{formatNumber(getDaily(totalIncome + vaultIncome))}</SpyCheck>
+                            </div>
+                        </div>
                     </div>
+
                 </fieldset>
             </div>
         );
     };
+
+
 
     // 2. MILITARY TAB
     const renderMilitaryTab = () => {
@@ -1038,7 +1092,7 @@ export default function Profile({ userId, isOwnProfile, session, onNavigate, onA
                 {[
                     { id: 'general', label: 'General' },
                     { id: 'economy', label: 'Economy' },
-                    { id: 'structures', label: 'Structures' },
+
                     { id: 'military', label: 'Military' },
                     { id: 'tech', label: 'Technology' },
 
@@ -1061,7 +1115,7 @@ export default function Profile({ userId, isOwnProfile, session, onNavigate, onA
             <div className="p-4 border-2 border-white border-l-gray-600 border-t-gray-600 bg-[#c0c0c0] min-h-[350px] overflow-y-auto">
                 {activeTab === 'general' && renderGeneralTab()}
                 {(activeTab === 'economy' || activeTab === 'empire') && renderEconomyTab()}
-                {activeTab === 'structures' && renderStructuresTab()}
+
                 {activeTab === 'military' && renderMilitaryTab()}
                 {activeTab === 'tech' && renderTechTab()}
 

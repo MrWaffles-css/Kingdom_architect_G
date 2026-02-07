@@ -262,39 +262,39 @@ const Window = ({ title, isOpen, onClose, onMinimize, isActive, onFocus, childre
         >
             {/* Title Bar */}
             <div
-                className={`h-[18px] px-1 flex justify-between items-center mb-[2px] select-none ${isActive ? 'bg-gradient-to-r from-[#000080] to-[#1084d0]' : 'bg-[#808080]'}`}
+                className={`h-[26px] px-1 flex justify-between items-center mb-[2px] select-none ${isActive ? 'bg-gradient-to-r from-[#000080] to-[#1084d0]' : 'bg-[#808080]'}`}
                 onMouseDown={handleMouseDown}
                 onTouchStart={handleTouchStart}
                 style={{ cursor: isMaximized ? 'default' : 'move' }}
             >
-                <div className="text-white font-bold text-[11px] truncate flex items-center gap-1 leading-[18px]">
+                <div className="text-white font-bold text-sm truncate flex items-center gap-1 leading-[18px]">
                     {title}
                 </div>
-                <div className="flex gap-[1px] items-center shrink-0">
+                <div className="flex gap-1 items-center shrink-0">
                     {!isMobile && (
                         <>
                             <button
                                 onClick={(e) => { e.stopPropagation(); onMinimize(); }}
-                                className="w-[14px] h-[14px] bg-[#c0c0c0] flex items-end justify-center border border-white border-r-black border-b-black active:border-black active:border-r-white active:border-b-white box-border"
+                                className="w-[18px] h-[18px] bg-[#c0c0c0] flex items-end justify-center border border-white border-r-black border-b-black active:border-black active:border-r-white active:border-b-white box-border"
                                 aria-label="Minimize"
                             >
-                                <div className="w-[6px] h-[2px] bg-black mb-[2px]"></div>
+                                <div className="w-[8px] h-[2px] bg-black mb-[3px]"></div>
                             </button>
                             <button
                                 onClick={(e) => { e.stopPropagation(); setIsMaximized(!isMaximized); }}
-                                className="w-[14px] h-[14px] bg-[#c0c0c0] flex items-center justify-center border border-white border-r-black border-b-black active:border-black active:border-r-white active:border-b-white box-border"
+                                className="w-[18px] h-[18px] bg-[#c0c0c0] flex items-center justify-center border border-white border-r-black border-b-black active:border-black active:border-r-white active:border-b-white box-border"
                                 aria-label="Maximize"
                             >
-                                <div className="w-[6px] h-[6px] border border-black"></div>
+                                <div className="w-[9px] h-[9px] border border-black"></div>
                             </button>
                         </>
                     )}
                     <button
                         onClick={(e) => { e.stopPropagation(); onClose(); }}
-                        className="w-[14px] h-[14px] bg-[#c0c0c0] flex items-center justify-center border border-white border-r-black border-b-black active:border-black active:border-r-white active:border-b-white box-border"
+                        className="w-[20px] h-[20px] md:w-[18px] md:h-[18px] bg-[#c0c0c0] flex items-center justify-center border border-white border-r-black border-b-black active:border-black active:border-r-white active:border-b-white box-border"
                         aria-label="Close"
                     >
-                        <span className="text-black text-[8px] font-bold leading-none">✕</span>
+                        <span className="text-black text-[12px] md:text-[10px] font-bold leading-none font-sans">✕</span>
                     </button>
                 </div>
             </div>

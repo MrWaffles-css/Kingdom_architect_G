@@ -159,12 +159,6 @@ export default function AdminPanel({ onClose, onWorldReset, onUserUpdate, initia
             {/* Tab Content */}
             <div className="flex-1 overflow-auto p-4">
                 <div className="flex justify-end gap-2 mb-4">
-                    <button
-                        onClick={() => { if (window.confirm('ARE YOU SURE? This will reset ALL progress for ALL players. This cannot be undone.')) handleResetWorld(); }}
-                        className="px-4 py-1 bg-red-800 text-white font-bold border-2 border-white border-r-black border-b-black active:border-black active:border-r-white active:border-b-white text-xs"
-                    >
-                        ⚠ RESET WORLD
-                    </button>
                 </div>
 
                 {
@@ -213,7 +207,7 @@ export default function AdminPanel({ onClose, onWorldReset, onUserUpdate, initia
 
                 {
                     activeTab === 'season' && (
-                        <AdminSeasonPanel onSchedule={handleScheduleSeason} />
+                        <AdminSeasonPanel onSchedule={handleScheduleSeason} onResetWorld={handleResetWorld} />
                     )
                 }
 
@@ -233,7 +227,7 @@ export default function AdminPanel({ onClose, onWorldReset, onUserUpdate, initia
     );
 }
 
-function AdminSeasonPanel({ onSchedule }) {
+function AdminSeasonPanel({ onSchedule, onResetWorld }) {
     const [schedule, setSchedule] = useState({ start: '', end: '' });
     const [loading, setLoading] = useState(false);
     const [seasonNumber, setSeasonNumber] = useState('');
@@ -460,6 +454,18 @@ function AdminSeasonPanel({ onSchedule }) {
                             </div>
                         )}
                     </div>
+                </div>
+
+                {/* Danger Zone */}
+                <div className="bg-red-100 p-4 border border-red-400 mt-6">
+                    <h3 className="font-bold mb-2 text-red-900">Danger Zone:</h3>
+                    <p className="text-sm mb-4 text-red-800">Irreversible actions. Proceed with caution.</p>
+                    <button
+                        onClick={() => { if (window.confirm('ARE YOU SURE? This will reset ALL progress for ALL players. This cannot be undone.')) onResetWorld(); }}
+                        className="w-full px-4 py-2 bg-red-800 text-white font-bold border-2 border-white border-r-black border-b-black active:border-black active:border-r-white active:border-b-white text-sm"
+                    >
+                        ⚠ RESET WORLD (DELETE EVERYTHING)
+                    </button>
                 </div>
             </div>
         </fieldset>
@@ -926,7 +932,7 @@ function AdminMechanicsPanel() {
                             </thead>
                             <tbody>
                                 {/* All other mechanics */}
-                                {mechanics.filter(m => !['tech_stats_system', 'turns_research_system', 'hostage_system', 'vault_stealing', 'kingdom_system', 'gold_mine_system', 'barracks_system', 'vault_system'].includes(m.key)).map(mechanic => (
+                                {mechanics.filter(m => !['tech_stats_system', 'turns_research_system', 'hostage_system', 'vault_stealing', 'kingdom_system', 'gold_mine_system', 'barracks_system', 'vault_system', 'gold_stealing'].includes(m.key)).map(mechanic => (
                                     <tr key={mechanic.key} className="hover:bg-blue-800 hover:text-white group">
                                         <td className="border border-gray-200 p-1 text-center">
                                             <input

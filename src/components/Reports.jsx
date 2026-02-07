@@ -109,10 +109,10 @@ export default function Reports({ session }) {
     return (
         <div className="flex flex-col h-full bg-[#c0c0c0] text-black font-sans text-sm select-none border-t border-l border-white border-r border-b border-gray-600">
             {/* Header / Summary Stats */}
-            <div className="p-2 border-b-2 border-gray-500 mb-1 flex justify-between items-end">
-                <div className="flex gap-2">
+            <div className="p-2 border-b-2 border-gray-500 mb-1 flex flex-col md:flex-row justify-between items-center md:items-end gap-4 md:gap-0">
+                <div className="flex gap-2 overflow-x-auto max-w-full pb-2 md:pb-0 justify-center md:justify-start">
                     {/* Income Group */}
-                    <div className="flex flex-col gap-1 mr-2">
+                    <div className="flex flex-col gap-1 mr-0 md:mr-2 shrink-0">
                         <div className="border border-white border-r-gray-600 border-b-gray-600 shadow-[inset_1px_1px_0px_0px_#808080,inset_-1px_-1px_0px_0px_#dfdfdf] px-2 py-1 bg-[#c0c0c0] w-[140px]">
                             <div className="text-[9px] uppercase text-gray-600 font-bold mb-0.5">Income (Season)</div>
                             <div className="text-emerald-700 font-bold text-sm">
@@ -128,7 +128,7 @@ export default function Reports({ session }) {
                     </div>
 
                     {/* Losses Group */}
-                    <div className="flex flex-col gap-1">
+                    <div className="flex flex-col gap-1 shrink-0">
                         <div className="border border-white border-r-gray-600 border-b-gray-600 shadow-[inset_1px_1px_0px_0px_#808080,inset_-1px_-1px_0px_0px_#dfdfdf] px-2 py-1 bg-[#c0c0c0] w-[140px]">
                             <div className="text-[9px] uppercase text-gray-600 font-bold mb-0.5">Losses (Season)</div>
                             <div className="text-red-700 font-bold text-sm">
@@ -145,7 +145,7 @@ export default function Reports({ session }) {
                 </div>
 
                 {/* Filter Tabs - Windows 98 Style Buttons */}
-                <div className="flex gap-1 relative top-[2px]">
+                <div className="flex gap-1 relative top-0 md:top-[2px] w-full md:w-auto justify-center md:justify-end">
                     {['all', 'defense', 'offense'].map(f => {
                         const isActive = filter === f;
                         return (
@@ -171,13 +171,13 @@ export default function Reports({ session }) {
             {/* Table Container - Inset Look */}
             <div className="flex-1 flex flex-col m-2 border-2 border-gray-600 border-r-white border-b-white bg-white shadow-[inset_2px_2px_0px_0px_#000000]">
                 {/* Table Header */}
-                <div className="grid grid-cols-10 gap-0 bg-[#c0c0c0] text-black text-center py-1 border-b border-gray-800 text-[11px] font-bold">
+                <div className="hidden md:grid grid-cols-10 gap-0 bg-[#c0c0c0] text-black text-center py-1 border-b border-gray-800 text-[11px] font-bold">
                     <div className="col-span-1 border-r border-gray-400 pl-1">Time</div>
                     <div className="col-span-1 border-r border-gray-400">Action</div>
                     <div className="col-span-1 border-r border-gray-400">Enemy</div>
                     <div className="col-span-2 border-r border-gray-400">Result</div>
-                    <div className="col-span-1 border-r border-gray-400">Enemy Casualties</div>
-                    <div className="col-span-1 border-r border-gray-400">My Casualties</div>
+                    <div className="col-span-1 border-r border-gray-400">Enemy Lost</div>
+                    <div className="col-span-1 border-r border-gray-400">My Lost</div>
                     <div className="col-span-1 border-r border-gray-400">Hostages</div>
                     <div className="col-span-2">Power (Enemy/You)</div>
                 </div>
@@ -236,50 +236,92 @@ export default function Reports({ session }) {
                             const lossesTooltip = `Soldiers: ${formatNumber(yourLosses)}\nMiners: ${formatNumber(d.miners_lost || d.miners_killed || 0)}\nCitizens: ${formatNumber(d.citizens_lost || d.citizens_killed || 0)}`;
 
                             return (
-                                <div
-                                    key={report.id}
-                                    className={`
-                                        grid grid-cols-10 gap-0 py-1 border-b border-gray-200 items-center text-center cursor-default
-                                        ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}
-                                        hover:bg-[#000080] hover:text-white group
-                                    `}
-                                >
-                                    <div className="col-span-1 text-gray-500 text-[10px] group-hover:text-white group-hover:opacity-80">
-                                        {formatDate(report.created_at)}
-                                    </div>
+                                <React.Fragment key={report.id}>
+                                    <div
+                                        className={`
+                                            hidden md:grid grid-cols-10 gap-0 py-1 border-b border-gray-200 items-center text-center cursor-default
+                                            ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}
+                                            hover:bg-[#000080] hover:text-white group
+                                        `}
+                                    >
+                                        <div className="col-span-1 text-gray-500 text-[10px] group-hover:text-white group-hover:opacity-80">
+                                            {formatDate(report.created_at)}
+                                        </div>
 
-                                    <div className={`col-span-1 font-bold ${isDefense ? 'text-red-600 group-hover:text-[#ff8080]' : 'text-blue-700 group-hover:text-[#8080ff]'}`}>
-                                        {actionText}
-                                    </div>
+                                        <div className={`col-span-1 font-bold ${isDefense ? 'text-red-600 group-hover:text-[#ff8080]' : 'text-blue-700 group-hover:text-[#8080ff]'}`}>
+                                            {actionText}
+                                        </div>
 
-                                    <div className="col-span-1 font-bold text-black truncate px-1 group-hover:text-white" title={enemyName}>
-                                        {enemyName}
-                                    </div>
+                                        <div className="col-span-1 font-bold text-black truncate px-1 group-hover:text-white" title={enemyName}>
+                                            {enemyName}
+                                        </div>
 
-                                    <div className={`col-span-2 ${resultColor} group-hover:text-white`}>
-                                        {resultText}
-                                    </div>
+                                        <div className={`col-span-2 ${resultColor} group-hover:text-white`}>
+                                            {resultText}
+                                        </div>
 
-                                    <div className="col-span-1 text-gray-800 group-hover:text-white">
-                                        {formatNumber(enemyLosses)}
-                                    </div>
+                                        <div className="col-span-1 text-gray-800 group-hover:text-white">
+                                            {formatNumber(enemyLosses)}
+                                        </div>
 
-                                    <div className="col-span-1 text-red-600 font-bold group-hover:text-[#ff8080]" title={lossesTooltip}>
-                                        {formatNumber(yourLosses)}
-                                    </div>
+                                        <div className="col-span-1 text-red-600 font-bold group-hover:text-[#ff8080]" title={lossesTooltip}>
+                                            {formatNumber(yourLosses)}
+                                        </div>
 
-                                    <div className={`col-span-1 ${hostagesVal > 0 ? hostagesColor : 'text-gray-400 group-hover:text-gray-300'} group-hover:text-white`}>
-                                        {hostagesVal > 0 ? (isDefense ? `-${hostagesVal}` : `+${hostagesVal}`) : '-'}
-                                    </div>
+                                        <div className={`col-span-1 ${hostagesVal > 0 ? hostagesColor : 'text-gray-400 group-hover:text-gray-300'} group-hover:text-white`}>
+                                            {hostagesVal > 0 ? (isDefense ? `-${hostagesVal}` : `+${hostagesVal}`) : '-'}
+                                        </div>
 
-                                    <div className="col-span-2 text-[10px]">
-                                        <div className="flex items-center justify-center gap-2">
-                                            <span className="text-red-800 font-bold group-hover:text-[#ff8080] min-w-[30px] text-right" title="Enemy Power">{formatNumber(enemyPower)}</span>
-                                            <span className="text-gray-400 group-hover:text-white">vs</span>
-                                            <span className="text-blue-800 font-bold group-hover:text-[#8080ff] min-w-[30px] text-left" title="Your Power">{formatNumber(yourPower)}</span>
+                                        <div className="col-span-2 text-[10px]">
+                                            <div className="flex items-center justify-center gap-2">
+                                                <span className="text-red-800 font-bold group-hover:text-[#ff8080] min-w-[30px] text-right" title="Enemy Power">{formatNumber(enemyPower)}</span>
+                                                <span className="text-gray-400 group-hover:text-white">vs</span>
+                                                <span className="text-blue-800 font-bold group-hover:text-[#8080ff] min-w-[30px] text-left" title="Your Power">{formatNumber(yourPower)}</span>
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
+
+                                    {/* Mobile Card Row */}
+                                    <div className={`
+                                        md:hidden flex flex-col p-2 border-b border-gray-200
+                                        ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}
+                                    `}>
+                                        <div className="flex justify-between items-center mb-1">
+                                            <div className="flex items-center gap-2">
+                                                <span className={`font-bold uppercase text-[10px] ${isDefense ? 'text-red-600' : 'text-blue-700'}`}>
+                                                    {actionText}
+                                                </span>
+                                                <span className="font-bold text-sm truncate max-w-[120px]">{enemyName}</span>
+                                            </div>
+                                            <span className="text-[10px] text-gray-500">{formatDate(report.created_at)}</span>
+                                        </div>
+
+                                        <div className="flex justify-between items-center mb-1">
+                                            <div className={`${resultColor} text-sm`}>{resultText}</div>
+                                            <div className="text-[10px] bg-gray-100 px-2 py-0.5 rounded border border-gray-300">
+                                                <span className="text-red-800 font-bold">{formatNumber(enemyPower)}</span>
+                                                <span className="text-gray-400 mx-1">vs</span>
+                                                <span className="text-blue-800 font-bold">{formatNumber(yourPower)}</span>
+                                            </div>
+                                        </div>
+
+                                        <div className="flex justify-between items-center text-[10px] text-gray-600 border-t border-dotted border-gray-300 pt-1 mt-1">
+                                            <div className="flex gap-3">
+                                                <span title="Your Losses">
+                                                    My Lost: <span className="text-red-600 font-bold">{formatNumber(yourLosses)}</span>
+                                                </span>
+                                                <span title="Enemy Losses">
+                                                    E. Lost: <span className="text-black font-bold">{formatNumber(enemyLosses)}</span>
+                                                </span>
+                                            </div>
+                                            {hostagesVal > 0 && (
+                                                <span className={`${hostagesColor}`}>
+                                                    {isDefense ? 'Lost' : 'Took'} {hostagesVal} Hostages
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+                                </React.Fragment>
                             );
                         })
                     )}

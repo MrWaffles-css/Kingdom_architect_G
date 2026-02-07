@@ -96,7 +96,7 @@ export function GameProvider({ children }) {
 
             // Create a timeout promise
             const timeoutPromise = new Promise((_, reject) =>
-                setTimeout(() => reject(new Error('Data fetch timeout after 10 seconds')), 10000)
+                setTimeout(() => reject(new Error('Data fetch timeout after 20 seconds')), 20000)
             )
 
             // Race between actual fetch and timeout
@@ -243,12 +243,14 @@ export function GameProvider({ children }) {
                     if (error) throw error;
                     if (data.session) {
                         setSession(data.session);
-                        // Update Last Active Timestamp
-                        const { error: activeError } = await supabase.rpc('update_last_active');
-                        if (activeError) console.error('Failed to update last active:', activeError);
-                        else console.log('Last active timestamp updated');
+                        // Update Last Active Timestamp (Fire and forget, don't await)
+                        supabase.rpc('update_last_active').then(({ error: activeError }) => {
+                            if (activeError) console.error('Failed to update last active:', activeError);
+                            else console.log('Last active timestamp updated (background)');
+                        });
 
                         await refreshUserData(data.session.user.id);
+
                     }
                     return data.session;
                 });

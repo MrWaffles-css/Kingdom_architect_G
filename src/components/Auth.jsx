@@ -38,8 +38,7 @@ export default function Auth({ onLogin, mode = 'login' }) {
     }
 
     return (
-        <div className="w-full h-full bg-[#c0c0c0] font-sans text-xs flex flex-col justify-center">
-
+        <div className="w-full bg-[#c0c0c0] font-sans text-xs flex flex-col">
             <div className="p-4 w-full max-w-sm mx-auto">
                 <div className="text-center mb-6 mt-2 flex flex-col items-center">
                     <img src={logo} alt="Kingdom Architect" className="w-32 md:w-48 h-auto mb-3 pixelated" />

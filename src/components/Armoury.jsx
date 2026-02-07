@@ -185,7 +185,7 @@ export default function Armoury({ userStats, onUpdate }) {
                 <img
                     src="/images/armory-banner.png"
                     alt="Royal Armoury"
-                    className="w-full h-48 object-cover object-center"
+                    className="w-full h-24 md:h-48 object-cover object-center"
                     style={{ imageRendering: 'pixelated' }}
                 />
             </div>
@@ -207,8 +207,8 @@ export default function Armoury({ userStats, onUpdate }) {
 
                 if (totalWeapons > soldierCount) {
                     return (
-                        <div className="bg-yellow-100 border text-yellow-800 px-4 py-2 border-yellow-600 mb-4 flex items-center gap-2 text-xs" role="alert">
-                            <span className="text-xl">⚠️</span>
+                        <div className="bg-yellow-100 border text-yellow-800 px-4 py-2 border-yellow-600 mb-4 flex items-start gap-2 text-xs" role="alert">
+                            <span className="text-xl leading-none">⚠️</span>
                             <div>
                                 <strong className="font-bold block">Excess Weapons!</strong>
                                 <span>You have {totalWeapons} {activeTab} weapons but only {soldierCount} units. <br />
@@ -223,7 +223,7 @@ export default function Armoury({ userStats, onUpdate }) {
             {/* Wrapper for Tabs and Content */}
             <div className="border border-gray-400 p-1">
                 {/* Tabs */}
-                <div className="flex gap-1 border-b border-white bg-gray-200 p-1 pb-0">
+                <div className="flex flex-wrap gap-1 border-b border-white bg-gray-200 p-1 pb-0">
                     {Object.keys(activeData).map(type => (
                         <button
                             key={type}
@@ -284,8 +284,8 @@ export default function Armoury({ userStats, onUpdate }) {
                     );
                 })()}
 
-                {/* Weapons Table */}
-                <div className="bg-white border-2 border-gray-600 border-t-white border-l-white">
+                {/* Weapons Table - Desktop Only */}
+                <div className="hidden md:block bg-white border-2 border-gray-600 border-t-white border-l-white">
                     <table className="w-full text-sm border-collapse">
                         <thead className="bg-[#c0c0c0] sticky top-0 z-10 text-xs">
                             <tr>
@@ -368,6 +368,85 @@ export default function Armoury({ userStats, onUpdate }) {
                             })}
                         </tbody>
                     </table>
+                </div>
+
+                {/* Weapons List - Mobile Only */}
+                <div className="md:hidden space-y-3">
+                    {(activeData[activeTab] || []).map((weapon) => {
+                        const isLocked = weapon.tier > 0 && weapon.tier > researchLevel;
+                        const owned = getOwnedQuantity(activeTab, weapon.tier);
+                        const key = `${activeTab}-${weapon.tier}`;
+                        const inputQty = quantities[key] || '';
+                        const maxAffordable = Math.floor(availableGold / weapon.cost);
+
+                        return (
+                            <div key={weapon.tier} className={`border-2 p-2 ${isLocked ? 'bg-gray-200 border-gray-400' : 'bg-white border-gray-600 border-t-white border-l-white'}`}>
+                                <div className="flex justify-between items-start mb-2">
+                                    <div>
+                                        <div className="font-bold">{weapon.name}</div>
+                                        <div className="text-xs text-gray-500">Tier {weapon.tier}</div>
+                                    </div>
+                                    {isLocked && (
+                                        <span className="text-[10px] bg-red-100 text-red-800 border border-red-300 px-1 rounded">
+                                            Requires Research Lvl {weapon.tier}
+                                        </span>
+                                    )}
+                                </div>
+
+                                <div className="grid grid-cols-3 gap-2 text-xs mb-3">
+                                    <div className="text-center p-1 bg-gray-50 border border-gray-300">
+                                        <div className="text-gray-500 text-[10px] uppercase">Power</div>
+                                        <div className="font-mono font-bold text-red-700">+{weapon.strength.toLocaleString()}</div>
+                                    </div>
+                                    <div className="text-center p-1 bg-gray-50 border border-gray-300">
+                                        <div className="text-gray-500 text-[10px] uppercase">Cost</div>
+                                        <div className="font-mono font-bold text-yellow-700">{weapon.cost.toLocaleString()}</div>
+                                    </div>
+                                    <div className="text-center p-1 bg-gray-50 border border-gray-300">
+                                        <div className="text-gray-500 text-[10px] uppercase">Owned</div>
+                                        <div className="font-mono font-bold text-blue-900">{owned.toLocaleString()}</div>
+                                    </div>
+                                </div>
+
+                                <div className="flex flex-col gap-2">
+                                    <div className="flex gap-2">
+                                        <input
+                                            type="number"
+                                            min="1"
+                                            placeholder="Qty"
+                                            value={inputQty}
+                                            onChange={(e) => handleQuantityChange(key, e.target.value)}
+                                            disabled={isLocked}
+                                            className="w-20 px-2 py-1 text-sm border border-gray-400 outline-none font-mono"
+                                        />
+                                        <button
+                                            onClick={() => handleQuantityChange(key, maxAffordable)}
+                                            disabled={isLocked || maxAffordable <= 0}
+                                            className="flex-1 bg-yellow-100 border border-yellow-400 text-xs font-bold text-yellow-800 hover:bg-yellow-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                            MAX ({maxAffordable.toLocaleString()})
+                                        </button>
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={() => handleBuy(activeTab, weapon.tier)}
+                                            disabled={isLocked || actionLoading === `buy-${key}` || !inputQty || availableGold < (parseInt(inputQty) * weapon.cost)}
+                                            className="flex-1 py-1 bg-green-100 border border-green-500 text-green-800 text-sm font-bold hover:bg-green-200 disabled:opacity-50 disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-300 disabled:cursor-not-allowed"
+                                        >
+                                            {actionLoading === `buy-${key}` ? 'Buying...' : 'Buy'}
+                                        </button>
+                                        <button
+                                            onClick={() => initiateSell(activeTab, weapon.tier, weapon.name, weapon.cost)}
+                                            disabled={isLocked || actionLoading === `sell-${key}` || !inputQty || owned < (parseInt(inputQty) || 1)}
+                                            className="flex-1 py-1 bg-red-100 border border-red-400 text-red-800 text-sm font-bold hover:bg-red-200 disabled:opacity-50 disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-300 disabled:cursor-not-allowed"
+                                        >
+                                            Sell
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })}
                 </div>
             </div>
 

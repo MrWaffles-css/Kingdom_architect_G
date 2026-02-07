@@ -2,7 +2,7 @@ import React from 'react';
 
 export default function News() {
     return (
-        <div className="p-4 bg-white min-w-[500px] h-full">
+        <div className="p-4 bg-white w-full md:min-w-[500px] h-full">
             <h2 className="font-bold text-lg mb-3 border-b-2 border-gray-300 pb-1">📰 Latest News</h2>
 
             <div className="space-y-4">
