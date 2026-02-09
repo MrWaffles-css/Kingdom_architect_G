@@ -159,7 +159,7 @@ const Taskbar = ({ openWindows, activeWindowId, onWindowClick, onStartClick, sta
                 onClick={onStartClick}
                 style={{ minWidth: '60px' }}
             >
-                <img src="https://win98icons.alexmeub.com/icons/png/windows_slanted-1.png" alt="" className="w-4 h-4" />
+                <img src="/start_icon.png" alt="" className="w-6 h-6" draggable="false" />
                 Start
             </button>
 

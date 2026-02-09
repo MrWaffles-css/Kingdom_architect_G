@@ -16,6 +16,49 @@ export default function WelcomePage({ onLogin }) {
     const [timeLeftToStart, setTimeLeftToStart] = useState('');
     const [time, setTime] = useState(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
 
+    // Selection Box State
+    const [selectionBox, setSelectionBox] = useState(null);
+
+    const handleMouseDown = (e) => {
+        // Start selection updates
+        setSelectionBox({
+            startX: e.clientX,
+            startY: e.clientY,
+            currentX: e.clientX,
+            currentY: e.clientY,
+        });
+    };
+
+    const handleMouseMove = (e) => {
+        if (selectionBox) {
+            setSelectionBox(prev => ({
+                ...prev,
+                currentX: e.clientX,
+                currentY: e.clientY
+            }));
+        }
+    };
+
+    const handleMouseUp = () => {
+        setSelectionBox(null);
+    };
+
+    const getSelectionBoxStyle = () => {
+        if (!selectionBox) return {};
+        const left = Math.min(selectionBox.startX, selectionBox.currentX);
+        const top = Math.min(selectionBox.startY, selectionBox.currentY);
+        const width = Math.abs(selectionBox.currentX - selectionBox.startX);
+        const height = Math.abs(selectionBox.currentY - selectionBox.startY);
+        return {
+            left, top, width, height,
+            position: 'absolute',
+            backgroundColor: 'rgba(0, 120, 215, 0.3)',
+            border: '1px solid rgba(0, 120, 215, 0.7)',
+            pointerEvents: 'none',
+            zIndex: 999
+        };
+    };
+
     React.useEffect(() => {
         const timer = setInterval(() => {
             setTime(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
@@ -74,31 +117,42 @@ export default function WelcomePage({ onLogin }) {
     };
 
     const desktopIcons = [
-        { id: 'login', label: 'Login', icon: <img src="https://win98icons.alexmeub.com/icons/png/keys-0.png" alt="Login" className="w-12 h-12 pixelated" />, action: () => openWindow('login') },
-        { id: 'register', label: 'Register', icon: <img src="https://win98icons.alexmeub.com/icons/png/write_wordpad-0.png" alt="Register" className="w-12 h-12 pixelated" />, action: () => openWindow('register') },
-        { id: 'news', label: 'News', icon: <img src="/news_icon.png" alt="News" className="w-12 h-12 pixelated" />, action: () => openWindow('news') },
-        { id: 'patch', label: 'Patch Notes', icon: <img src="https://win98icons.alexmeub.com/icons/png/notepad-0.png" alt="Patch Notes" className="w-12 h-12 pixelated" />, action: () => openWindow('patch') },
-        { id: 'about', label: 'About', icon: <img src="https://win98icons.alexmeub.com/icons/png/msg_information-0.png" alt="About" className="w-12 h-12 pixelated" />, action: () => openWindow('about') },
-        { id: 'help', label: 'Help', icon: <img src="https://win98icons.alexmeub.com/icons/png/help_question_mark-0.png" alt="Help" className="w-12 h-12 pixelated" />, action: () => openWindow('help') },
-        { id: 'halloffame', label: 'Hall of Fame', icon: <img src="/hall_of_fame_icon.png" alt="Hall of Fame" className="w-12 h-12 pixelated" />, action: () => openWindow('halloffame') },
+        { id: 'login', label: 'Login', icon: <img src="https://win98icons.alexmeub.com/icons/png/keys-0.png" alt="Login" className="w-12 h-12 pixelated" draggable="false" />, action: () => openWindow('login') },
+        { id: 'register', label: 'Register', icon: <img src="https://win98icons.alexmeub.com/icons/png/write_wordpad-0.png" alt="Register" className="w-12 h-12 pixelated" draggable="false" />, action: () => openWindow('register') },
+        { id: 'news', label: 'News', icon: <img src="/news_icon.png" alt="News" className="w-12 h-12 pixelated" draggable="false" />, action: () => openWindow('news') },
+        { id: 'patch', label: 'Patch Notes', icon: <img src="https://win98icons.alexmeub.com/icons/png/notepad-0.png" alt="Patch Notes" className="w-12 h-12 pixelated" draggable="false" />, action: () => openWindow('patch') },
+        { id: 'about', label: 'About', icon: <img src="https://win98icons.alexmeub.com/icons/png/msg_information-0.png" alt="About" className="w-12 h-12 pixelated" draggable="false" />, action: () => openWindow('about') },
+        { id: 'help', label: 'Help', icon: <img src="https://win98icons.alexmeub.com/icons/png/help_question_mark-0.png" alt="Help" className="w-12 h-12 pixelated" draggable="false" />, action: () => openWindow('help') },
+        { id: 'halloffame', label: 'Hall of Fame', icon: <img src="/hall_of_fame_icon.png" alt="Hall of Fame" className="w-12 h-12 pixelated" draggable="false" />, action: () => openWindow('halloffame') },
     ];
 
     return (
         <div
-            className="w-full h-screen bg-[#008080] overflow-hidden relative font-sans text-sm select-none flex flex-col"
+            className="w-full h-screen bg-[#008080] overflow-hidden relative font-sans text-sm select-none flex flex-col desktop-container"
             onClick={() => setStartMenuOpen(false)}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseUp}
         >
+            {/* Selection Box */}
+            {selectionBox && <div style={getSelectionBoxStyle()} />}
+
+
+
             {/* Desktop Icons - Mobile Friendly Flow */}
             <div className="absolute top-0 left-0 bottom-10 right-0 p-4 flex flex-col flex-wrap gap-6 content-start pointer-events-none z-10 md:block md:p-0">
                 {desktopIcons.map((item, index) => (
                     <div
                         key={item.id}
-                        className="pointer-events-auto md:absolute"
+                        className="pointer-events-auto md:absolute stagger-appear"
                         style={{
                             // Applied when position is absolute (on desktop via md:absolute)
                             top: 20 + (index * 100),
-                            left: 20
+                            left: 20,
+                            animationDelay: `${index * 100}ms`
                         }}
+                        onMouseDown={(e) => e.stopPropagation()}
                     >
                         <DesktopIcon
                             label={item.label}
@@ -114,7 +168,7 @@ export default function WelcomePage({ onLogin }) {
             <div className="flex-1 flex items-center justify-center p-4 md:p-8 z-0">
                 <div className="text-center w-full max-w-md md:max-w-xl">
                     <div className="mb-4 md:mb-8">
-                        <img src={logo} alt="Kingdom Architect" className="w-48 md:w-96 h-auto mb-4 pixelated mx-auto drop-shadow-2xl" />
+                        <img src={logo} alt="Kingdom Architect" className="w-48 md:w-96 h-auto mb-4 pixelated mx-auto drop-shadow-2xl animate-float" draggable="false" />
 
                         {timeLeftToStart && (
                             <div className="w-64 mx-auto bg-[#c0c0c0] border-2 border-white border-r-black border-b-black p-[2px] shadow-xl text-left relative">
@@ -183,6 +237,7 @@ export default function WelcomePage({ onLogin }) {
                 <div
                     className="absolute bottom-10 left-0 w-64 bg-[#c0c0c0] border-2 border-white border-r-[#808080] border-b-[#808080] shadow-xl z-[100] flex flex-col"
                     onClick={(e) => e.stopPropagation()}
+                    onMouseDown={(e) => e.stopPropagation()}
                 >
                     <div className="bg-[#000080] text-white p-2 text-xl vertical-text flex items-end w-8 absolute bottom-0 top-0 left-0 overflow-visible">
                         <div className="-rotate-90 origin-bottom-left translate-x-8 mb-4 whitespace-nowrap flex gap-1 items-baseline">
@@ -195,14 +250,14 @@ export default function WelcomePage({ onLogin }) {
                             className="text-left px-2 py-2 hover:bg-[#000080] hover:text-white flex items-center gap-2"
                             onClick={() => openWindow('login')}
                         >
-                            <img src="https://win98icons.alexmeub.com/icons/png/keys-0.png" alt="" className="w-8 h-8" />
+                            <img src="https://win98icons.alexmeub.com/icons/png/keys-0.png" alt="" className="w-8 h-8" draggable="false" />
                             <span className="font-bold">Login</span>
                         </button>
                         <button
                             className="text-left px-2 py-2 hover:bg-[#000080] hover:text-white flex items-center gap-2"
                             onClick={() => openWindow('register')}
                         >
-                            <img src="https://win98icons.alexmeub.com/icons/png/write_wordpad-0.png" alt="" className="w-8 h-8" />
+                            <img src="https://win98icons.alexmeub.com/icons/png/write_wordpad-0.png" alt="" className="w-8 h-8" draggable="false" />
                             <span className="font-bold">Register</span>
                         </button>
                         <hr className="border-t border-white border-b-[#808080] my-1" />
@@ -210,28 +265,28 @@ export default function WelcomePage({ onLogin }) {
                             className="text-left px-2 py-2 hover:bg-[#000080] hover:text-white flex items-center gap-2"
                             onClick={() => openWindow('news')}
                         >
-                            <img src="/news_icon.png" alt="" className="w-6 h-6 pixelated" />
+                            <img src="/news_icon.png" alt="" className="w-6 h-6 pixelated" draggable="false" />
                             <span className="text-sm">News</span>
                         </button>
                         <button
                             className="text-left px-2 py-2 hover:bg-[#000080] hover:text-white flex items-center gap-2"
                             onClick={() => openWindow('patch')}
                         >
-                            <img src="https://win98icons.alexmeub.com/icons/png/notepad-0.png" alt="" className="w-6 h-6" />
+                            <img src="https://win98icons.alexmeub.com/icons/png/notepad-0.png" alt="" className="w-6 h-6" draggable="false" />
                             <span className="text-sm">Patch Notes</span>
                         </button>
                         <button
                             className="text-left px-2 py-2 hover:bg-[#000080] hover:text-white flex items-center gap-2"
                             onClick={() => openWindow('about')}
                         >
-                            <img src="https://win98icons.alexmeub.com/icons/png/msg_information-0.png" alt="" className="w-6 h-6" />
+                            <img src="https://win98icons.alexmeub.com/icons/png/msg_information-0.png" alt="" className="w-6 h-6" draggable="false" />
                             <span className="text-sm">About</span>
                         </button>
                         <button
                             className="text-left px-2 py-2 hover:bg-[#000080] hover:text-white flex items-center gap-2"
                             onClick={() => openWindow('help')}
                         >
-                            <img src="https://win98icons.alexmeub.com/icons/png/help_question_mark-0.png" alt="" className="w-6 h-6" />
+                            <img src="https://win98icons.alexmeub.com/icons/png/help_question_mark-0.png" alt="" className="w-6 h-6" draggable="false" />
                             <span className="text-sm">Help</span>
                         </button>
                     </div>
@@ -245,7 +300,7 @@ export default function WelcomePage({ onLogin }) {
                     onClick={(e) => { e.stopPropagation(); setStartMenuOpen(!startMenuOpen); }}
                     style={{ minWidth: '60px' }}
                 >
-                    <img src="https://win98icons.alexmeub.com/icons/png/windows_slanted-1.png" alt="" className="w-4 h-4" />
+                    <img src="/start_icon.png" alt="" className="w-6 h-6" draggable="false" />
                     Start
                 </button>
 
@@ -267,6 +322,7 @@ function WindowWrapper({ title, onClose, children }) {
             <div
                 className="bg-[#c0c0c0] shadow-xl border-2 border-white border-r-gray-600 border-b-gray-600 w-[95%] max-w-[400px] h-auto max-h-[90dvh] md:w-auto md:h-auto md:max-w-[90vw] md:max-h-[90vh] flex flex-col"
                 onClick={(e) => e.stopPropagation()}
+                onMouseDown={(e) => e.stopPropagation()}
             >
                 {/* Title Bar */}
                 <div className="bg-gradient-to-r from-[#000080] to-[#1084d0] p-1 flex justify-between items-center shrink-0">
