@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabase';
 import logo from '../assets/logo.png';
 import Auth from './Auth';
@@ -8,13 +8,25 @@ import PatchNotes from './PatchNotes';
 import About from './About';
 import Help from './Help';
 import HallOfFame from './HallOfFame';
+import BootSequence from './BootSequence';
+import DraggableWindow from './DraggableWindow';
+import CDPlayer from './CDPlayer';
+import { useSound } from '../contexts/SoundContext';
 
 export default function WelcomePage({ onLogin }) {
+    const [bootComplete, setBootComplete] = useState(false);
     const [startMenuOpen, setStartMenuOpen] = useState(false);
+    const [activeWindows, setActiveWindows] = useState([]); // Support multiple windows? Or just one for now to keep it simple? Let's stick to one active focused, but maybe multiple open?
+    // For simplicity given the current architecture, let's keep one "active" modal-like window but make it draggable.
+    // Actually, to feel like Win98, we should allow reopening.
     const [activeWindow, setActiveWindow] = useState(null);
+
     const [nextSeasonStart, setNextSeasonStart] = useState(null);
     const [timeLeftToStart, setTimeLeftToStart] = useState('');
     const [time, setTime] = useState(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+
+    const [contextMenu, setContextMenu] = useState(null);
+    const { playSound, playStartupSound } = useSound();
 
     React.useEffect(() => {
         const timer = setInterval(() => {
@@ -64,7 +76,13 @@ export default function WelcomePage({ onLogin }) {
         return () => clearInterval(interval);
     }, [nextSeasonStart]);
 
+    const handleBootComplete = () => {
+        setBootComplete(true);
+        playStartupSound();
+    };
+
     const openWindow = (windowType) => {
+        playSound('click');
         setActiveWindow(windowType);
         setStartMenuOpen(false);
     };
@@ -73,20 +91,40 @@ export default function WelcomePage({ onLogin }) {
         setActiveWindow(null);
     };
 
+    const handleContextMenu = (e) => {
+        e.preventDefault();
+        setContextMenu({ x: e.clientX, y: e.clientY });
+    };
+
+    const closeContextMenu = () => {
+        if (contextMenu) setContextMenu(null);
+    };
+
+    const handleDesktopClick = () => {
+        setStartMenuOpen(false);
+        closeContextMenu();
+    };
+
     const desktopIcons = [
-        { id: 'login', label: 'Login', icon: <img src="https://win98icons.alexmeub.com/icons/png/keys-0.png" alt="Login" className="w-12 h-12 pixelated" />, action: () => openWindow('login') },
-        { id: 'register', label: 'Register', icon: <img src="https://win98icons.alexmeub.com/icons/png/write_wordpad-0.png" alt="Register" className="w-12 h-12 pixelated" />, action: () => openWindow('register') },
-        { id: 'news', label: 'News', icon: <img src="/news_icon.png" alt="News" className="w-12 h-12 pixelated" />, action: () => openWindow('news') },
-        { id: 'patch', label: 'Patch Notes', icon: <img src="https://win98icons.alexmeub.com/icons/png/notepad-0.png" alt="Patch Notes" className="w-12 h-12 pixelated" />, action: () => openWindow('patch') },
-        { id: 'about', label: 'About', icon: <img src="https://win98icons.alexmeub.com/icons/png/msg_information-0.png" alt="About" className="w-12 h-12 pixelated" />, action: () => openWindow('about') },
-        { id: 'help', label: 'Help', icon: <img src="https://win98icons.alexmeub.com/icons/png/help_question_mark-0.png" alt="Help" className="w-12 h-12 pixelated" />, action: () => openWindow('help') },
-        { id: 'halloffame', label: 'Hall of Fame', icon: <img src="/hall_of_fame_icon.png" alt="Hall of Fame" className="w-12 h-12 pixelated" />, action: () => openWindow('halloffame') },
+        { id: 'login', label: 'Login', icon: "https://win98icons.alexmeub.com/icons/png/keys-0.png", action: () => openWindow('login') },
+        { id: 'register', label: 'Register', icon: "https://win98icons.alexmeub.com/icons/png/write_wordpad-0.png", action: () => openWindow('register') },
+        { id: 'news', label: 'News', icon: "/news_icon.png", action: () => openWindow('news') },
+        { id: 'patch', label: 'Patch Notes', icon: "https://win98icons.alexmeub.com/icons/png/notepad-0.png", action: () => openWindow('patch') },
+        { id: 'about', label: 'About', icon: "https://win98icons.alexmeub.com/icons/png/msg_information-0.png", action: () => openWindow('about') },
+        { id: 'help', label: 'Help', icon: "https://win98icons.alexmeub.com/icons/png/help_question_mark-0.png", action: () => openWindow('help') },
+        { id: 'halloffame', label: 'Hall of Fame', icon: "/hall_of_fame_icon.png", action: () => openWindow('halloffame') },
+        { id: 'cd_player', label: 'CD Player', icon: "https://win98icons.alexmeub.com/icons/png/cd_audio-0.png", action: () => openWindow('cd_player') },
     ];
+
+    if (!bootComplete) {
+        return <BootSequence onComplete={handleBootComplete} />;
+    }
 
     return (
         <div
             className="w-full h-screen bg-[#008080] overflow-hidden relative font-sans text-sm select-none flex flex-col"
-            onClick={() => setStartMenuOpen(false)}
+            onClick={handleDesktopClick}
+            onContextMenu={handleContextMenu}
         >
             {/* Desktop Icons - Mobile Friendly Flow */}
             <div className="absolute top-0 left-0 bottom-10 right-0 p-4 flex flex-col flex-wrap gap-6 content-start pointer-events-none z-10 md:block md:p-0">
@@ -102,22 +140,24 @@ export default function WelcomePage({ onLogin }) {
                     >
                         <DesktopIcon
                             label={item.label}
-                            icon={item.icon}
-                            onClick={(e) => { e.stopPropagation(); item.action(); }}
-                        // DesktopIcon is static inside the positioned wrapper on desktop
+                            icon={<img src={item.icon} alt={item.label} className="w-12 h-12 pixelated filter drop-shadow-md" />}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                item.action();
+                            }}
                         />
                     </div>
                 ))}
             </div>
 
-            {/* Desktop Content */}
+            {/* Desktop Background Content (Logo etc) */}
             <div className="flex-1 flex items-center justify-center p-4 md:p-8 z-0">
-                <div className="text-center w-full max-w-md md:max-w-xl">
+                <div className="text-center w-full max-w-md md:max-w-xl opacity-80 pointer-events-none">
                     <div className="mb-4 md:mb-8">
                         <img src={logo} alt="Kingdom Architect" className="w-48 md:w-96 h-auto mb-4 pixelated mx-auto drop-shadow-2xl" />
 
                         {timeLeftToStart && (
-                            <div className="w-64 mx-auto bg-[#c0c0c0] border-2 border-white border-r-black border-b-black p-[2px] shadow-xl text-left relative">
+                            <div className="w-64 mx-auto bg-[#c0c0c0] border-2 border-white border-r-black border-b-black p-[2px] shadow-xl text-left relative pointer-events-auto">
                                 <div className="bg-[#000080] px-1 py-[2px] mb-2 flex justify-between items-center bg-gradient-to-r from-[#000080] to-[#1084d0]">
                                     <span className="text-white font-bold text-xs pl-1">Season Countdown</span>
                                 </div>
@@ -135,48 +175,99 @@ export default function WelcomePage({ onLogin }) {
                 </div>
             </div>
 
-            {/* Windows */}
+            {/* Draggable Windows */}
             {activeWindow === 'login' && (
-                <WindowWrapper title="Login" onClose={closeWindow}>
+                <DraggableWindow
+                    title="Login"
+                    onClose={closeWindow}
+                    isActive={true}
+                    icon={desktopIcons.find(i => i.id === 'login').icon}
+                >
                     <Auth onLogin={onLogin} mode="login" />
-                </WindowWrapper>
+                </DraggableWindow>
             )}
 
             {activeWindow === 'register' && (
-                <WindowWrapper title="Register" onClose={closeWindow}>
+                <DraggableWindow
+                    title="Register"
+                    onClose={closeWindow}
+                    isActive={true}
+                    icon={desktopIcons.find(i => i.id === 'register').icon}
+                >
                     <Auth onLogin={onLogin} mode="register" />
-                </WindowWrapper>
+                </DraggableWindow>
             )}
 
             {activeWindow === 'news' && (
-                <WindowWrapper title="News" onClose={closeWindow}>
+                <DraggableWindow
+                    title="News"
+                    onClose={closeWindow}
+                    isActive={true}
+                    icon={desktopIcons.find(i => i.id === 'news').icon}
+                    minWidth={500}
+                >
                     <News />
-                </WindowWrapper>
+                </DraggableWindow>
             )}
 
             {activeWindow === 'patch' && (
-                <WindowWrapper title="Patch Notes" onClose={closeWindow}>
+                <DraggableWindow
+                    title="Patch Notes"
+                    onClose={closeWindow}
+                    isActive={true}
+                    icon={desktopIcons.find(i => i.id === 'patch').icon}
+                    minWidth={500}
+                >
                     <PatchNotes />
-                </WindowWrapper>
+                </DraggableWindow>
             )}
 
             {activeWindow === 'about' && (
-                <WindowWrapper title="About Kingdom Architect" onClose={closeWindow}>
+                <DraggableWindow
+                    title="About Kingdom Architect"
+                    onClose={closeWindow}
+                    isActive={true}
+                    icon={desktopIcons.find(i => i.id === 'about').icon}
+                >
                     <About />
-                </WindowWrapper>
+                </DraggableWindow>
             )}
 
             {activeWindow === 'help' && (
-                <WindowWrapper title="Help" onClose={closeWindow}>
+                <DraggableWindow
+                    title="Help"
+                    onClose={closeWindow}
+                    isActive={true}
+                    icon={desktopIcons.find(i => i.id === 'help').icon}
+                >
                     <Help />
-                </WindowWrapper>
+                </DraggableWindow>
             )}
 
             {activeWindow === 'halloffame' && (
-                <WindowWrapper title="Hall of Fame" onClose={closeWindow}>
+                <DraggableWindow
+                    title="Hall of Fame"
+                    onClose={closeWindow}
+                    isActive={true}
+                    icon={desktopIcons.find(i => i.id === 'halloffame').icon}
+                    minWidth={600}
+                >
                     <HallOfFame />
-                </WindowWrapper>
+                </DraggableWindow>
             )}
+
+            {activeWindow === 'cd_player' && (
+                <DraggableWindow
+                    title="CD Player"
+                    onClose={closeWindow}
+                    isActive={true}
+                    icon={desktopIcons.find(i => i.id === 'cd_player').icon}
+                    minWidth={400}
+                >
+                    <CDPlayer onClose={closeWindow} />
+                </DraggableWindow>
+            )}
+
 
             {/* Start Menu */}
             {startMenuOpen && (
@@ -191,58 +282,46 @@ export default function WelcomePage({ onLogin }) {
                         </div>
                     </div>
                     <div className="pl-10 pr-1 py-1 flex flex-col gap-1">
-                        <button
-                            className="text-left px-2 py-2 hover:bg-[#000080] hover:text-white flex items-center gap-2"
-                            onClick={() => openWindow('login')}
-                        >
-                            <img src="https://win98icons.alexmeub.com/icons/png/keys-0.png" alt="" className="w-8 h-8" />
-                            <span className="font-bold">Login</span>
-                        </button>
-                        <button
-                            className="text-left px-2 py-2 hover:bg-[#000080] hover:text-white flex items-center gap-2"
-                            onClick={() => openWindow('register')}
-                        >
-                            <img src="https://win98icons.alexmeub.com/icons/png/write_wordpad-0.png" alt="" className="w-8 h-8" />
-                            <span className="font-bold">Register</span>
-                        </button>
-                        <hr className="border-t border-white border-b-[#808080] my-1" />
-                        <button
-                            className="text-left px-2 py-2 hover:bg-[#000080] hover:text-white flex items-center gap-2"
-                            onClick={() => openWindow('news')}
-                        >
-                            <img src="/news_icon.png" alt="" className="w-6 h-6 pixelated" />
-                            <span className="text-sm">News</span>
-                        </button>
-                        <button
-                            className="text-left px-2 py-2 hover:bg-[#000080] hover:text-white flex items-center gap-2"
-                            onClick={() => openWindow('patch')}
-                        >
-                            <img src="https://win98icons.alexmeub.com/icons/png/notepad-0.png" alt="" className="w-6 h-6" />
-                            <span className="text-sm">Patch Notes</span>
-                        </button>
-                        <button
-                            className="text-left px-2 py-2 hover:bg-[#000080] hover:text-white flex items-center gap-2"
-                            onClick={() => openWindow('about')}
-                        >
-                            <img src="https://win98icons.alexmeub.com/icons/png/msg_information-0.png" alt="" className="w-6 h-6" />
-                            <span className="text-sm">About</span>
-                        </button>
-                        <button
-                            className="text-left px-2 py-2 hover:bg-[#000080] hover:text-white flex items-center gap-2"
-                            onClick={() => openWindow('help')}
-                        >
-                            <img src="https://win98icons.alexmeub.com/icons/png/help_question_mark-0.png" alt="" className="w-6 h-6" />
-                            <span className="text-sm">Help</span>
-                        </button>
+                        {desktopIcons.map(icon => (
+                            <button
+                                key={icon.id}
+                                className="text-left px-2 py-2 hover:bg-[#000080] hover:text-white flex items-center gap-2 group"
+                                onClick={() => openWindow(icon.id)}
+                            >
+                                <img src={icon.icon} alt="" className="w-6 h-6 pixelated" />
+                                <span className="font-bold text-black group-hover:text-white">{icon.label}</span>
+                            </button>
+                        ))}
                     </div>
+                </div>
+            )}
+
+            {/* Context Menu */}
+            {contextMenu && (
+                <div
+                    className="absolute bg-[#c0c0c0] border-2 border-white border-r-gray-600 border-b-gray-600 shadow-xl z-[150] flex flex-col w-40"
+                    style={{ left: contextMenu.x, top: contextMenu.y }}
+                >
+                    <button className="text-left px-4 py-1 hover:bg-[#000080] hover:text-white text-black text-sm" onClick={() => { playSound('click'); window.location.reload(); }}>Refresh</button>
+                    <hr className="border-t border-gray-400 border-b-white my-[1px]" />
+                    <button className="text-left px-4 py-1 hover:bg-[#000080] hover:text-white text-black text-sm" onClick={() => { playSound('click'); openWindow('about'); }}>Properties</button>
                 </div>
             )}
 
             {/* Taskbar */}
             <div className="h-10 bg-[#c0c0c0] border-t-2 border-white flex items-center px-1 z-50 select-none">
                 <button
-                    className="flex items-center gap-1 font-bold px-2 py-1 mr-2 bg-[#c0c0c0] border-2 border-white border-r-black border-b-black active:border-black active:border-r-white active:border-b-white active:bg-gray-300 shadow active:shadow-none transition-none"
-                    onClick={(e) => { e.stopPropagation(); setStartMenuOpen(!startMenuOpen); }}
+                    className={`flex items-center gap-1 font-bold px-2 py-1 mr-2 border-2 active:border-black active:border-r-white active:border-b-white active:bg-gray-300 shadow active:shadow-none transition-none
+                        ${startMenuOpen
+                            ? 'bg-gray-300 border-black border-r-white border-b-white'
+                            : 'bg-[#c0c0c0] border-white border-r-black border-b-black'
+                        }
+                    `}
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        playSound('click');
+                        setStartMenuOpen(!startMenuOpen);
+                    }}
                     style={{ minWidth: '60px' }}
                 >
                     <img src="https://win98icons.alexmeub.com/icons/png/windows_slanted-1.png" alt="" className="w-4 h-4" />
@@ -251,42 +330,23 @@ export default function WelcomePage({ onLogin }) {
 
                 <div className="w-[2px] h-6 bg-gray-500 border-r border-white mx-1"></div>
 
+                {/* Active Window Taskbar Item */}
+                {activeWindow && (
+                    <button
+                        className="flex items-center gap-1 px-2 py-1 bg-gray-300 border-2 border-black border-r-white border-b-white shadow-inner max-w-[150px] truncate active:bg-gray-400"
+                    >
+                        <img src={desktopIcons.find(i => i.id === activeWindow)?.icon} className="w-4 h-4" />
+                        <span className="font-bold text-xs truncate">{desktopIcons.find(i => i.id === activeWindow)?.label}</span>
+                    </button>
+                )}
+
                 <div className="flex-1"></div>
 
-                <div className="border border-gray-500 border-r-white border-b-white px-3 py-1 bg-[#c0c0c0] ml-2 font-sans text-xs shadow-[inset_1px_1px_0px_#000]">
+                <div className="border border-gray-500 border-r-white border-b-white px-3 py-1 bg-[#c0c0c0] ml-2 font-sans text-xs shadow-[inset_1px_1px_0px_#000] flex items-center gap-2">
+                    <img src="https://win98icons.alexmeub.com/icons/png/loudspeaker_rays-0.png" className="w-4 h-4" alt="Sound" />
                     {time}
                 </div>
             </div>
         </div>
     );
 }
-
-function WindowWrapper({ title, onClose, children }) {
-    return (
-        <div className="absolute inset-0 flex items-center justify-center z-50 bg-black bg-opacity-30">
-            <div
-                className="bg-[#c0c0c0] shadow-xl border-2 border-white border-r-gray-600 border-b-gray-600 w-[95%] max-w-[400px] h-auto max-h-[90dvh] md:w-auto md:h-auto md:max-w-[90vw] md:max-h-[90vh] flex flex-col"
-                onClick={(e) => e.stopPropagation()}
-            >
-                {/* Title Bar */}
-                <div className="bg-gradient-to-r from-[#000080] to-[#1084d0] p-1 flex justify-between items-center shrink-0">
-                    <div className="text-white font-bold flex items-center gap-1 pl-1">
-                        {title}
-                    </div>
-                    <button
-                        onClick={onClose}
-                        className="w-4 h-3.5 bg-[#c0c0c0] border-2 border-white border-r-black border-b-black flex items-center justify-center font-bold text-[8px] hover:bg-gray-300"
-                    >
-                        ✕
-                    </button>
-                </div>
-                {/* Content */}
-                <div className="overflow-auto flex-1 md:max-h-[calc(90vh-30px)]">
-                    {children}
-                </div>
-            </div>
-        </div>
-    );
-}
-
-

@@ -5,6 +5,7 @@ import LoadingScreen from './components/LoadingScreen'
 import WelcomePage from './components/WelcomePage'
 import Desktop from './components/Desktop'
 import ErrorBoundary from './components/ErrorBoundary'
+import { SoundProvider } from './contexts/SoundContext'
 
 const statuses = [
     "Initializing terrain generation...",
@@ -18,6 +19,14 @@ const statuses = [
 ];
 
 export default function App() {
+    return (
+        <SoundProvider>
+            <GameApp />
+        </SoundProvider>
+    );
+}
+
+function GameApp() {
     const {
         session,
         stats,
