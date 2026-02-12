@@ -58,7 +58,7 @@ const Desktop = ({
                     return {
                         id: w.id,
                         title: feature.title,
-                        icon: feature.isImage ? <img src={feature.icon} alt="" className="w-4 h-4" /> : feature.icon,
+                        icon: feature.isImage ? <img src={feature.icon} alt="" className="w-4 h-4" draggable="false" /> : feature.icon,
                         component: feature.component,
                         position: initialPos,
                         size: savedState?.size,
@@ -101,6 +101,38 @@ const Desktop = ({
 
     const [adminMinimized, setAdminMinimized] = useState(false);
     const [hotkeys, setHotkeys] = useState({});
+
+    // Selection Box State
+    const [selectionBox, setSelectionBox] = useState(null);
+
+    const getSelectionBoxStyle = () => {
+        if (!selectionBox) return {};
+        const left = Math.min(selectionBox.startX, selectionBox.currentX);
+        const top = Math.min(selectionBox.startY, selectionBox.currentY);
+        const width = Math.abs(selectionBox.currentX - selectionBox.startX);
+        const height = Math.abs(selectionBox.currentY - selectionBox.startY);
+        return {
+            left, top, width, height,
+            position: 'absolute',
+            backgroundColor: 'rgba(0, 120, 215, 0.3)',
+            border: '1px solid rgba(0, 120, 215, 0.7)',
+            pointerEvents: 'none',
+            zIndex: 999
+        };
+    };
+
+    // Handle Desktop Mouse Down (for Selection Box)
+    const handleDesktopMouseDown = (e) => {
+        // Only start selection if clicking directly on the desktop or the overlay
+        if (e.target === e.currentTarget || e.target.classList.contains('crt-overlay')) {
+            setSelectionBox({
+                startX: e.clientX,
+                startY: e.clientY,
+                currentX: e.clientX,
+                currentY: e.clientY,
+            });
+        }
+    };
 
     useEffect(() => {
         const fetchHotkeys = async () => {
@@ -424,6 +456,13 @@ const Desktop = ({
                     y: newY
                 }
             }));
+        } else if (selectionBox) {
+            // Update selection box
+            setSelectionBox(prev => ({
+                ...prev,
+                currentX: e.clientX,
+                currentY: e.clientY
+            }));
         }
     };
 
@@ -431,6 +470,9 @@ const Desktop = ({
         if (dragState) {
             saveDesktopLayout(localLayout);
             setDragState(null);
+        }
+        if (selectionBox) {
+            setSelectionBox(null);
         }
     };
 
@@ -467,7 +509,7 @@ const Desktop = ({
         const newWindow = {
             id: featureId,
             title: feature.title,
-            icon: feature.isImage ? <img src={feature.icon} alt="" className="w-4 h-4" /> : feature.icon,
+            icon: feature.isImage ? <img src={feature.icon} alt="" className="w-4 h-4" draggable="false" /> : feature.icon,
             component: feature.component,
             position: initialPos,
             size: initialSize,
@@ -623,8 +665,9 @@ const Desktop = ({
 
     return (
         <div
-            className="w-full h-screen bg-[#008080] overflow-hidden relative font-sans text-sm select-none"
+            className="w-full h-screen bg-[#008080] overflow-hidden relative font-sans text-sm select-none desktop-container"
             onClick={() => setStartMenuOpen(false)}
+            onMouseDown={handleDesktopMouseDown}
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}
             onMouseLeave={handleMouseUp}
@@ -642,6 +685,11 @@ const Desktop = ({
             onTouchEnd={handleMouseUp}
             onContextMenu={handleContextMenu}
         >
+            {/* Selection Box */}
+            {selectionBox && <div style={getSelectionBoxStyle()} />}
+
+
+
             <MobileTopBar stats={stats} />
 
             {/* Desktop Icons */}
@@ -652,7 +700,7 @@ const Desktop = ({
 
                 if (feature.hidden) return null;
 
-                let iconContent = feature.isImage ? <img src={feature.icon} alt={feature.title} className={`${feature.iconClassName || 'w-8 h-8'} pixelated`} /> : feature.icon;
+                let iconContent = feature.isImage ? <img src={feature.icon} alt={feature.title} className={`${feature.iconClassName || 'w-8 h-8'} pixelated`} draggable="false" /> : feature.icon;
 
                 // Override for Profile if avatar exists
                 if (feature.id === 'profile' && stats?.avatar_id) {
@@ -665,6 +713,7 @@ const Desktop = ({
                                     src={avatarSrc}
                                     alt="Profile"
                                     className="w-full h-full object-cover border-2 border-white shadow-sm pixelated bg-[#008080]"
+                                    draggable="false"
                                 />
                             </div>
                         );
@@ -686,19 +735,23 @@ const Desktop = ({
                                     feature.id === 'reports' ? unreadReportsCount :
                                         (feature.id === 'patch' && hasUnreadPatchNotes ? 1 : 0)
                             }
-                            style={{ left: position.x, top: displayY }}
+                            className="absolute animate-stagger-appear"
+                            style={{
+                                left: position.x,
+                                top: displayY,
+                                animationDelay: `${index * 100}ms`
+                            }}
                             onMouseDown={(e) => handleIconDragStart(e, feature.id)}
                             onTouchStart={(e) => {
                                 const touch = e.touches[0];
                                 // Normalize touch event to mimic mouse event structure for handleIconDragStart
                                 handleIconDragStart({
                                     stopPropagation: () => e.stopPropagation(),
-                                    preventDefault: () => { }, // Don't prevent default immediately to allow scrolling if not dragging? No, we want to prevent scrolling on icon drag.
+                                    preventDefault: () => { },
                                     clientX: touch.clientX,
                                     clientY: touch.clientY
                                 }, feature.id);
                             }}
-                            className="absolute"
                         />
 
                     </React.Fragment>
@@ -854,9 +907,9 @@ const Desktop = ({
                                 className="w-full text-left px-2 py-1 hover:bg-[#000080] hover:text-white flex items-center gap-2 group"
                             >
                                 {stats?.avatar_id ? (
-                                    <img src={getAvatarPath(stats.avatar_id)} alt="" className="w-6 h-6 object-cover border border-white pixelated bg-[#008080]" />
+                                    <img src={getAvatarPath(stats.avatar_id)} alt="" className="w-6 h-6 object-cover border border-white pixelated bg-[#008080]" draggable="false" />
                                 ) : (
-                                    <img src="https://win98icons.alexmeub.com/icons/png/users-1.png" alt="" className="w-6 h-6" />
+                                    <img src="https://win98icons.alexmeub.com/icons/png/users-1.png" alt="" className="w-6 h-6" draggable="false" />
                                 )}
                                 <span className="text-sm">Profile</span>
                             </button>
@@ -873,7 +926,7 @@ const Desktop = ({
                                 onClick={() => { openWindow('kingdom'); setStartMenuOpen(false); }}
                                 className="w-full text-left px-2 py-1 hover:bg-[#000080] hover:text-white flex items-center gap-2"
                             >
-                                <img src="/kingdom_icon.png" alt="" className="w-6 h-6" />
+                                <img src="/kingdom_icon.png" alt="" className="w-6 h-6" draggable="false" />
                                 <span className="text-sm">Kingdom</span>
                             </button>
                             {stats?.tutorial_step === 3 && <GuideArrow className="right-[-40px] top-2" />}
@@ -885,7 +938,7 @@ const Desktop = ({
                                 onClick={() => { openWindow('goldmine'); setStartMenuOpen(false); }}
                                 className="w-full text-left px-2 py-1 hover:bg-[#000080] hover:text-white flex items-center gap-2"
                             >
-                                <img src="/goldmine_icon.png" alt="" className="w-6 h-6" />
+                                <img src="/goldmine_icon.png" alt="" className="w-6 h-6" draggable="false" />
                                 <span className="text-sm">Gold Mine</span>
                             </button>
                             {(stats?.tutorial_step === 4 || stats?.tutorial_step === 5) && <GuideArrow className="right-[-40px] top-2" />}
@@ -897,7 +950,7 @@ const Desktop = ({
                                 onClick={() => { openWindow('library'); setStartMenuOpen(false); }}
                                 className="w-full text-left px-2 py-1 hover:bg-[#000080] hover:text-white flex items-center gap-2"
                             >
-                                <img src="/library_icon.png" alt="" className="w-6 h-6" />
+                                <img src="/library_icon.png" alt="" className="w-6 h-6" draggable="false" />
                                 <span className="text-sm">Library</span>
                             </button>
                             {stats?.tutorial_step === 6 && <GuideArrow className="right-[-40px] top-2" />}
@@ -909,7 +962,7 @@ const Desktop = ({
                                 onClick={() => { openWindow('barracks'); setStartMenuOpen(false); }}
                                 className="w-full text-left px-2 py-1 hover:bg-[#000080] hover:text-white flex items-center gap-2"
                             >
-                                <img src="/barracks_icon.png" alt="" className="w-6 h-6" />
+                                <img src="/barracks_icon.png" alt="" className="w-6 h-6" draggable="false" />
                                 <span className="text-sm">Barracks</span>
                             </button>
                             {(stats?.tutorial_step === 8 || stats?.tutorial_step === 10) && <GuideArrow className="right-[-40px] top-2" />}
@@ -921,7 +974,7 @@ const Desktop = ({
                                 onClick={() => { openWindow('battle'); setStartMenuOpen(false); }}
                                 className="w-full text-left px-2 py-1 hover:bg-[#000080] hover:text-white flex items-center gap-2"
                             >
-                                <img src="/battlefield_icon.png" alt="" className="w-6 h-6" />
+                                <img src="/battlefield_icon.png" alt="" className="w-6 h-6" draggable="false" />
                                 <span className="text-sm">Battlefield</span>
                             </button>
                             {(stats?.tutorial_step === 9 || stats?.tutorial_step === 12) && <GuideArrow className="right-[-40px] top-2" />}
@@ -933,7 +986,7 @@ const Desktop = ({
                                 onClick={() => { openWindow('bosses'); setStartMenuOpen(false); }}
                                 className="w-full text-left px-2 py-1 hover:bg-[#000080] hover:text-white flex items-center gap-2"
                             >
-                                <img src="/bosses_icon.png" alt="" className="w-6 h-6" />
+                                <img src="/bosses_icon.png" alt="" className="w-6 h-6" draggable="false" />
                                 <span className="text-sm">Bosses</span>
                             </button>
                         </div>
@@ -944,7 +997,7 @@ const Desktop = ({
                                 onClick={() => { openWindow('vault'); setStartMenuOpen(false); }}
                                 className="w-full text-left px-2 py-1 hover:bg-[#000080] hover:text-white flex items-center gap-2"
                             >
-                                <img src="/vault_icon.png" alt="" className="w-6 h-6" />
+                                <img src="/vault_icon.png" alt="" className="w-6 h-6" draggable="false" />
                                 <span className="text-sm">Vault</span>
                             </button>
                             {stats?.tutorial_step === 14 && <GuideArrow className="right-[-40px] top-2" />}
@@ -956,7 +1009,7 @@ const Desktop = ({
                                 onClick={() => { openWindow('armoury'); setStartMenuOpen(false); }}
                                 className="w-full text-left px-2 py-1 hover:bg-[#000080] hover:text-white flex items-center gap-2"
                             >
-                                <img src="/armoury_icon.png" alt="" className="w-6 h-6" />
+                                <img src="/armoury_icon.png" alt="" className="w-6 h-6" draggable="false" />
                                 <span className="text-sm">Armoury</span>
                             </button>
                             {stats?.tutorial_step === 11 && <GuideArrow className="right-[-40px] top-2" />}
@@ -968,7 +1021,7 @@ const Desktop = ({
                                 onClick={() => { openWindow('reports'); setStartMenuOpen(false); }}
                                 className="w-full text-left px-2 py-1 hover:bg-[#000080] hover:text-white flex items-center gap-2"
                             >
-                                <img src="/reports_icon.png" alt="" className="w-6 h-6" />
+                                <img src="/reports_icon.png" alt="" className="w-6 h-6" draggable="false" />
                                 <span className="text-sm">Reports</span>
                             </button>
                             {stats?.tutorial_step === 13 && <GuideArrow className="right-[-40px] top-2" />}
@@ -982,7 +1035,7 @@ const Desktop = ({
                         >
                             <button className="w-full text-left px-2 py-1 hover:bg-[#000080] hover:text-white flex items-center gap-2 justify-between group">
                                 <div className="flex items-center gap-2">
-                                    <img src="https://win98icons.alexmeub.com/icons/png/joystick-0.png" alt="" className="w-6 h-6" />
+                                    <img src="https://win98icons.alexmeub.com/icons/png/joystick-0.png" alt="" className="w-6 h-6" draggable="false" />
                                     <span className="text-sm">Games</span>
                                 </div>
                                 <span className="text-[10px] text-gray-800 group-hover:text-white">▶</span>
@@ -995,7 +1048,7 @@ const Desktop = ({
                                         onClick={() => { openWindow('games', { initialGame: 'minesweeper' }); setActiveSubmenu(null); setStartMenuOpen(false); }}
                                         className="w-full text-left px-2 py-1 hover:bg-[#000080] hover:text-white flex items-center gap-2"
                                     >
-                                        <img src="https://win98icons.alexmeub.com/icons/png/minesweeper-0.png" alt="" className="w-4 h-4" />
+                                        <img src="https://win98icons.alexmeub.com/icons/png/minesweeper-0.png" alt="" className="w-4 h-4" draggable="false" />
                                         <span className="text-sm">Minesweeper</span>
                                     </button>
                                     <button
@@ -1018,7 +1071,7 @@ const Desktop = ({
                                 onClick={() => { setShowAdmin(true); setAdminMinimized(false); setActiveWindowId('admin'); setStartMenuOpen(false); }}
                                 className="w-full text-left px-2 py-1 hover:bg-[#000080] hover:text-white flex items-center gap-2"
                             >
-                                <img src="https://win98icons.alexmeub.com/icons/png/settings_gear-0.png" alt="" className="w-6 h-6" />
+                                <img src="https://win98icons.alexmeub.com/icons/png/settings_gear-0.png" alt="" className="w-6 h-6" draggable="false" />
                                 <span className="text-sm">Admin</span>
                             </button>
                         )}
@@ -1031,7 +1084,7 @@ const Desktop = ({
                                 onClick={handleLogout}
                                 className="w-full text-left px-2 py-1 hover:bg-[#000080] hover:text-white flex items-center gap-2"
                             >
-                                <img src="https://win98icons.alexmeub.com/icons/png/shut_down_with_computer-0.png" alt="" className="w-6 h-6" />
+                                <img src="https://win98icons.alexmeub.com/icons/png/shut_down_with_computer-0.png" alt="" className="w-6 h-6" draggable="false" />
                                 <span className="text-sm">Log Off</span>
                             </button>
                         </div>

@@ -16,17 +16,60 @@ import { useSound } from '../contexts/SoundContext';
 export default function WelcomePage({ onLogin }) {
     const [bootComplete, setBootComplete] = useState(false);
     const [startMenuOpen, setStartMenuOpen] = useState(false);
-    const [activeWindows, setActiveWindows] = useState([]); // Support multiple windows? Or just one for now to keep it simple? Let's stick to one active focused, but maybe multiple open?
-    // For simplicity given the current architecture, let's keep one "active" modal-like window but make it draggable.
-    // Actually, to feel like Win98, we should allow reopening.
+    const [activeWindows, setActiveWindows] = useState([]);
     const [activeWindow, setActiveWindow] = useState(null);
 
     const [nextSeasonStart, setNextSeasonStart] = useState(null);
     const [timeLeftToStart, setTimeLeftToStart] = useState('');
     const [time, setTime] = useState(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
 
+    // Selection Box State
+    const [selectionBox, setSelectionBox] = useState(null);
     const [contextMenu, setContextMenu] = useState(null);
     const { playSound, playStartupSound } = useSound();
+
+    const handleMouseDown = (e) => {
+        // Only start selection if left click and not on specific elements
+        if (e.button !== 0) return;
+
+        // Start selection updates
+        setSelectionBox({
+            startX: e.clientX,
+            startY: e.clientY,
+            currentX: e.clientX,
+            currentY: e.clientY,
+        });
+    };
+
+    const handleMouseMove = (e) => {
+        if (selectionBox) {
+            setSelectionBox(prev => ({
+                ...prev,
+                currentX: e.clientX,
+                currentY: e.clientY
+            }));
+        }
+    };
+
+    const handleMouseUp = () => {
+        setSelectionBox(null);
+    };
+
+    const getSelectionBoxStyle = () => {
+        if (!selectionBox) return {};
+        const left = Math.min(selectionBox.startX, selectionBox.currentX);
+        const top = Math.min(selectionBox.startY, selectionBox.currentY);
+        const width = Math.abs(selectionBox.currentX - selectionBox.startX);
+        const height = Math.abs(selectionBox.currentY - selectionBox.startY);
+        return {
+            left, top, width, height,
+            position: 'absolute',
+            backgroundColor: 'rgba(0, 120, 215, 0.3)',
+            border: '1px solid rgba(0, 120, 215, 0.7)',
+            pointerEvents: 'none',
+            zIndex: 999
+        };
+    };
 
     React.useEffect(() => {
         const timer = setInterval(() => {
@@ -100,9 +143,10 @@ export default function WelcomePage({ onLogin }) {
         if (contextMenu) setContextMenu(null);
     };
 
-    const handleDesktopClick = () => {
+    const handleDesktopClick = (e) => {
         setStartMenuOpen(false);
         closeContextMenu();
+        // propagate for selection box
     };
 
     const desktopIcons = [
@@ -122,21 +166,30 @@ export default function WelcomePage({ onLogin }) {
 
     return (
         <div
-            className="w-full h-screen bg-[#008080] overflow-hidden relative font-sans text-sm select-none flex flex-col"
+            className="w-full h-screen bg-[#008080] overflow-hidden relative font-sans text-sm select-none flex flex-col desktop-container"
             onClick={handleDesktopClick}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseUp}
             onContextMenu={handleContextMenu}
         >
+            {/* Selection Box */}
+            {selectionBox && <div style={getSelectionBoxStyle()} />}
+
             {/* Desktop Icons - Mobile Friendly Flow */}
             <div className="absolute top-0 left-0 bottom-10 right-0 p-4 flex flex-col flex-wrap gap-6 content-start pointer-events-none z-10 md:block md:p-0">
                 {desktopIcons.map((item, index) => (
                     <div
                         key={item.id}
-                        className="pointer-events-auto md:absolute"
+                        className="pointer-events-auto md:absolute stagger-appear"
                         style={{
                             // Applied when position is absolute (on desktop via md:absolute)
                             top: 20 + (index * 100),
-                            left: 20
+                            left: 20,
+                            animationDelay: `${index * 100}ms`
                         }}
+                        onMouseDown={(e) => e.stopPropagation()}
                     >
                         <DesktopIcon
                             label={item.label}
@@ -154,7 +207,7 @@ export default function WelcomePage({ onLogin }) {
             <div className="flex-1 flex items-center justify-center p-4 md:p-8 z-0">
                 <div className="text-center w-full max-w-md md:max-w-xl opacity-80 pointer-events-none">
                     <div className="mb-4 md:mb-8">
-                        <img src={logo} alt="Kingdom Architect" className="w-48 md:w-96 h-auto mb-4 pixelated mx-auto drop-shadow-2xl" />
+                        <img src={logo} alt="Kingdom Architect" className="w-48 md:w-96 h-auto mb-4 pixelated mx-auto drop-shadow-2xl animate-float" draggable="false" />
 
                         {timeLeftToStart && (
                             <div className="w-64 mx-auto bg-[#c0c0c0] border-2 border-white border-r-black border-b-black p-[2px] shadow-xl text-left relative pointer-events-auto">
@@ -274,6 +327,7 @@ export default function WelcomePage({ onLogin }) {
                 <div
                     className="absolute bottom-10 left-0 w-64 bg-[#c0c0c0] border-2 border-white border-r-[#808080] border-b-[#808080] shadow-xl z-[100] flex flex-col"
                     onClick={(e) => e.stopPropagation()}
+                    onMouseDown={(e) => e.stopPropagation()}
                 >
                     <div className="bg-[#000080] text-white p-2 text-xl vertical-text flex items-end w-8 absolute bottom-0 top-0 left-0 overflow-visible">
                         <div className="-rotate-90 origin-bottom-left translate-x-8 mb-4 whitespace-nowrap flex gap-1 items-baseline">
@@ -324,7 +378,7 @@ export default function WelcomePage({ onLogin }) {
                     }}
                     style={{ minWidth: '60px' }}
                 >
-                    <img src="https://win98icons.alexmeub.com/icons/png/windows_slanted-1.png" alt="" className="w-4 h-4" />
+                    <img src="/start_icon.png" alt="" className="w-6 h-6" draggable="false" />
                     Start
                 </button>
 
